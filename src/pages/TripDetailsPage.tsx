@@ -568,21 +568,18 @@ const TripDetailsPage = () => {
                       className="flex items-center space-x-3"
                     >
                       {/* ✅ WRAP AVATAR WITH PROFILE HOVER CARD */}
-                      <ProfileHoverCard userId={participant.profiles.id}>
-                        <Avatar className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
-                          {participant.profiles.avatar_url ? (
-                            <AvatarImage
-                              src={participant.profiles.avatar_url}
-                            />
-                          ) : (
-                            <AvatarFallback>
-                              {participant.profiles.full_name
-                                ?.charAt(0)
-                                .toUpperCase() || "U"}
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                      </ProfileHoverCard>
+
+                      <Avatar className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
+                        {participant.profiles.avatar_url ? (
+                          <AvatarImage src={participant.profiles.avatar_url} />
+                        ) : (
+                          <AvatarFallback>
+                            {participant.profiles.full_name
+                              ?.charAt(0)
+                              .toUpperCase() || "U"}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
 
                       <div className="flex-1">
                         <p className="font-medium">

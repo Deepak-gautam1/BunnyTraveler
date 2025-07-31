@@ -362,19 +362,18 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
                   <div key={`${item.type}-${item.id}`}>
                     {item.type === "message" ? (
                       <div className="group flex space-x-3 hover:bg-muted/30 p-2 rounded-lg transition-colors">
-                        <ProfileHoverCard userId={item.sender_id}>
-                          <Avatar className="w-8 h-8">
-                            {item.profiles?.avatar_url ? (
-                              <AvatarImage src={item.profiles.avatar_url} />
-                            ) : (
-                              <AvatarFallback>
-                                {item.profiles?.full_name
-                                  ?.charAt(0)
-                                  ?.toUpperCase() || "U"}
-                              </AvatarFallback>
-                            )}
-                          </Avatar>
-                        </ProfileHoverCard>
+                        <Avatar className="w-8 h-8">
+                          {item.profiles?.avatar_url ? (
+                            <AvatarImage src={item.profiles.avatar_url} />
+                          ) : (
+                            <AvatarFallback>
+                              {item.profiles?.full_name
+                                ?.charAt(0)
+                                ?.toUpperCase() || "U"}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
                             <span className="font-medium text-sm">

@@ -220,21 +220,19 @@ const ActivityFeed = ({ tripId, user, className }: ActivityFeedProps) => {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-2">
                           {/* ✅ WRAPPED AVATAR WITH PROFILE HOVER CARD */}
-                          <ProfileHoverCard userId={activity.user_id}>
-                            <Avatar className="w-6 h-6 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
-                              {activity.profiles?.avatar_url ? (
-                                <AvatarImage
-                                  src={activity.profiles.avatar_url}
-                                />
-                              ) : (
-                                <AvatarFallback>
-                                  {activity.profiles?.full_name
-                                    ?.charAt(0)
-                                    ?.toUpperCase() || "U"}
-                                </AvatarFallback>
-                              )}
-                            </Avatar>
-                          </ProfileHoverCard>
+
+                          <Avatar className="w-6 h-6 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
+                            {activity.profiles?.avatar_url ? (
+                              <AvatarImage src={activity.profiles.avatar_url} />
+                            ) : (
+                              <AvatarFallback>
+                                {activity.profiles?.full_name
+                                  ?.charAt(0)
+                                  ?.toUpperCase() || "U"}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+
                           <p className="text-sm font-medium">
                             {getActivityText(activity)}
                           </p>

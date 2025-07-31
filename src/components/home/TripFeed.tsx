@@ -12,11 +12,9 @@ import CommunityHighlights from "./CommunityHighlights";
 import EnhancedTripCard from "./EnhancedTripCard";
 import PostTripModal from "@/components/trip/PostTripModal";
 import LandingPage from "@/components/landing/LandingPage";
-import { ensureProfileExists } from "@/lib/auth-helpers";
 import { Plus, User, MapPin, List, Sparkles, Bell } from "lucide-react";
-import ProfileCompletionFlow from "@/components/profile/ProfileCompletionFlow";
 
-// Types matching your actual schema
+// Simple types
 type Profile = {
   full_name: string;
   avatar_url: string;
@@ -52,54 +50,16 @@ const TripFeed = ({ user }: TripFeedProps) => {
   const [activeView, setActiveView] = useState<"map" | "list">("map");
   const [filters, setFilters] = useState<any>({});
 
-  // Core state
+  // ✅ RESTORED: Simple state without complex optimizations
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<any>(null);
 
-  // Performance optimization states
-  const [profileReady, setProfileReady] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Initialize profile only once
+  // ✅ RESTORED: Simple trip fetching without profile complexity
   useEffect(() => {
-    let isMounted = true;
-
-    const initProfile = async () => {
-      if (!user || profileReady) return;
-
-      try {
-        const profile = await ensureProfileExists(user);
-        if (isMounted) {
-          setUserProfile(profile);
-          setProfileReady(true);
-        }
-      } catch (error) {
-        console.error("Profile initialization error:", error);
-        if (isMounted) {
-          setProfileReady(true);
-        }
-      }
-    };
-
-    initProfile();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.id]);
-
-  // ✅ CORRECTED: Fetch trips with proper schema-based query
-  useEffect(() => {
-    let isMounted = true;
-
     const fetchTrips = async () => {
-      if (isInitialized) return;
-
       setLoading(true);
 
       try {
-        // ✅ FIXED: Query matches your actual database schema
         const { data, error } = await supabase
           .from("trips")
           .select(
@@ -124,74 +84,18 @@ const TripFeed = ({ user }: TripFeedProps) => {
           return;
         }
 
-        if (data && isMounted) {
-          console.log("Fetched trips data:", data); // Debug log
+        if (data) {
           setTrips(data as Trip[]);
-          setIsInitialized(true);
         }
       } catch (err) {
         console.error("Unexpected error fetching trips:", err);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
     fetchTrips();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Refresh trips after modal closes
-  useEffect(() => {
-    if (!isPostModalOpen && isInitialized) {
-      const refreshTrips = async () => {
-        try {
-          const { data, error } = await supabase
-            .from("trips")
-            .select(
-              `
-              id,
-              creator_id,
-              destination,
-              start_city,
-              start_date,
-              end_date,
-              description,
-              created_at,
-              max_group_size,
-              profiles!trips_creator_id_fkey(full_name, avatar_url),
-              trip_participants(user_id, joined_at)
-            `
-            )
-            .order("created_at", { ascending: false });
-
-          if (data && !error) {
-            setTrips(data as Trip[]);
-          }
-        } catch (err) {
-          console.error("Error refreshing trips:", err);
-        }
-      };
-
-      refreshTrips();
-    }
-  }, [isPostModalOpen, isInitialized]);
-
-  const handleProfileUpdated = () => {
-    if (user && profileReady) {
-      ensureProfileExists(user)
-        .then((profile) => {
-          setUserProfile(profile);
-        })
-        .catch((error) => {
-          console.error("Error updating profile:", error);
-        });
-    }
-  };
+  }, [isPostModalOpen]); // Simple dependency
 
   // Handler functions
   const handleProfileClick = () => {
@@ -311,17 +215,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </div>
         </div>
 
-        {/* Profile Completion Flow */}
-        {user && userProfile && profileReady && (
-          <div className="px-4 mb-4">
-            <ProfileCompletionFlow
-              user={user}
-              profile={userProfile}
-              onProfileUpdated={handleProfileUpdated}
-            />
-          </div>
-        )}
-
         {/* Map/List Toggle */}
         <div className="px-4 mb-4">
           <Tabs
@@ -369,13 +262,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           ) : (
             <div className="space-y-4">
               {trips.map((trip) => {
-                // ✅ CORRECTED: Calculate participant count from actual data structure
                 const participantCount = trip.trip_participants?.length || 0;
-
-                // Check if current user is already a participant
-                const isUserParticipant = trip.trip_participants?.some(
-                  (participant) => participant.user_id === user?.id
-                );
 
                 return (
                   <EnhancedTripCard

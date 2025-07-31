@@ -4,10 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import LandingPage from "@/components/landing/LandingPage";
 import TripFeed from "@/components/home/TripFeed";
 import WelcomeModal from "@/components/onboarding/WelcomeModal"; // ADD THIS IMPORT
-import {
-  ensureProfileExists,
-  checkProfileCompletion,
-} from "@/lib/auth-helpers"; // ADD THIS IMPORT
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
