@@ -1,126 +1,129 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  User as UserIcon,
-  MapPin,
-  Link,
-  Edit,
   Loader2,
-  MessageSquare,
+  User,
+  MapPin,
   Tag,
+  Link,
+  FileText,
+  Camera,
+  Upload,
 } from "lucide-react";
+interface ProfileData {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  home_city: string | null; // ✅ Add this
+  tagline: string | null; // ✅ Add this
+  website: string | null; // ✅ Add this
+  bio?: string | null;
+  created_at?: string | null; // ✅ Make optional
+  updated_at?: string | null; // ✅ Add this
+  user_id?: string; // ✅ Add this
+}
 
 interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: User | null;
-  onProfileUpdated?: () => void;
+  profile: ProfileData;
+  onProfileUpdate: (updatedProfile: ProfileData) => void;
 }
 
 const EditProfileModal = ({
   isOpen,
   onClose,
-  user,
-  onProfileUpdated,
+  profile,
+  onProfileUpdate,
 }: EditProfileModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [formData, setFormData] = useState({
-    full_name: "",
-    bio: "",
-    home_city: "",
-    tagline: "",
-    website: "",
-    avatar_url: "",
+    full_name: profile?.full_name || "",
+    home_city: profile?.home_city || "",
+    tagline: profile?.tagline || "",
+    website: profile?.website || "",
+    bio: profile?.bio || "",
+    avatar_url: profile?.avatar_url || "",
   });
 
-  const [characterCounts, setCharacterCounts] = useState({
-    bio: 0,
-    tagline: 0,
-  });
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
-  useEffect(() => {
-    if (isOpen && user) {
-      fetchCurrentProfile();
-    }
-  }, [isOpen, user]);
+  const handleAvatarUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  useEffect(() => {
-    // Update character counts when form data changes
-    setCharacterCounts({
-      bio: formData.bio.length,
-      tagline: formData.tagline.length,
-    });
-  }, [formData.bio, formData.tagline]);
-
-  const fetchCurrentProfile = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        console.error("Error fetching profile:", error);
-        return;
-      }
-
-      if (data) {
-        setFormData({
-          full_name: data.full_name || user.user_metadata?.full_name || "",
-          bio: data.bio || "",
-          home_city: data.home_city || "",
-          tagline: data.tagline || "",
-          website: data.website || "",
-          avatar_url: data.avatar_url || user.user_metadata?.avatar_url || "",
-        });
-      } else {
-        // No profile exists, use Google data as defaults
-        setFormData({
-          full_name: user.user_metadata?.full_name || "",
-          bio: "",
-          home_city: "",
-          tagline: "",
-          website: "",
-          avatar_url: user.user_metadata?.avatar_url || "",
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
       toast({
-        title: "Error",
-        description: "Failed to load profile data",
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(fileName);
+
+      setFormData((prev) => ({ ...prev, avatar_url: publicUrl }));
+
+      toast({
+        title: "Avatar uploaded!",
+        description: "Your profile photo has been updated",
+      });
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload image",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setAvatarUploading(false);
     }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
   };
 
   const validateForm = () => {
@@ -130,12 +133,12 @@ const EditProfileModal = ({
       errors.push("Full name is required");
     }
 
-    if (formData.tagline.length > 50) {
+    if (formData.tagline && formData.tagline.length > 50) {
       errors.push("Tagline must be 50 characters or less");
     }
 
-    if (formData.bio.length > 200) {
-      errors.push("Bio must be 200 characters or less");
+    if (formData.bio && formData.bio.length > 500) {
+      errors.push("Bio must be 500 characters or less");
     }
 
     if (formData.website && !isValidUrl(formData.website)) {
@@ -153,113 +156,139 @@ const EditProfileModal = ({
       return false;
     }
   };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
+  const handleSave = async () => {
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       toast({
-        title: "Validation Error",
+        title: "Please fix the following errors:",
         description: validationErrors.join(", "),
         variant: "destructive",
       });
       return;
     }
 
-    setSaving(true);
-    try {
-      const profileData = {
-        id: user.id,
-        user_id: user.id,
-        email: user.email,
-        ...formData,
-        updated_at: new Date().toISOString(),
-      };
+    setLoading(true);
 
-      const { error } = await supabase.from("profiles").upsert(profileData);
+    try {
+      // ✅ FIXED: Select all fields to ensure complete ProfileData object
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.full_name.trim(),
+          home_city: formData.home_city.trim() || null,
+          tagline: formData.tagline.trim() || null,
+          website: formData.website.trim() || null,
+          bio: formData.bio.trim() || null,
+          avatar_url: formData.avatar_url || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id)
+        .select(
+          `
+        id,
+        full_name,
+        email,
+        avatar_url,
+        home_city,
+        tagline,
+        website,
+        bio,
+        created_at,
+        updated_at,
+        user_id
+      `
+        ) // ✅ Explicitly select all fields
+        .single();
 
       if (error) throw error;
 
-      toast({
-        title: "Profile Updated! 🎉",
-        description: "Your profile has been successfully updated.",
-      });
-
-      onProfileUpdated?.();
+      // ✅ BETTER: Merge with existing profile to ensure no data loss
+      const updatedProfile = { ...profile, ...data };
+      onProfileUpdate(updatedProfile);
       onClose();
     } catch (error: any) {
       console.error("Error updating profile:", error);
       toast({
-        title: "Error",
-        description: "Failed to update profile. Please try again.",
+        title: "Update failed",
+        description: error.message || "Failed to update profile",
         variant: "destructive",
       });
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
-
-  const handleClose = () => {
-    if (!saving) {
-      onClose();
-    }
-  };
-
-  const isFormValid = formData.full_name.trim().length > 0;
-  const hasChanges = Object.values(formData).some(
-    (value) => value.trim().length > 0
-  );
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center">
-            <Edit className="w-5 h-5 mr-2" />
-            Edit Profile
-          </DialogTitle>
+          <DialogTitle>Edit Profile</DialogTitle>
         </DialogHeader>
 
-        {loading ? (
-          <div className="text-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-            <p className="text-muted-foreground">Loading profile...</p>
-          </div>
-        ) : (
-          <form onSubmit={handleSave} className="space-y-4">
-            {/* Profile Picture Preview */}
-            <div className="flex justify-center">
-              <div className="relative">
-                <Avatar className="w-20 h-20">
-                  {formData.avatar_url ? (
-                    <AvatarImage src={formData.avatar_url} />
-                  ) : (
-                    <AvatarFallback>
-                      {formData.full_name?.charAt(0)?.toUpperCase() || "U"}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                  <span className="text-white text-xs">Google Photo</span>
-                </div>
-              </div>
-            </div>
+        <div className="space-y-6">
+          {/* Avatar Upload */}
+          <div className="flex flex-col items-center space-y-4">
+            <div className="relative">
+              <Avatar className="w-24 h-24">
+                {formData.avatar_url ? (
+                  <AvatarImage src={formData.avatar_url} alt="Profile" />
+                ) : (
+                  <AvatarFallback className="bg-earth-sand text-earth-terracotta text-2xl">
+                    {formData.full_name?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                )}
+              </Avatar>
 
+              <label className="absolute -bottom-2 -right-2 cursor-pointer">
+                <div className="bg-accent text-white rounded-full p-2 hover:bg-accent/90 transition-colors">
+                  {avatarUploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                  disabled={avatarUploading}
+                />
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Click the camera icon to upload a new photo
+            </p>
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid gap-4">
             {/* Full Name */}
             <div className="space-y-2">
-              <Label htmlFor="full_name" className="flex items-center">
-                <UserIcon className="w-4 h-4 mr-2" />
+              <Label htmlFor="fullName" className="flex items-center">
+                <User className="w-4 h-4 mr-2" />
                 Full Name *
               </Label>
               <Input
-                id="full_name"
+                id="fullName"
                 value={formData.full_name}
                 onChange={(e) => handleInputChange("full_name", e.target.value)}
-                placeholder="Your full name"
+                placeholder="Enter your full name"
                 required
-                className="transition-all focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Home City */}
+            <div className="space-y-2">
+              <Label htmlFor="homeCity" className="flex items-center">
+                <MapPin className="w-4 h-4 mr-2" />
+                Home City
+              </Label>
+              <Input
+                id="homeCity"
+                value={formData.home_city}
+                onChange={(e) => handleInputChange("home_city", e.target.value)}
+                placeholder="Mumbai, Delhi, Bangalore, etc."
               />
             </div>
 
@@ -275,7 +304,6 @@ const EditProfileModal = ({
                 onChange={(e) => handleInputChange("tagline", e.target.value)}
                 placeholder="Adventure seeker, Digital nomad, etc."
                 maxLength={50}
-                className="transition-all focus:ring-2 focus:ring-blue-500"
               />
               <div className="flex justify-between items-center">
                 <p className="text-xs text-muted-foreground">
@@ -283,61 +311,12 @@ const EditProfileModal = ({
                 </p>
                 <p
                   className={`text-xs ${
-                    characterCounts.tagline > 45
+                    formData.tagline.length > 45
                       ? "text-orange-500"
                       : "text-muted-foreground"
                   }`}
                 >
-                  {characterCounts.tagline}/50
-                </p>
-              </div>
-            </div>
-
-            {/* Home City */}
-            <div className="space-y-2">
-              <Label htmlFor="home_city" className="flex items-center">
-                <MapPin className="w-4 h-4 mr-2" />
-                Home City
-              </Label>
-              <Input
-                id="home_city"
-                value={formData.home_city}
-                onChange={(e) => handleInputChange("home_city", e.target.value)}
-                placeholder="Mumbai, Delhi, Bangalore, etc."
-                className="transition-all focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-muted-foreground">
-                Help other travelers find you
-              </p>
-            </div>
-
-            {/* Bio */}
-            <div className="space-y-2">
-              <Label htmlFor="bio" className="flex items-center">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Bio
-              </Label>
-              <Textarea
-                id="bio"
-                value={formData.bio}
-                onChange={(e) => handleInputChange("bio", e.target.value)}
-                placeholder="Tell us about yourself, your travel interests, favorite destinations..."
-                rows={3}
-                maxLength={200}
-                className="transition-all focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-muted-foreground">
-                  Share your travel story
-                </p>
-                <p
-                  className={`text-xs ${
-                    characterCounts.bio > 180
-                      ? "text-orange-500"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {characterCounts.bio}/200
+                  {formData.tagline.length}/50
                 </p>
               </div>
             </div>
@@ -354,63 +333,69 @@ const EditProfileModal = ({
                 value={formData.website}
                 onChange={(e) => handleInputChange("website", e.target.value)}
                 placeholder="https://instagram.com/yourhandle"
-                className="transition-all focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-xs text-muted-foreground">
-                Instagram, personal website, or travel blog
-              </p>
             </div>
 
-            {/* Progress Indicator */}
-            {hasChanges && (
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-700 font-medium mb-1">
-                  Profile Completion Tips:
+            {/* Bio */}
+            <div className="space-y-2">
+              <Label htmlFor="bio" className="flex items-center">
+                <FileText className="w-4 h-4 mr-2" />
+                Bio
+              </Label>
+              <Textarea
+                id="bio"
+                value={formData.bio}
+                onChange={(e) => handleInputChange("bio", e.target.value)}
+                placeholder="Tell other travelers about yourself, your interests, and travel style..."
+                rows={4}
+                maxLength={500}
+              />
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">
+                  Share your travel story and interests
                 </p>
-                <ul className="text-xs text-blue-600 space-y-1">
-                  {!formData.bio && (
-                    <li>• Add a bio to tell your travel story</li>
-                  )}
-                  {!formData.home_city && <li>• Share your home city</li>}
-                  {!formData.tagline && <li>• Add a catchy tagline</li>}
-                  {!formData.website && <li>• Link your social media</li>}
-                </ul>
+                <p
+                  className={`text-xs ${
+                    formData.bio.length > 450
+                      ? "text-orange-500"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {formData.bio.length}/500
+                </p>
               </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                className="flex-1"
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-                disabled={!isFormValid || saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Profile"
-                )}
-              </Button>
             </div>
+          </div>
 
-            {/* Helper text */}
-            <p className="text-xs text-center text-muted-foreground pt-2">
-              Your profile helps other travelers connect with you
-            </p>
-          </form>
-        )}
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              className="flex-1"
+              disabled={loading || avatarUploading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

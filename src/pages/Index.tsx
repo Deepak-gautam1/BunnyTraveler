@@ -1,81 +1,43 @@
 import { useState, useEffect } from "react";
-import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import LandingPage from "@/components/landing/LandingPage";
+import { User } from "@supabase/supabase-js";
+import {
+  ensureProfileExists,
+  checkProfileCompletion,
+} from "@/lib/auth-helpers";
 import TripFeed from "@/components/home/TripFeed";
-import WelcomeModal from "@/components/onboarding/WelcomeModal"; // ADD THIS IMPORT
+import WelcomeModal from "@/components/onboarding/WelcomeModal";
 
-const Index = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+interface IndexProps {
+  user: User | null; // ✅ ADD: Accept user as prop
+}
 
-  // ✅ ADD: Welcome modal state
+const Index = ({ user }: IndexProps) => {
+  const [loading, setLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
-    // Check for existing session first
-    const getInitialSession = async () => {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
-      if (error) {
-        console.error("Error getting session:", error);
-      } else {
-        setSession(session);
-        setUser(session?.user ?? null);
+    if (user) {
+      checkIfNewUser(user);
+    }
+  }, [user]);
 
-        // ✅ ADD: Check if user needs welcome modal
-        if (session?.user) {
-          await checkIfNewUser(session.user);
-        }
-      }
-      setLoading(false);
-    };
-
-    getInitialSession();
-
-    // Set up auth state listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id);
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-
-      // Handle auth events
-      if (event === "SIGNED_IN") {
-        console.log("User signed in");
-        // ✅ ADD: Check for new user on sign in
-        if (session?.user) {
-          await checkIfNewUser(session.user);
-        }
-      } else if (event === "SIGNED_OUT") {
-        console.log("User signed out");
-        // ✅ ADD: Reset welcome modal state on sign out
-        setShowWelcome(false);
-        setIsNewUser(false);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // ✅ ADD: Function to check if user is new and needs onboarding
   const checkIfNewUser = async (user: User) => {
     try {
+      console.log("Checking user profile for:", user.id);
+
       const profile = await ensureProfileExists(user);
 
       if (profile) {
-        const { isComplete } = checkProfileCompletion(profile);
+        setUserProfile(profile);
 
-        // Show welcome modal for new users or incomplete profiles
-        if (!isComplete) {
+        const completionPercentage = checkProfileCompletion(profile);
+        const isNewProfile =
+          !profile.home_city || !profile.tagline || completionPercentage < 60;
+
+        if (isNewProfile) {
           setIsNewUser(true);
           setShowWelcome(true);
         }
@@ -85,38 +47,24 @@ const Index = () => {
     }
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
-          <div className="text-lg text-muted-foreground">Loading...</div>
-        </div>
-      </div>
-    );
-  }
+  const handleProfileComplete = () => {
+    setShowWelcome(false);
+    setIsNewUser(false);
+  };
 
   return (
     <>
+      {/* ✅ REMOVED: Header (now handled by AppNavigation) */}
+
       {/* Main Content */}
       <TripFeed user={user} />
-      {/* Show landing page if no user and not explicitly skipped */}
-      {!user && !sessionStorage.getItem("skip_for_now") && (
-        <div className="fixed inset-0 z-50 bg-background">
-          <LandingPage
-            onSkipForNow={() => {
-              sessionStorage.setItem("skip_for_now", "true");
-              // Force re-render by updating a state if needed
-            }}
-          />
-        </div>
-      )}
-      {/* ✅ ADD: Welcome Modal for New Users */}
+
+      {/* Welcome Modal for new users */}
       <WelcomeModal
         isOpen={showWelcome}
-        onClose={() => setShowWelcome(false)}
+        onClose={handleProfileComplete}
         user={user}
+        profile={userProfile}
         isNewUser={isNewUser}
       />
     </>

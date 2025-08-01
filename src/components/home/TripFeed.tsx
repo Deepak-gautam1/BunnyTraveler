@@ -5,28 +5,9 @@ import { User as UserType } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-// import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import TripMap from "./TripMap";
-import FilterBar from "./FilterBar";
-import CommunityHighlights from "./CommunityHighlights";
-import EnhancedTripCard from "./EnhancedTripCard";
-import PostTripModal from "@/components/trip/PostTripModal";
-import LandingPage from "@/components/landing/LandingPage";
-import AuthGuard from "@/components/auth/AuthGuard";
-import {
-  Plus,
-  User,
-  MapPin,
-  List,
-  Sparkles,
-  Bell,
-  ChevronDown,
-  LogOut,
-  Settings,
-  UserCircle,
-} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +16,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import TripMap from "./TripMap";
+import FilterBar from "./FilterBar";
+import CommunityHighlights from "./CommunityHighlights";
+import EnhancedTripCard from "./EnhancedTripCard";
+import PostTripModal from "@/components/trip/PostTripModal";
+import LandingPage from "@/components/landing/LandingPage";
+import AuthGuard from "@/components/auth/AuthGuard";
+import NotificationsDropdown from "@/components/notifications/NotificationsDropdown";
+import {
+  Plus,
+  User,
+  MapPin,
+  List,
+  Sparkles,
+  Bell,
+  LogOut,
+  Settings,
+  UserCircle,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 
 // Types matching your database structure
 type Profile = {
@@ -72,6 +75,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
   // State management
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false); // ✅ NEW: Loading state for pagination
+  const [hasMore, setHasMore] = useState(true); // ✅ NEW: Track if more trips available
+  const [currentPage, setCurrentPage] = useState(0); // ✅ NEW: Page tracking
+  const [totalTrips, setTotalTrips] = useState(0); // ✅ NEW: Total count tracking
+
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
@@ -84,50 +92,174 @@ const TripFeed = ({ user }: TripFeedProps) => {
     actionType: "join" as "join" | "create" | "chat",
   });
 
-  // Fetch trips from database
-  useEffect(() => {
-    const fetchTrips = async () => {
-      setLoading(true);
+  // ✅ UPDATED: Pagination constants
+  const TRIPS_PER_PAGE = 5;
 
-      try {
-        const { data, error } = await supabase
-          .from("trips")
-          .select(
-            `
-            id,
-            creator_id,
-            destination,
-            start_city,
-            start_date,
-            end_date,
-            description,
-            created_at,
-            max_group_size,
-            profiles!trips_creator_id_fkey(full_name, avatar_url),
-            trip_participants(user_id, joined_at)
-          `
-          )
-          .order("created_at", { ascending: false });
+  // ✅ UPDATED: Fetch trips with pagination
+  const fetchTrips = async (page: number = 0, append: boolean = false) => {
+    if (page === 0) setLoading(true);
+    else setLoadingMore(true);
 
-        if (error) {
-          console.error("Error fetching trips:", error);
-          return;
-        }
+    try {
+      const from = page * TRIPS_PER_PAGE;
+      const to = from + TRIPS_PER_PAGE - 1;
 
-        if (data) {
-          setTrips(data as Trip[]);
-        }
-      } catch (err) {
-        console.error("Unexpected error fetching trips:", err);
-      } finally {
-        setLoading(false);
+      // Get total count for first page
+      let countQuery = supabase
+        .from("trips")
+        .select("*", { count: "exact", head: true });
+
+      // Apply filters to count query if any
+      if (filters.destination) {
+        countQuery = countQuery.ilike(
+          "destination",
+          `%${filters.destination}%`
+        );
       }
-    };
+      if (filters.start_city) {
+        countQuery = countQuery.ilike("start_city", `%${filters.start_city}%`);
+      }
+      if (filters.start_date) {
+        countQuery = countQuery.gte("start_date", filters.start_date);
+      }
 
-    fetchTrips();
-  }, [isPostModalOpen]);
+      // Get data with pagination
+      let dataQuery = supabase
+        .from("trips")
+        .select(
+          `
+          id,
+          creator_id,
+          destination,
+          start_city,
+          start_date,
+          end_date,
+          description,
+          created_at,
+          max_group_size,
+          profiles!trips_creator_id_fkey(full_name, avatar_url),
+          trip_participants(user_id, joined_at)
+        `
+        )
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
-  // Handler functions
+      // Apply same filters to data query
+      if (filters.destination) {
+        dataQuery = dataQuery.ilike("destination", `%${filters.destination}%`);
+      }
+      if (filters.start_city) {
+        dataQuery = dataQuery.ilike("start_city", `%${filters.start_city}%`);
+      }
+      if (filters.start_date) {
+        dataQuery = dataQuery.gte("start_date", filters.start_date);
+      }
+
+      const [{ count }, { data, error }] = await Promise.all([
+        page === 0 ? countQuery : Promise.resolve({ count: totalTrips }),
+        dataQuery,
+      ]);
+
+      if (error) {
+        console.error("Error fetching trips:", error);
+        toast({
+          title: "Error loading trips",
+          description: "Failed to load trips. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
+        const newTrips = data as Trip[];
+
+        if (append) {
+          setTrips((prev) => [...prev, ...newTrips]);
+        } else {
+          setTrips(newTrips);
+          setCurrentPage(0);
+        }
+
+        // Update pagination state
+        if (page === 0 && count !== null) {
+          setTotalTrips(count);
+        }
+
+        const totalPages = Math.ceil((count || totalTrips) / TRIPS_PER_PAGE);
+        setHasMore(page + 1 < totalPages);
+        setCurrentPage(page);
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching trips:", err);
+      toast({
+        title: "Unexpected error",
+        description: "Something went wrong. Please refresh the page.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // ✅ UPDATED: Load more trips function
+  const loadMoreTrips = async () => {
+    if (!hasMore || loadingMore) return;
+    await fetchTrips(currentPage + 1, true);
+  };
+
+  // ✅ UPDATED: Refresh trips function
+  const refreshTrips = async () => {
+    setCurrentPage(0);
+    await fetchTrips(0, false);
+  };
+
+  // Initial load and when filters change
+  useEffect(() => {
+    fetchTrips(0, false);
+  }, [isPostModalOpen, filters]);
+
+  // Existing handler functions (unchanged)
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to sign out",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Signed out successfully",
+          description: "See you on your next adventure!",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewProfile = () => {
+    if (!user) {
+      setShowSignInModal(true);
+      return;
+    }
+    navigate("/profile");
+  };
+
+  const handleSettings = () => {
+    console.log("Navigate to settings");
+    toast({
+      title: "Settings",
+      description: "Settings page coming soon!",
+    });
+  };
+
   const handleProfileClick = () => {
     if (!user) {
       setShowSignInModal(true);
@@ -200,53 +332,10 @@ const TripFeed = ({ user }: TripFeedProps) => {
     console.log("Location selected:", location);
   };
 
-  // ✅ ADD: Handle sign out
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to sign out",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Signed out successfully",
-          description: "See you on your next adventure!",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    }
-  };
-  // ✅ ADD: Handle profile navigation
-  const handleViewProfile = () => {
-    // Navigate to user's profile page (implement this route later)
-    console.log("Navigate to profile page");
-    toast({
-      title: "Profile Page",
-      description: "Profile page coming soon!",
-    });
-  };
-
-  // ✅ ADD: Handle settings
-  const handleSettings = () => {
-    console.log("Navigate to settings");
-    toast({
-      title: "Settings",
-      description: "Settings page coming soon!",
-    });
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      {/* ✅ UPDATED: Enhanced Header with Profile Dropdown */}
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-20">
+      {/* Enhanced Header with Profile Dropdown */}
+      {/* <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-20">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -255,26 +344,20 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 variant="outline"
                 className="text-xs bg-vibrant-forest/10 text-vibrant-forest border-vibrant-forest/30"
               >
-                🔥 {trips.length} Live Adventures
+                🔥 {totalTrips} Live Adventures
               </Badge>
             </div>
 
-            {/* ✅ UPDATED: Right side with notifications and profile dropdown */}
             <div className="flex items-center space-x-2">
               {user && (
                 <>
-                  {/* Notifications Button */}
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full"></span>
-                  </Button>
+                  <NotificationsDropdown user={user} />
 
-                  {/* ✅ NEW: Profile Dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="profile-dropdown-trigger flex items-center space-x-2 px-2 py-1 h-auto rounded-full hover:bg-gray-100"
+                        className="flex items-center space-x-2 px-2 py-1 h-auto rounded-full hover:bg-muted/50"
                       >
                         <Avatar className="w-8 h-8">
                           {user.user_metadata?.avatar_url ? (
@@ -289,7 +372,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
                           )}
                         </Avatar>
                         <div className="hidden md:flex items-center space-x-1">
-                          <span className="profile-name text-sm font-medium text-gray-900 truncate max-w-[100px]">
+                          <span className="text-sm font-medium truncate max-w-[100px]">
                             {user.user_metadata?.full_name ||
                               user.email?.split("@")[0] ||
                               "Traveler"}
@@ -299,11 +382,8 @@ const TripFeed = ({ user }: TripFeedProps) => {
                       </Button>
                     </DropdownMenuTrigger>
 
-                    <DropdownMenuContent
-                      align="end"
-                      className="profile-dropdown-content w-56 bg-white border shadow-lg"
-                    >
-                      <DropdownMenuLabel className="flex items-center space-x-2 p-3">
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel className="flex items-center space-x-2">
                         <Avatar className="w-6 h-6">
                           {user.user_metadata?.avatar_url ? (
                             <AvatarImage src={user.user_metadata.avatar_url} />
@@ -314,39 +394,39 @@ const TripFeed = ({ user }: TripFeedProps) => {
                           )}
                         </Avatar>
                         <div className="flex flex-col">
-                          <span className="profile-dropdown-name text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium">
                             {user.user_metadata?.full_name ||
                               "Travel Enthusiast"}
                           </span>
-                          <span className="profile-dropdown-email text-xs text-gray-600">
+                          <span className="text-xs text-muted-foreground">
                             {user.email}
                           </span>
                         </div>
                       </DropdownMenuLabel>
 
-                      <DropdownMenuSeparator className="bg-gray-200" />
+                      <DropdownMenuSeparator />
 
                       <DropdownMenuItem
                         onClick={handleViewProfile}
-                        className="profile-dropdown-item cursor-pointer text-gray-900 hover:bg-gray-100"
+                        className="cursor-pointer"
                       >
-                        <UserCircle className="w-4 h-4 mr-2 text-gray-600" />
+                        <UserCircle className="w-4 h-4 mr-2" />
                         View Profile
                       </DropdownMenuItem>
 
                       <DropdownMenuItem
                         onClick={handleSettings}
-                        className="profile-dropdown-item cursor-pointer text-gray-900 hover:bg-gray-100"
+                        className="cursor-pointer"
                       >
-                        <Settings className="w-4 h-4 mr-2 text-gray-600" />
+                        <Settings className="w-4 h-4 mr-2" />
                         Settings
                       </DropdownMenuItem>
 
-                      <DropdownMenuSeparator className="bg-gray-200" />
+                      <DropdownMenuSeparator />
 
                       <DropdownMenuItem
                         onClick={handleSignOut}
-                        className="cursor-pointer text-red-600 hover:bg-red-50 focus:text-red-700"
+                        className="cursor-pointer text-red-600 focus:text-red-600"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
                         Sign Out
@@ -356,7 +436,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 </>
               )}
 
-              {/* ✅ UPDATED: Show sign-in button when user is not authenticated */}
               {!user && (
                 <Button
                   variant="outline"
@@ -371,11 +450,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
       {/* Main Content */}
       <main className="pb-20">
-        {/* Welcome Banner - Matching Reference */}
+        {/* Welcome Banner */}
         <div className="p-4">
           <div className="gradient-warm rounded-2xl p-6 text-center space-y-2 shadow-soft">
             <h2 className="text-lg font-semibold text-white">
@@ -400,7 +479,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </div>
         </div>
 
-        {/* Map/List Toggle - Matching Reference */}
+        {/* Map/List Toggle */}
         <div className="px-4 mb-4">
           <Tabs
             value={activeView}
@@ -431,25 +510,55 @@ const TripFeed = ({ user }: TripFeedProps) => {
           <FilterBar onFiltersChange={handleFiltersChange} />
         </div>
 
-        {/* Trip Feed - Matching Reference Structure */}
+        {/* Trip Feed with Enhanced Loading */}
         <div className="px-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Active Trips</h3>
-            <Badge variant="outline" className="text-xs">
-              Updated 2 min ago
-            </Badge>
+            <div className="flex items-center space-x-3">
+              <h3 className="text-lg font-semibold">Active Trips</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={refreshTrips}
+                disabled={loading}
+                className="flex items-center space-x-1"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                />
+                <span className="hidden md:inline">Refresh</span>
+              </Button>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline" className="text-xs">
+                Showing {trips.length} of {totalTrips}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                Updated 2 min ago
+              </Badge>
+            </div>
           </div>
 
           {loading ? (
-            <p className="text-center text-muted-foreground py-10">
-              Loading trips...
-            </p>
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading adventures...</p>
+            </div>
+          ) : trips.length === 0 ? (
+            <div className="text-center py-10">
+              <MapPin className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground text-lg mb-2">
+                No trips found
+              </p>
+              <p className="text-muted-foreground text-sm">
+                Try adjusting your filters or be the first to create a trip!
+              </p>
+            </div>
           ) : (
             <div className="space-y-4">
               {trips.map((trip) => {
                 const participantCount = trip.trip_participants?.length || 0;
 
-                // Transform database data to match EnhancedTripCard props
                 const enhancedTrip = {
                   id: trip.id,
                   destination: trip.destination,
@@ -490,12 +599,39 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           )}
 
-          {/* Load More - Matching Reference */}
-          <div className="flex justify-center pt-4">
-            <Button variant="outline" className="hover-scale">
-              Load More Adventures
-            </Button>
-          </div>
+          {/* ✅ UPDATED: Enhanced Load More Button */}
+          {hasMore && trips.length > 0 && (
+            <div className="flex justify-center pt-6">
+              <Button
+                variant="outline"
+                onClick={loadMoreTrips}
+                disabled={loadingMore}
+                className="hover-scale min-w-[200px]"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading More...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Load More Adventures
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* End of results indicator */}
+          {!hasMore && trips.length > 0 && (
+            <div className="text-center pt-6 pb-4">
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-muted text-muted-foreground text-sm">
+                <Sparkles className="w-4 h-4 mr-2" />
+                You've seen all adventures! Check back later for more.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Community Highlights */}
@@ -504,7 +640,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
         </div>
       </main>
 
-      {/* Enhanced Floating Action Button - Matching Reference */}
+      {/* Floating Action Button */}
       <div className="fixed bottom-6 right-6 z-30">
         <Button
           variant="fab"
@@ -518,13 +654,12 @@ const TripFeed = ({ user }: TripFeedProps) => {
         </div>
       </div>
 
-      {/* Post Trip Modal */}
+      {/* Modals */}
       <PostTripModal
         open={isPostModalOpen}
         onClose={() => setIsPostModalOpen(false)}
       />
 
-      {/* Sign In Modal - Matching Reference */}
       {showSignInModal && (
         <div className="fixed inset-0 z-50 bg-background animate-fade-in">
           <LandingPage onSkipForNow={() => setShowSignInModal(false)} />
@@ -538,7 +673,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
         </div>
       )}
 
-      {/* AuthGuard Component */}
       <AuthGuard
         isOpen={authGuard.isOpen}
         onClose={() => setAuthGuard({ ...authGuard, isOpen: false })}

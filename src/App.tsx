@@ -1,30 +1,106 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { User } from "@supabase/supabase-js";
+import AppNavigation from "@/components/navigation/AppNavigation"; // ✅ ADD THIS
 import Index from "@/pages/Index";
 import NotFound from "./pages/NotFound";
-// FIX: Import the correct component
-import TripDetailsPage from "./pages/TripDetailsPage"; // Change this path
+import TripDetailsPage from "./pages/TripDetailsPage";
+import ProfilePage from "./pages/ProfilePage";
+import DiscoverPage from "./pages/DiscoverPage"; // ✅ NEW PAGES
+import MyTripsPage from "./pages/MyTripsPage";
+
+import CommunityPage from "./pages/CommunityPage";
+import MessagesPage from "./pages/MessagesPage";
+import SettingsPage from "./pages/SettingsPage";
+import AuthPage from "./pages/AuthPage";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/trip/:tripId" element={<TripDetailsPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Get initial session
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      setLoading(false);
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          {/* ✅ ADD: Global Navigation */}
+          <AppNavigation user={user} />
+
+          {/* Main Content with proper spacing */}
+          <main className="min-h-screen">
+            <Routes>
+              <Route path="/" element={<Index user={user} />} />
+              <Route path="/trip/:tripId" element={<TripDetailsPage />} />
+              <Route
+                path="/profile"
+                element={<ProfilePage currentUser={user} />}
+              />
+              <Route
+                path="/profile/:userId"
+                element={<ProfilePage currentUser={user} />}
+              />
+
+              {/* ✅ NEW: Navigation Routes */}
+              <Route path="/discover" element={<DiscoverPage user={user} />} />
+              <Route path="/my-trips" element={<MyTripsPage user={user} />} />
+
+              <Route
+                path="/community"
+                element={<CommunityPage user={user} />}
+              />
+              <Route path="/messages" element={<MessagesPage user={user} />} />
+              <Route path="/settings" element={<SettingsPage user={user} />} />
+              <Route path="/auth" element={<AuthPage />} />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
