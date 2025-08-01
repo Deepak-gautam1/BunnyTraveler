@@ -101,7 +101,17 @@ const Index = () => {
     <>
       {/* Main Content */}
       <TripFeed user={user} />
-
+      {/* Show landing page if no user and not explicitly skipped */}
+      {!user && !sessionStorage.getItem("skip_for_now") && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <LandingPage
+            onSkipForNow={() => {
+              sessionStorage.setItem("skip_for_now", "true");
+              // Force re-render by updating a state if needed
+            }}
+          />
+        </div>
+      )}
       {/* ✅ ADD: Welcome Modal for New Users */}
       <WelcomeModal
         isOpen={showWelcome}
