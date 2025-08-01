@@ -1,89 +1,109 @@
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 
-export interface ProfileData {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  avatar_url: string | null;
-  home_city: string | null;
-  tagline: string | null;
-  website: string | null;
-  bio?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  user_id?: string;
-  social_link?: string | null;
-}
-
-export const ensureProfileExists = async (
-  user: User
-): Promise<ProfileData | null> => {
-  if (!user) return null;
-
+export const ensureProfileExists = async (user: User) => {
   try {
-    // First, check if profile already exists
-    const { data: existingProfile, error: fetchError } = await supabase
+    // Check if profile already exists
+    const { data: existingProfile, error: checkError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
 
-    if (existingProfile && !fetchError) {
-      return existingProfile;
-    }
-
-    // If profile doesn't exist, create one
-    const newProfileData = {
-      id: user.id,
-      user_id: user.id,
-      full_name:
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
-        user.email?.split("@")[0] ||
-        null,
-      email: user.email,
-      avatar_url: user.user_metadata?.avatar_url || null,
-      home_city: user.user_metadata?.home_city || null,
-      tagline: user.user_metadata?.tagline || null,
-      website: user.user_metadata?.website || null,
-      bio: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: newProfile, error: insertError } = await supabase
-      .from("profiles")
-      .insert(newProfileData)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("Error creating profile:", insertError);
+    if (checkError && checkError.code !== "PGRST116") {
+      console.error("Error checking profile:", checkError);
       return null;
     }
 
-    return newProfile;
+    if (!existingProfile) {
+      // Create new profile from Google data
+      const { data: newProfile, error: createError } = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || null,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          email: user.email || null,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          // Leave new fields empty for user to fill
+          home_city: null,
+          tagline: null,
+          website: null,
+          bio: null,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Error creating profile:", createError);
+        return null;
+      }
+
+      return newProfile;
+    } else {
+      // Update existing profile with latest Google data if needed
+      const updates: any = {};
+      let needsUpdate = false;
+
+      if (!existingProfile.full_name && user.user_metadata?.full_name) {
+        updates.full_name = user.user_metadata.full_name;
+        needsUpdate = true;
+      }
+
+      if (!existingProfile.avatar_url && user.user_metadata?.avatar_url) {
+        updates.avatar_url = user.user_metadata.avatar_url;
+        needsUpdate = true;
+      }
+
+      if (!existingProfile.email && user.email) {
+        updates.email = user.email;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        updates.updated_at = new Date().toISOString();
+
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from("profiles")
+          .update(updates)
+          .eq("id", user.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error("Error updating profile:", updateError);
+          return existingProfile;
+        }
+
+        return updatedProfile;
+      }
+
+      return existingProfile;
+    }
   } catch (error) {
     console.error("Error in ensureProfileExists:", error);
     return null;
   }
 };
 
-export const checkProfileCompletion = (profile: ProfileData | null): number => {
-  if (!profile) return 0;
+export const checkProfileCompletion = (profile: any) => {
+  if (!profile) return { isComplete: false, completionScore: 0 };
 
   const fields = [
     profile.full_name,
-    profile.email,
+    profile.bio,
     profile.home_city,
     profile.tagline,
     profile.avatar_url,
-    profile.bio,
   ];
 
-  const completedFields = fields.filter(
-    (field) => field && field.trim()
+  const filledFields = fields.filter(
+    (field) => field && field.trim().length > 0
   ).length;
-  return Math.round((completedFields / fields.length) * 100);
+  const completionScore = Math.round((filledFields / fields.length) * 100);
+  const isComplete = completionScore >= 80; // Consider 80%+ as complete
+
+  return { isComplete, completionScore };
 };

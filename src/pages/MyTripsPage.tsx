@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useBookmarks } from "@/hooks/useBookmarks"; // ✅ ADDED: Import bookmark hook
 import {
   Calendar,
   MapPin,
@@ -13,8 +14,10 @@ import {
   Plus,
   Clock,
   CheckCircle,
+  Bookmark,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import SavedTripsPage from "@/pages/SavedTripsPage";
 
 interface MyTripsPageProps {
   user: User | null;
@@ -28,13 +31,28 @@ interface Trip {
   end_date: string;
   description: string | null;
   created_at: string;
-  max_group_size: number;
+  max_participants: number;
+  current_participants: number;
+  budget_per_person: number | null;
+  travel_style: string[] | null;
+  status: string;
+  creator_id: string;
   profiles: { full_name: string; avatar_url: string } | null;
   trip_participants: { user_id: string; joined_at: string }[];
 }
 
+interface JoinedTripData {
+  trip_id: number;
+  joined_at: string;
+  trips: Trip;
+}
+
 const MyTripsPage = ({ user }: MyTripsPageProps) => {
   const { toast } = useToast();
+
+  // ✅ FIXED: Use bookmark hook to get saved trips
+  const { bookmarks, loading: bookmarksLoading } = useBookmarks(user);
+
   const [createdTrips, setCreatedTrips] = useState<Trip[]>([]);
   const [joinedTrips, setJoinedTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,12 +81,18 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
           end_date,
           description,
           created_at,
-          max_group_size,
+          max_participants,
+          current_participants,
+          budget_per_person,
+          travel_style,
+          status,
+          creator_id,
           profiles!trips_creator_id_fkey(full_name, avatar_url),
           trip_participants(user_id, joined_at)
         `
         )
         .eq("creator_id", user.id)
+        .eq("status", "active")
         .order("created_at", { ascending: false });
 
       if (createdError) throw createdError;
@@ -88,21 +112,32 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
             end_date,
             description,
             created_at,
-            max_group_size,
+            max_participants,
+            current_participants,
+            budget_per_person,
+            travel_style,
+            status,
             creator_id,
             profiles!trips_creator_id_fkey(full_name, avatar_url),
             trip_participants(user_id, joined_at)
           )
         `
         )
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .eq("trips.status", "active");
 
       if (joinedError) throw joinedError;
 
-      setCreatedTrips(created || []);
-      setJoinedTrips(
-        joinedData?.map((item) => item.trips).filter(Boolean) || []
-      );
+      setCreatedTrips((created as unknown as Trip[]) || []);
+
+      const processedJoinedTrips =
+        (joinedData as unknown as JoinedTripData[])
+          ?.map((item) => item.trips)
+          .filter(
+            (trip): trip is Trip => trip !== null && trip !== undefined
+          ) || [];
+
+      setJoinedTrips(processedJoinedTrips);
     } catch (error) {
       console.error("Error fetching trips:", error);
       toast({
@@ -130,7 +165,8 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
     trip: Trip;
     isCreated?: boolean;
   }) => {
-    const participantCount = trip.trip_participants?.length || 0;
+    const participantCount =
+      trip.current_participants || trip.trip_participants?.length || 0;
     const isUpcoming = new Date(trip.start_date) > new Date();
 
     return (
@@ -175,9 +211,32 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
               </div>
               <div className="flex items-center">
                 <Users className="w-4 h-4 mr-1" />
-                {participantCount}/{trip.max_group_size}
+                {participantCount}/{trip.max_participants}
               </div>
             </div>
+
+            {trip.budget_per_person && (
+              <div className="flex items-center text-sm text-muted-foreground">
+                <span className="text-accent font-medium">
+                  ₹{trip.budget_per_person.toLocaleString()} per person
+                </span>
+              </div>
+            )}
+
+            {trip.travel_style && trip.travel_style.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {trip.travel_style.slice(0, 3).map((style, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {style}
+                  </Badge>
+                ))}
+                {trip.travel_style.length > 3 && (
+                  <Badge variant="outline" className="text-xs">
+                    +{trip.travel_style.length - 3} more
+                  </Badge>
+                )}
+              </div>
+            )}
 
             {trip.description && (
               <p className="text-sm text-muted-foreground line-clamp-2">
@@ -217,7 +276,8 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
     );
   }
 
-  if (loading) {
+  // ✅ UPDATED: Show loading if either trips or bookmarks are loading
+  if (loading || bookmarksLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
@@ -246,7 +306,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
       </div>
 
       <Tabs defaultValue="created" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="created" className="flex items-center space-x-2">
             <Plus className="w-4 h-4" />
             <span>Created ({createdTrips.length})</span>
@@ -254,6 +314,21 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
           <TabsTrigger value="joined" className="flex items-center space-x-2">
             <Users className="w-4 h-4" />
             <span>Joined ({joinedTrips.length})</span>
+          </TabsTrigger>
+          {/* ✅ ENHANCED TabsTrigger with loading state */}
+          <TabsTrigger value="saved" className="flex items-center space-x-2">
+            <Bookmark className="w-4 h-4" />
+            <span>
+              Saved (
+              {bookmarksLoading ? (
+                <span className="inline-block w-4 h-4">
+                  <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                </span>
+              ) : (
+                bookmarks.length
+              )}
+              )
+            </span>
           </TabsTrigger>
         </TabsList>
 
@@ -307,6 +382,10 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="saved" className="mt-6">
+          <SavedTripsPage user={user} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,3 +1,4 @@
+// src/components/trip/PostTripModal.tsx
 import { useState } from "react";
 import {
   Dialog,
@@ -9,247 +10,400 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Calendar, MapPin, MessageSquare, Users } from "lucide-react"; // Added Users icon for max group size
-
-// --- ORIGINAL SUPABASE INTEGRATION ---
+import { Badge } from "@/components/ui/badge";
+import {
+  Calendar,
+  MapPin,
+  MessageSquare,
+  Users,
+  Sparkles,
+  IndianRupee,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-// --- END ORIGINAL INTEGRATION ---
 
 interface PostTripModalProps {
   open: boolean;
   onClose: () => void;
+  onTripCreated?: () => void;
 }
 
-const PostTripModal = ({ open, onClose }: PostTripModalProps) => {
-  // --- ORIGINAL TOAST AND LOADING STATE ---
+const availableTravelStyles = [
+  { id: "adventure", label: "Adventure", emoji: "🏔️" },
+  { id: "cultural", label: "Cultural", emoji: "🏛️" },
+  { id: "relaxation", label: "Relaxation", emoji: "🌴" },
+  { id: "foodie", label: "Foodie", emoji: "🍜" },
+  { id: "nightlife", label: "Nightlife", emoji: "🌃" },
+  { id: "budget", label: "Budget", emoji: "💰" },
+  { id: "luxury", label: "Luxury", emoji: "✨" },
+  { id: "solo-friendly", label: "Solo Friendly", emoji: "🎒" },
+  { id: "photography", label: "Photography", emoji: "📸" },
+  { id: "spiritual", label: "Spiritual", emoji: "🕉️" },
+  { id: "backpacking", label: "Backpacking", emoji: "🏃‍♂️" },
+  { id: "wellness", label: "Wellness", emoji: "🧘‍♀️" },
+];
+
+const PostTripModal = ({
+  open,
+  onClose,
+  onTripCreated,
+}: PostTripModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  // --- END ORIGINAL STATE ---
 
-  // --- UPDATED FORM DATA WITH MAX GROUP SIZE ---
   const [formData, setFormData] = useState({
     destination: "",
-    startCity: "",
-    startDate: "",
-    endDate: "",
+    start_city: "",
+    start_date: "",
+    end_date: "",
     description: "",
-    maxGroupSize: 8, // NEW: Added max group size with default value of 8
+    max_participants: 8,
+    budget_per_person: 0,
+    travel_style: [] as string[],
   });
-  // --- END UPDATED FORM DATA ---
 
-  // --- UPDATED INPUT HANDLER TO SUPPORT NUMBERS ---
   const handleInputChange = (field: string, value: string | number) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
-  // --- END UPDATED HANDLER ---
 
-  // --- ORIGINAL SUBMIT FUNCTION WITH MAX GROUP SIZE ADDITION ---
+  const handleStyleToggle = (styleId: string) => {
+    setFormData((prev) => {
+      const styles = prev.travel_style.includes(styleId)
+        ? prev.travel_style.filter((s) => s !== styleId)
+        : [...prev.travel_style, styleId];
+      return { ...prev, travel_style: styles };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // 1. Get the current logged-in user
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in to post a trip.");
-      console.log("user data:", user);
 
-      // 2. Prepare the data for insertion (using snake_case for Supabase columns)
+      // Validate dates
+      const startDate = new Date(formData.start_date);
+      const endDate = new Date(formData.end_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (startDate < today) {
+        throw new Error("Start date cannot be in the past.");
+      }
+
+      if (endDate <= startDate) {
+        throw new Error("End date must be after start date.");
+      }
+
+      // ✅ FIXED: Match your exact database schema
       const newTrip = {
         creator_id: user.id,
-        destination: formData.destination,
-        start_city: formData.startCity,
-        start_date: formData.startDate,
-        end_date: formData.endDate,
-        description: formData.description,
-        max_group_size: formData.maxGroupSize, // NEW: Added max group size to database insert
+        destination: formData.destination.trim(),
+        start_city: formData.start_city.trim(),
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        description: formData.description.trim() || null,
+        max_participants: formData.max_participants,
+        budget_per_person:
+          formData.budget_per_person > 0 ? formData.budget_per_person : null,
+        travel_style:
+          formData.travel_style.length > 0 ? formData.travel_style : null,
+        status: "active",
+        current_participants: 1,
       };
 
-      // 3. Insert the new trip into the 'trips' table
-      const { error } = await supabase.from("trips").insert([newTrip]);
+      console.log("Creating trip with data:", newTrip);
 
-      if (error) throw error;
+      const { data, error } = await supabase.from("trips").insert([newTrip])
+        .select(`
+          *,
+          profiles:creator_id (
+            full_name,
+            avatar_url
+          )
+        `);
 
-      // 4. Show a success message and close the modal
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
+
+      console.log("Trip created successfully:", data);
+
       toast({
-        title: "Success!",
-        description: "Your trip has been posted.",
+        title: "🎉 Trip Created!",
+        description: "Your adventure is now live and ready for companions!",
       });
-      onClose();
+
+      // Reset form
       setFormData({
-        // Reset form after successful submission (including new max group size field)
         destination: "",
-        startCity: "",
-        startDate: "",
-        endDate: "",
+        start_city: "",
+        start_date: "",
+        end_date: "",
         description: "",
-        maxGroupSize: 8, // NEW: Reset max group size to default
+        max_participants: 8,
+        budget_per_person: 0,
+        travel_style: [],
       });
+
+      onClose();
+      onTripCreated?.();
     } catch (error: any) {
-      // Show an error message if something goes wrong
+      console.error("Error creating trip:", error);
       toast({
-        title: "Error Posting Trip",
-        description: error.message,
+        title: "Failed to create trip",
+        description: error.message || "Please try again later",
         variant: "destructive",
       });
     } finally {
-      // Re-enable the button
       setLoading(false);
     }
   };
-  // --- END ORIGINAL SUBMIT FUNCTION ---
 
-  // --- ORIGINAL FORM VALIDATION ---
   const isFormValid =
-    formData.destination &&
-    formData.startCity &&
-    formData.startDate &&
-    formData.endDate &&
-    formData.description;
-  // --- END ORIGINAL VALIDATION ---
+    formData.destination.trim() &&
+    formData.start_city.trim() &&
+    formData.start_date &&
+    formData.end_date &&
+    formData.description.trim();
+
+  const formatBudget = (amount: number) => {
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
+    return `₹${amount}`;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="mx-4 rounded-2xl max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-center">
+      <DialogContent className="mx-4 rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-2xl font-bold text-center bg-gradient-warm bg-clip-text text-transparent">
             Create Your Adventure
           </DialogTitle>
+          <p className="text-sm text-muted-foreground text-center">
+            Share your travel plans and find amazing companions
+          </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          {/* --- ORIGINAL DESTINATION FIELD --- */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Destination */}
           <div className="space-y-2">
             <Label
               htmlFor="destination"
-              className="text-sm font-medium flex items-center space-x-1"
+              className="text-sm font-medium flex items-center gap-2"
             >
               <MapPin className="w-4 h-4 text-accent" />
-              <span>Where are we going?</span>
+              Where are we going? *
             </Label>
             <Input
               id="destination"
               placeholder="e.g., Weekend Trek to Triund"
               value={formData.destination}
               onChange={(e) => handleInputChange("destination", e.target.value)}
-              className="rounded-xl"
+              className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
+              required
             />
           </div>
-          {/* --- END ORIGINAL DESTINATION FIELD --- */}
 
-          {/* --- ORIGINAL STARTING CITY FIELD --- */}
+          {/* Start City */}
           <div className="space-y-2">
-            <Label htmlFor="startCity" className="text-sm font-medium">
-              Starting from
+            <Label htmlFor="start_city" className="text-sm font-medium">
+              Starting from *
             </Label>
             <Input
-              id="startCity"
-              placeholder="e.g., Chandigarh"
-              value={formData.startCity}
-              onChange={(e) => handleInputChange("startCity", e.target.value)}
-              className="rounded-xl"
+              id="start_city"
+              placeholder="e.g., Mumbai, Delhi, Bangalore"
+              value={formData.start_city}
+              onChange={(e) => handleInputChange("start_city", e.target.value)}
+              className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
+              required
             />
           </div>
-          {/* --- END ORIGINAL STARTING CITY FIELD --- */}
 
-          {/* --- ORIGINAL DATE RANGE FIELDS --- */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label
-                htmlFor="startDate"
-                className="text-sm font-medium flex items-center space-x-1"
+                htmlFor="start_date"
+                className="text-sm font-medium flex items-center gap-2"
               >
                 <Calendar className="w-4 h-4 text-accent" />
-                <span>Start Date</span>
+                Start Date *
               </Label>
               <Input
-                id="startDate"
+                id="start_date"
                 type="date"
-                value={formData.startDate}
-                onChange={(e) => handleInputChange("startDate", e.target.value)}
-                className="rounded-xl"
+                value={formData.start_date}
+                onChange={(e) =>
+                  handleInputChange("start_date", e.target.value)
+                }
+                className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
+                min={new Date().toISOString().split("T")[0]}
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endDate" className="text-sm font-medium">
-                End Date
+              <Label htmlFor="end_date" className="text-sm font-medium">
+                End Date *
               </Label>
               <Input
-                id="endDate"
+                id="end_date"
                 type="date"
-                value={formData.endDate}
-                onChange={(e) => handleInputChange("endDate", e.target.value)}
-                className="rounded-xl"
+                value={formData.end_date}
+                onChange={(e) => handleInputChange("end_date", e.target.value)}
+                className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
+                min={
+                  formData.start_date || new Date().toISOString().split("T")[0]
+                }
+                required
               />
             </div>
           </div>
-          {/* --- END ORIGINAL DATE RANGE FIELDS --- */}
 
-          {/* --- NEW MAX GROUP SIZE FIELD --- */}
+          {/* Budget */}
           <div className="space-y-2">
             <Label
-              htmlFor="maxGroupSize"
-              className="text-sm font-medium flex items-center space-x-1"
+              htmlFor="budget"
+              className="text-sm font-medium flex items-center gap-2"
             >
-              <Users className="w-4 h-4 text-accent" />
-              <span>Max Group Size</span>
+              <IndianRupee className="w-4 h-4 text-accent" />
+              Budget per person (optional)
             </Label>
             <Input
-              id="maxGroupSize"
+              id="budget"
               type="number"
-              value={formData.maxGroupSize}
+              placeholder="e.g., 5000"
+              value={
+                formData.budget_per_person === 0
+                  ? ""
+                  : formData.budget_per_person
+              }
               onChange={(e) =>
                 handleInputChange(
-                  "maxGroupSize",
-                  parseInt(e.target.value, 10) || 8
+                  "budget_per_person",
+                  parseInt(e.target.value) || 0
                 )
               }
-              className="rounded-xl"
+              className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
+              min="0"
+              step="100"
+            />
+            {formData.budget_per_person > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Budget: {formatBudget(formData.budget_per_person)} per person
+              </p>
+            )}
+          </div>
+
+          {/* Group Size */}
+          <div className="space-y-2">
+            <Label
+              htmlFor="max_participants"
+              className="text-sm font-medium flex items-center gap-2"
+            >
+              <Users className="w-4 h-4 text-accent" />
+              Max Group Size
+            </Label>
+            <Input
+              id="max_participants"
+              type="number"
+              value={formData.max_participants}
+              onChange={(e) =>
+                handleInputChange(
+                  "max_participants",
+                  parseInt(e.target.value) || 8
+                )
+              }
+              className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
               min="2"
               max="50"
               placeholder="Maximum number of people"
             />
           </div>
-          {/* --- END NEW MAX GROUP SIZE FIELD --- */}
 
-          {/* --- ORIGINAL DESCRIPTION FIELD --- */}
+          {/* Travel Style */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-accent" />
+              Travel Style (optional)
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {availableTravelStyles.map((style) => (
+                <Badge
+                  key={style.id}
+                  variant={
+                    formData.travel_style.includes(style.id)
+                      ? "default"
+                      : "outline"
+                  }
+                  onClick={() => handleStyleToggle(style.id)}
+                  className={`cursor-pointer transition-all hover:scale-105 ${
+                    formData.travel_style.includes(style.id)
+                      ? "bg-accent hover:bg-accent/90 text-accent-foreground"
+                      : "hover:bg-accent/10 border-accent/20"
+                  }`}
+                >
+                  <span className="mr-1">{style.emoji}</span>
+                  {style.label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Description */}
           <div className="space-y-2">
             <Label
               htmlFor="description"
-              className="text-sm font-medium flex items-center space-x-1"
+              className="text-sm font-medium flex items-center gap-2"
             >
               <MessageSquare className="w-4 h-4 text-accent" />
-              <span>Describe the Plan & Vibe</span>
+              Describe the Plan & Vibe *
             </Label>
             <Textarea
               id="description"
-              placeholder="What's the plan? What kind of vibe are you going for? Any specific activities or requirements?"
+              placeholder="What's the plan? What kind of vibe are you going for? Any specific activities, requirements, or things to know?"
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
-              className="rounded-xl min-h-[100px] resize-none"
-              rows={4}
+              className="rounded-xl min-h-[120px] resize-none border-0 bg-muted/50 focus:bg-white transition-colors"
+              rows={5}
+              required
             />
           </div>
-          {/* --- END ORIGINAL DESCRIPTION FIELD --- */}
 
-          {/* --- ORIGINAL SUBMIT BUTTON WITH LOADING STATE --- */}
+          {/* Submit Button */}
           <div className="pt-4">
             <Button
               type="submit"
-              variant="cta"
-              className="w-full"
-              disabled={!isFormValid || loading} // Original validation and loading state
+              className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-medium py-3 rounded-xl transition-all hover:scale-[1.02] shadow-soft"
+              disabled={!isFormValid || loading}
             >
-              {loading ? "Posting..." : "Post Trip"}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Creating Trip...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Create Adventure
+                </span>
+              )}
             </Button>
           </div>
-          {/* --- END ORIGINAL SUBMIT BUTTON --- */}
+
+          {!isFormValid && (
+            <p className="text-xs text-muted-foreground text-center">
+              Please fill in all required fields (*) to create your trip
+            </p>
+          )}
         </form>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+// src/components/home/TripFeed.tsx
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@supabase/supabase-js";
@@ -16,14 +17,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import TripMap from "./TripMap";
-import FilterBar from "./FilterBar";
+import TripMap from "../discover/TripMap";
+import FilterBar, { FilterOptions } from "./FilterBar";
 import CommunityHighlights from "./CommunityHighlights";
 import EnhancedTripCard from "./EnhancedTripCard";
 import PostTripModal from "@/components/trip/PostTripModal";
 import LandingPage from "@/components/landing/LandingPage";
 import AuthGuard from "@/components/auth/AuthGuard";
 import NotificationsDropdown from "@/components/notifications/NotificationsDropdown";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import BookmarkButton from "@/components/trip/BookmarkButton";
+import RecommendationSection from "@/components/home/RecommendationSection";
+
 import {
   Plus,
   User,
@@ -37,9 +42,10 @@ import {
   ChevronDown,
   Loader2,
   RefreshCw,
+  Filter,
 } from "lucide-react";
 
-// Types matching your database structure
+// Types
 type Profile = {
   full_name: string;
   avatar_url: string;
@@ -59,7 +65,11 @@ type Trip = {
   end_date: string;
   description: string | null;
   created_at: string;
-  max_group_size: number;
+  max_participants: number;
+  current_participants: number;
+  budget_per_person: number | null;
+  travel_style: string[] | null;
+  status: string;
   profiles: Profile | null;
   trip_participants: TripParticipant[];
 };
@@ -71,63 +81,115 @@ interface TripFeedProps {
 const TripFeed = ({ user }: TripFeedProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { toggleBookmark, isBookmarked } = useBookmarks(user);
 
   // State management
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false); // ✅ NEW: Loading state for pagination
-  const [hasMore, setHasMore] = useState(true); // ✅ NEW: Track if more trips available
-  const [currentPage, setCurrentPage] = useState(0); // ✅ NEW: Page tracking
-  const [totalTrips, setTotalTrips] = useState(0); // ✅ NEW: Total count tracking
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalTrips, setTotalTrips] = useState(0);
 
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
-  const [activeView, setActiveView] = useState<"map" | "list">("map");
-  const [filters, setFilters] = useState<any>({});
+  const [activeView, setActiveView] = useState<"map" | "list">("list");
 
-  // AuthGuard state
+  const [filters, setFilters] = useState<FilterOptions>({
+    search: "",
+    budgetRange: [0, 10000],
+    startDate: null,
+    endDate: null,
+    groupSize: [1, 20],
+    travelStyles: [],
+    cities: [],
+    sortBy: "newest",
+  });
+
   const [authGuard, setAuthGuard] = useState({
     isOpen: false,
     actionType: "join" as "join" | "create" | "chat",
   });
 
-  // ✅ UPDATED: Pagination constants
   const TRIPS_PER_PAGE = 5;
 
-  // ✅ UPDATED: Fetch trips with pagination
-  const fetchTrips = async (page: number = 0, append: boolean = false) => {
-    if (page === 0) setLoading(true);
-    else setLoadingMore(true);
+  // ✅ REFINED: Pure function that doesn't need memoization
+  const applyFiltersToQuery = (query: any, currentFilters: FilterOptions) => {
+    if (currentFilters.search) {
+      const searchTerm = currentFilters.search.trim();
+      query = query.or(
+        `destination.ilike.%${searchTerm}%,start_city.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`
+      );
+    }
 
-    try {
-      const from = page * TRIPS_PER_PAGE;
-      const to = from + TRIPS_PER_PAGE - 1;
+    if (currentFilters.budgetRange[0] > 0) {
+      query = query.gte("budget_per_person", currentFilters.budgetRange[0]);
+    }
+    if (currentFilters.budgetRange[1] < 10000) {
+      query = query.lte("budget_per_person", currentFilters.budgetRange[1]);
+    }
 
-      // Get total count for first page
-      let countQuery = supabase
-        .from("trips")
-        .select("*", { count: "exact", head: true });
+    if (currentFilters.groupSize[0] > 1) {
+      query = query.gte("max_participants", currentFilters.groupSize[0]);
+    }
+    if (currentFilters.groupSize[1] < 20) {
+      query = query.lte("max_participants", currentFilters.groupSize[1]);
+    }
 
-      // Apply filters to count query if any
-      if (filters.destination) {
-        countQuery = countQuery.ilike(
-          "destination",
-          `%${filters.destination}%`
-        );
+    if (currentFilters.startDate) {
+      query = query.gte(
+        "start_date",
+        currentFilters.startDate.toISOString().split("T")[0]
+      );
+    }
+    if (currentFilters.endDate) {
+      query = query.lte(
+        "end_date",
+        currentFilters.endDate.toISOString().split("T")[0]
+      );
+    }
+
+    if (currentFilters.cities.length > 0) {
+      const cityFilters = currentFilters.cities
+        .map((city) => `start_city.ilike.%${city}%`)
+        .join(",");
+      query = query.or(cityFilters);
+    }
+
+    if (currentFilters.travelStyles.length > 0) {
+      query = query.overlaps("travel_style", currentFilters.travelStyles);
+    }
+
+    return query;
+  };
+
+  // ✅ REFINED: Optimized fetchTrips with cleaner dependencies
+  const fetchTrips = useCallback(
+    async (page: number, append: boolean = false) => {
+      if (page === 0) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
       }
-      if (filters.start_city) {
-        countQuery = countQuery.ilike("start_city", `%${filters.start_city}%`);
-      }
-      if (filters.start_date) {
-        countQuery = countQuery.gte("start_date", filters.start_date);
-      }
 
-      // Get data with pagination
-      let dataQuery = supabase
-        .from("trips")
-        .select(
-          `
+      try {
+        const from = page * TRIPS_PER_PAGE;
+        const to = from + TRIPS_PER_PAGE - 1;
+
+        // Get total count (only for first page)
+        let countQuery = supabase
+          .from("trips")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "active");
+
+        // Apply filters to count query
+        countQuery = applyFiltersToQuery(countQuery, filters);
+
+        // Get paginated data
+        let dataQuery = supabase
+          .from("trips")
+          .select(
+            `
           id,
           creator_id,
           destination,
@@ -136,90 +198,115 @@ const TripFeed = ({ user }: TripFeedProps) => {
           end_date,
           description,
           created_at,
-          max_group_size,
+          max_participants,
+          current_participants,
+          budget_per_person,
+          travel_style,
+          status,
           profiles!trips_creator_id_fkey(full_name, avatar_url),
           trip_participants(user_id, joined_at)
         `
-        )
-        .order("created_at", { ascending: false })
-        .range(from, to);
+          )
+          .eq("status", "active")
+          .range(from, to);
 
-      // Apply same filters to data query
-      if (filters.destination) {
-        dataQuery = dataQuery.ilike("destination", `%${filters.destination}%`);
-      }
-      if (filters.start_city) {
-        dataQuery = dataQuery.ilike("start_city", `%${filters.start_city}%`);
-      }
-      if (filters.start_date) {
-        dataQuery = dataQuery.gte("start_date", filters.start_date);
-      }
+        // Apply same filters to data query
+        dataQuery = applyFiltersToQuery(dataQuery, filters);
 
-      const [{ count }, { data, error }] = await Promise.all([
-        page === 0 ? countQuery : Promise.resolve({ count: totalTrips }),
-        dataQuery,
-      ]);
+        // Apply sorting
+        switch (filters.sortBy) {
+          case "budget":
+            dataQuery = dataQuery.order("budget_per_person", {
+              ascending: true,
+              nullsLast: true,
+            });
+            break;
+          case "date":
+            dataQuery = dataQuery.order("start_date", { ascending: true });
+            break;
+          case "popularity":
+            dataQuery = dataQuery.order("current_participants", {
+              ascending: false,
+            });
+            break;
+          case "newest":
+          default:
+            dataQuery = dataQuery.order("created_at", { ascending: false });
+            break;
+        }
 
-      if (error) {
-        console.error("Error fetching trips:", error);
+        // Execute both queries
+        const [{ count }, { data, error }] = await Promise.all([
+          page === 0 ? countQuery : Promise.resolve({ count: totalTrips }),
+          dataQuery,
+        ]);
+
+        if (error) {
+          console.error("Error fetching trips:", error);
+          toast({
+            title: "Error loading trips",
+            description: "Failed to load trips. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data) {
+          const newTrips = data as Trip[];
+
+          if (append) {
+            setTrips((prev) => [...prev, ...newTrips]);
+          } else {
+            setTrips(newTrips);
+            setCurrentPage(0);
+          }
+
+          if (page === 0 && count !== null) {
+            setTotalTrips(count);
+          }
+
+          setCurrentPage(page);
+        }
+      } catch (err) {
+        console.error("Unexpected error fetching trips:", err);
         toast({
-          title: "Error loading trips",
-          description: "Failed to load trips. Please try again.",
+          title: "Unexpected error",
+          description: "Something went wrong. Please refresh the page.",
           variant: "destructive",
         });
-        return;
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
+    },
+    [filters, totalTrips, toast]
+  );
 
-      if (data) {
-        const newTrips = data as Trip[];
-
-        if (append) {
-          setTrips((prev) => [...prev, ...newTrips]);
-        } else {
-          setTrips(newTrips);
-          setCurrentPage(0);
-        }
-
-        // Update pagination state
-        if (page === 0 && count !== null) {
-          setTotalTrips(count);
-        }
-
-        const totalPages = Math.ceil((count || totalTrips) / TRIPS_PER_PAGE);
-        setHasMore(page + 1 < totalPages);
-        setCurrentPage(page);
-      }
-    } catch (err) {
-      console.error("Unexpected error fetching trips:", err);
-      toast({
-        title: "Unexpected error",
-        description: "Something went wrong. Please refresh the page.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
+  // ✅ REFINED: Simplified loadMoreTrips logic
+  const loadMoreTrips = useCallback(async () => {
+    if (trips.length < totalTrips && !loadingMore) {
+      await fetchTrips(currentPage + 1, true);
     }
-  };
+  }, [trips.length, totalTrips, loadingMore, currentPage, fetchTrips]);
 
-  // ✅ UPDATED: Load more trips function
-  const loadMoreTrips = async () => {
-    if (!hasMore || loadingMore) return;
-    await fetchTrips(currentPage + 1, true);
-  };
-
-  // ✅ UPDATED: Refresh trips function
-  const refreshTrips = async () => {
+  const refreshTrips = useCallback(async () => {
     setCurrentPage(0);
+    setTrips([]);
     await fetchTrips(0, false);
-  };
+  }, [fetchTrips]);
 
-  // Initial load and when filters change
+  const handleFiltersChange = useCallback((newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    setCurrentPage(0);
+    setTrips([]);
+  }, []);
+
+  // ✅ REFINED: Single useEffect to handle both initial load and filter changes
   useEffect(() => {
     fetchTrips(0, false);
-  }, [isPostModalOpen, filters]);
+  }, [fetchTrips]);
 
-  // Existing handler functions (unchanged)
+  // Event handlers
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -258,14 +345,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
       title: "Settings",
       description: "Settings page coming soon!",
     });
-  };
-
-  const handleProfileClick = () => {
-    if (!user) {
-      setShowSignInModal(true);
-      return;
-    }
-    console.log("Navigate to profile");
   };
 
   const handlePostTrip = () => {
@@ -323,136 +402,28 @@ const TripFeed = ({ user }: TripFeedProps) => {
     console.log("Chat for trip:", tripId);
   };
 
-  const handleFiltersChange = (newFilters: any) => {
-    setFilters(newFilters);
-    console.log("Filters changed:", newFilters);
-  };
-
   const handleLocationSelect = (location: any) => {
     console.log("Location selected:", location);
   };
 
+  const clearAllFilters = useCallback(() => {
+    handleFiltersChange({
+      search: "",
+      budgetRange: [0, 10000],
+      startDate: null,
+      endDate: null,
+      groupSize: [1, 20],
+      travelStyles: [],
+      cities: [],
+      sortBy: "newest",
+    });
+  }, [handleFiltersChange]);
+
+  // ✅ REFINED: Computed property instead of useMemo
+  const hasMore = trips.length < totalTrips;
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Enhanced Header with Profile Dropdown */}
-      {/* <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-20">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <h1 className="text-xl font-bold text-foreground">WanderTribe</h1>
-              <Badge
-                variant="outline"
-                className="text-xs bg-vibrant-forest/10 text-vibrant-forest border-vibrant-forest/30"
-              >
-                🔥 {totalTrips} Live Adventures
-              </Badge>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              {user && (
-                <>
-                  <NotificationsDropdown user={user} />
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="flex items-center space-x-2 px-2 py-1 h-auto rounded-full hover:bg-muted/50"
-                      >
-                        <Avatar className="w-8 h-8">
-                          {user.user_metadata?.avatar_url ? (
-                            <AvatarImage
-                              src={user.user_metadata.avatar_url}
-                              alt="Profile"
-                            />
-                          ) : (
-                            <AvatarFallback className="bg-earth-sand text-earth-terracotta">
-                              <User className="w-4 h-4" />
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="hidden md:flex items-center space-x-1">
-                          <span className="text-sm font-medium truncate max-w-[100px]">
-                            {user.user_metadata?.full_name ||
-                              user.email?.split("@")[0] ||
-                              "Traveler"}
-                          </span>
-                          <ChevronDown className="w-3 h-3 opacity-60" />
-                        </div>
-                      </Button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel className="flex items-center space-x-2">
-                        <Avatar className="w-6 h-6">
-                          {user.user_metadata?.avatar_url ? (
-                            <AvatarImage src={user.user_metadata.avatar_url} />
-                          ) : (
-                            <AvatarFallback className="bg-earth-sand text-earth-terracotta text-xs">
-                              <User className="w-3 h-3" />
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">
-                            {user.user_metadata?.full_name ||
-                              "Travel Enthusiast"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {user.email}
-                          </span>
-                        </div>
-                      </DropdownMenuLabel>
-
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItem
-                        onClick={handleViewProfile}
-                        className="cursor-pointer"
-                      >
-                        <UserCircle className="w-4 h-4 mr-2" />
-                        View Profile
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        onClick={handleSettings}
-                        className="cursor-pointer"
-                      >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Settings
-                      </DropdownMenuItem>
-
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItem
-                        onClick={handleSignOut}
-                        className="cursor-pointer text-red-600 focus:text-red-600"
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </>
-              )}
-
-              {!user && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowSignInModal(true)}
-                  className="flex items-center space-x-2"
-                >
-                  <User className="w-4 h-4" />
-                  <span className="hidden md:inline">Sign In</span>
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header> */}
-
-      {/* Main Content */}
       <main className="pb-20">
         {/* Welcome Banner */}
         <div className="p-4">
@@ -479,6 +450,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </div>
         </div>
 
+        {/* ✅ NEW: Recommendation Section */}
+        {user && (
+          <RecommendationSection user={user} onTripClick={handleTripClick} />
+        )}
+
         {/* Map/List Toggle */}
         <div className="px-4 mb-4">
           <Tabs
@@ -501,20 +477,114 @@ const TripFeed = ({ user }: TripFeedProps) => {
         {/* Map View */}
         {activeView === "map" && (
           <div className="px-4 mb-6">
-            <TripMap onLocationSelect={handleLocationSelect} />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {trips.length} trips on map
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    Click markers for details
+                  </Badge>
+                  {hasMore && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs bg-blue-100 text-blue-800"
+                    >
+                      +{totalTrips - trips.length} more available
+                    </Badge>
+                  )}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshTrips}
+                  disabled={loading}
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                  />
+                  Refresh Map
+                </Button>
+              </div>
+
+              <TripMap
+                trips={trips}
+                onTripSelect={(trip) => {
+                  setSelectedTrip(trip);
+                  navigate(`/trip/${trip.id}`);
+                }}
+                onLocationSelect={handleLocationSelect}
+                selectedTrip={selectedTrip}
+                user={user}
+                height="600px"
+                className="rounded-2xl overflow-hidden shadow-soft border"
+              />
+
+              {hasMore && (
+                <div className="text-center">
+                  <Button
+                    variant="outline"
+                    onClick={loadMoreTrips}
+                    disabled={loadingMore}
+                    className="hover-scale"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Loading More Trips...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Load More Trips on Map
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {/* Map Legend */}
+              <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground bg-muted/50 p-3 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                  <span>Adventure</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                  <span>Relaxation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+                  <span>Cultural</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                  <span>Luxury</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                  <span>Other</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Filter Bar */}
         <div className="px-4 mb-6">
-          <FilterBar onFiltersChange={handleFiltersChange} />
+          <FilterBar
+            onFiltersChange={handleFiltersChange}
+            totalResults={totalTrips}
+          />
         </div>
 
-        {/* Trip Feed with Enhanced Loading */}
+        {/* Trip Feed */}
         <div className="px-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <h3 className="text-lg font-semibold">Active Trips</h3>
+              <h3 className="text-lg font-semibold">Active Adventures</h3>
               <Button
                 variant="ghost"
                 size="sm"
@@ -534,30 +604,44 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 Showing {trips.length} of {totalTrips}
               </Badge>
               <Badge variant="outline" className="text-xs">
-                Updated 2 min ago
+                Page {currentPage + 1}
               </Badge>
+              {hasMore && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-green-100 text-green-800"
+                >
+                  More available
+                </Badge>
+              )}
             </div>
           </div>
 
-          {loading ? (
+          {loading && trips.length === 0 ? (
             <div className="text-center py-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading adventures...</p>
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+              <p className="mt-4 text-muted-foreground">
+                Loading adventures...
+              </p>
             </div>
           ) : trips.length === 0 ? (
             <div className="text-center py-10">
-              <MapPin className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <Filter className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground text-lg mb-2">
                 No trips found
               </p>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm mb-4">
                 Try adjusting your filters or be the first to create a trip!
               </p>
+              <Button variant="outline" onClick={clearAllFilters}>
+                Clear All Filters
+              </Button>
             </div>
           ) : (
             <div className="space-y-4">
+              {/* ✅ REFINED: Map directly over trips array */}
               {trips.map((trip) => {
-                const participantCount = trip.trip_participants?.length || 0;
+                const participantCount = trip.current_participants || 0;
 
                 const enhancedTrip = {
                   id: trip.id,
@@ -573,33 +657,47 @@ const TripFeed = ({ user }: TripFeedProps) => {
                     verificationBadges: ["verified"],
                     isHost: true,
                   },
-                  vibe: ["Adventure", "Photography"],
+                  vibe: trip.travel_style || ["Adventure"],
                   groupSize: {
                     current: participantCount,
-                    max: trip.max_group_size,
+                    max: trip.max_participants,
                   },
                   interestedCount: participantCount,
-                  price: { amount: 0, currency: "INR" },
+                  price: {
+                    amount: trip.budget_per_person || 0,
+                    currency: "INR",
+                  },
                   isFemaleOnly: false,
                   isInstantJoin: true,
                   postedAt: trip.created_at,
                 };
 
                 return (
-                  <EnhancedTripCard
-                    key={trip.id}
-                    {...enhancedTrip}
-                    onClick={() => handleTripClick(trip)}
-                    onJoinClick={() => handleTripJoin(trip.id)}
-                    onChatClick={() => handleTripChat(trip.id)}
-                    onLikeClick={() => console.log("Like trip:", trip.id)}
-                  />
+                  <div key={trip.id} className="relative">
+                    <div className="absolute top-4 right-4 z-10">
+                      <BookmarkButton
+                        tripId={trip.id}
+                        isBookmarked={isBookmarked(trip.id)}
+                        onToggle={toggleBookmark}
+                        variant="bookmark"
+                        size="md"
+                      />
+                    </div>
+
+                    <EnhancedTripCard
+                      {...enhancedTrip}
+                      onClick={() => handleTripClick(trip)}
+                      onJoinClick={() => handleTripJoin(trip.id)}
+                      onChatClick={() => handleTripChat(trip.id)}
+                      onLikeClick={() => console.log("Like trip:", trip.id)}
+                    />
+                  </div>
                 );
               })}
             </div>
           )}
 
-          {/* ✅ UPDATED: Enhanced Load More Button */}
+          {/* Load More Button */}
           {hasMore && trips.length > 0 && (
             <div className="flex justify-center pt-6">
               <Button
@@ -616,7 +714,8 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 ) : (
                   <>
                     <Plus className="w-4 h-4 mr-2" />
-                    Load More Adventures
+                    Load More Adventures (
+                    {Math.min(TRIPS_PER_PAGE, totalTrips - trips.length)} more)
                   </>
                 )}
               </Button>
@@ -628,7 +727,8 @@ const TripFeed = ({ user }: TripFeedProps) => {
             <div className="text-center pt-6 pb-4">
               <div className="inline-flex items-center px-4 py-2 rounded-full bg-muted text-muted-foreground text-sm">
                 <Sparkles className="w-4 h-4 mr-2" />
-                You've seen all adventures! Check back later for more.
+                You've seen all {totalTrips} adventures! Check back later for
+                more.
               </div>
             </div>
           )}
@@ -658,6 +758,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
       <PostTripModal
         open={isPostModalOpen}
         onClose={() => setIsPostModalOpen(false)}
+        onTripCreated={refreshTrips}
       />
 
       {showSignInModal && (
