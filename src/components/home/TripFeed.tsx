@@ -29,6 +29,9 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import BookmarkButton from "@/components/trip/BookmarkButton";
 import RecommendationSection from "@/components/home/RecommendationSection";
 
+// ✅ NEW: Import TripStatus type for status management
+import { TripStatus } from "@/hooks/useTripStatus";
+
 import {
   Plus,
   User,
@@ -83,7 +86,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
   const { toast } = useToast();
   const { toggleBookmark, isBookmarked } = useBookmarks(user);
 
-  // State management
+  // State management (keep all existing state)
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -113,7 +116,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
   const TRIPS_PER_PAGE = 5;
 
-  // ✅ REFINED: Pure function that doesn't need memoization
+  // ✅ Keep existing applyFiltersToQuery function unchanged
   const applyFiltersToQuery = (query: any, currentFilters: FilterOptions) => {
     if (currentFilters.search) {
       const searchTerm = currentFilters.search.trim();
@@ -163,7 +166,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
     return query;
   };
 
-  // ✅ REFINED: Optimized fetchTrips with cleaner dependencies
+  // ✅ Keep existing fetchTrips function unchanged
   const fetchTrips = useCallback(
     async (page: number, append: boolean = false) => {
       if (page === 0) {
@@ -282,7 +285,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
     [filters, totalTrips, toast]
   );
 
-  // ✅ REFINED: Simplified loadMoreTrips logic
+  // ✅ Keep all existing functions unchanged
   const loadMoreTrips = useCallback(async () => {
     if (trips.length < totalTrips && !loadingMore) {
       await fetchTrips(currentPage + 1, true);
@@ -301,12 +304,12 @@ const TripFeed = ({ user }: TripFeedProps) => {
     setTrips([]);
   }, []);
 
-  // ✅ REFINED: Single useEffect to handle both initial load and filter changes
+  // ✅ Keep existing useEffect unchanged
   useEffect(() => {
     fetchTrips(0, false);
   }, [fetchTrips]);
 
-  // Event handlers
+  // ✅ Keep all existing event handlers unchanged
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -367,13 +370,16 @@ const TripFeed = ({ user }: TripFeedProps) => {
     }
     setIsPostModalOpen(true);
   };
+
   const handleTripClick = (trip: Trip) => {
     setSelectedTrip(trip);
     navigate(`/trip/${trip.id}`);
   };
+
   const handleRecommendationClick = (tripId: number) => {
     navigate(`/trip/${tripId}`);
   };
+
   const handleTripJoin = (tripId: string | number) => {
     if (!user) {
       toast({
@@ -420,13 +426,13 @@ const TripFeed = ({ user }: TripFeedProps) => {
     });
   }, [handleFiltersChange]);
 
-  // ✅ REFINED: Computed property instead of useMemo
+  // ✅ Keep existing computed property unchanged
   const hasMore = trips.length < totalTrips;
 
   return (
     <div className="min-h-screen bg-background">
       <main className="pb-20">
-        {/* Welcome Banner */}
+        {/* Keep existing Welcome Banner unchanged */}
         <div className="p-4">
           <div className="gradient-warm rounded-2xl p-6 text-center space-y-2 shadow-soft">
             <h2 className="text-lg font-semibold text-white">
@@ -451,7 +457,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </div>
         </div>
 
-        {/* ✅ NEW: Recommendation Section */}
+        {/* Keep existing Recommendation Section unchanged */}
         {user && (
           <RecommendationSection
             user={user}
@@ -459,7 +465,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           />
         )}
 
-        {/* Map/List Toggle */}
+        {/* Keep all existing sections unchanged until the trip mapping */}
         <div className="px-4 mb-4">
           <Tabs
             value={activeView}
@@ -478,7 +484,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </Tabs>
         </div>
 
-        {/* Map View */}
+        {/* Keep existing Map View unchanged */}
         {activeView === "map" && (
           <div className="px-4 mb-6">
             <div className="space-y-4">
@@ -549,7 +555,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 </div>
               )}
 
-              {/* Map Legend */}
               <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground bg-muted/50 p-3 rounded-xl">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-red-500 rounded-full"></div>
@@ -576,7 +581,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </div>
         )}
 
-        {/* Filter Bar */}
+        {/* Keep existing Filter Bar unchanged */}
         <div className="px-4 mb-6">
           <FilterBar
             onFiltersChange={handleFiltersChange}
@@ -584,7 +589,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           />
         </div>
 
-        {/* Trip Feed */}
+        {/* Keep existing Trip Feed header unchanged */}
         <div className="px-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -621,6 +626,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           </div>
 
+          {/* Keep existing loading/empty states unchanged */}
           {loading && trips.length === 0 ? (
             <div className="text-center py-10">
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -643,7 +649,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* ✅ REFINED: Map directly over trips array */}
+              {/* ✅ UPDATED: Enhanced trip mapping with status support */}
               {trips.map((trip) => {
                 const participantCount = trip.current_participants || 0;
 
@@ -655,6 +661,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
                   startCity: trip.start_city,
                   description: trip.description || "No description provided.",
                   creator: {
+                    id: trip.creator_id, // ✅ NEW: Add creator ID for status management
                     name: trip.profiles?.full_name || "A Wanderer",
                     avatar: trip.profiles?.avatar_url || "",
                     rating: 4.8,
@@ -667,10 +674,13 @@ const TripFeed = ({ user }: TripFeedProps) => {
                     max: trip.max_participants,
                   },
                   interestedCount: participantCount,
-                  price: {
-                    amount: trip.budget_per_person || 0,
-                    currency: "INR",
-                  },
+                  status: trip.status as TripStatus, // ✅ NEW: Add status with proper typing
+                  price: trip.budget_per_person
+                    ? {
+                        amount: trip.budget_per_person,
+                        currency: "INR",
+                      }
+                    : undefined,
                   isFemaleOnly: false,
                   isInstantJoin: true,
                   postedAt: trip.created_at,
@@ -679,6 +689,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 return (
                   <div key={trip.id} className="relative">
                     <div className="absolute top-4 right-4 z-10">
+                      {/* Keep existing bookmark button commented */}
                       {/* <BookmarkButton
                         tripId={trip.id}
                         isBookmarked={isBookmarked(trip.id)}
@@ -690,12 +701,19 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
                     <EnhancedTripCard
                       {...enhancedTrip}
-                      isBookmarked={isBookmarked(trip.id)} // ← PASS DOWN
+                      isBookmarked={isBookmarked(trip.id)}
                       onBookmarkClick={() => toggleBookmark(trip.id)}
                       onClick={() => handleTripClick(trip)}
                       onJoinClick={() => handleTripJoin(trip.id)}
                       onChatClick={() => handleTripChat(trip.id)}
                       onLikeClick={() => console.log("Like trip:", trip.id)}
+                      onStatusChange={(newStatus) => {
+                        // ✅ NEW: Add status change handler
+                        console.log(
+                          `Trip ${trip.id} status changed to ${newStatus}`
+                        );
+                        refreshTrips(); // Refresh trips after status change
+                      }}
                     />
                   </div>
                 );
@@ -703,7 +721,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           )}
 
-          {/* Load More Button */}
+          {/* Keep all existing Load More and pagination unchanged */}
           {hasMore && trips.length > 0 && (
             <div className="flex justify-center pt-6">
               <Button
@@ -728,7 +746,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           )}
 
-          {/* End of results indicator */}
           {!hasMore && trips.length > 0 && (
             <div className="text-center pt-6 pb-4">
               <div className="inline-flex items-center px-4 py-2 rounded-full bg-muted text-muted-foreground text-sm">
@@ -740,13 +757,13 @@ const TripFeed = ({ user }: TripFeedProps) => {
           )}
         </div>
 
-        {/* Community Highlights */}
+        {/* Keep existing Community Highlights unchanged */}
         <div className="px-4 mt-8">
           <CommunityHighlights />
         </div>
       </main>
 
-      {/* Floating Action Button */}
+      {/* Keep all existing modals and floating action button unchanged */}
       <div className="fixed bottom-6 right-6 z-30">
         <Button
           variant="fab"
@@ -760,7 +777,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
         </div>
       </div>
 
-      {/* Modals */}
       <PostTripModal
         open={isPostModalOpen}
         onClose={() => setIsPostModalOpen(false)}

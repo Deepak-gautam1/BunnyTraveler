@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Calendar,
   MapPin,
@@ -13,14 +19,19 @@ import {
   Users,
   Verified,
   Clock,
+  CheckCircle,
+  PlayCircle,
+  PauseCircle,
+  MoreVertical,
+  Settings,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import BookmarkButton from "@/components/trip/BookmarkButton"; // ✅ NEW: Add import
-
-// --- UPDATES START HERE ---
+import BookmarkButton from "@/components/trip/BookmarkButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-// --- UPDATES END HERE ---
+
+// ✅ NEW: Import the trip status hook
+import { useTripStatus, TripStatus } from "@/hooks/useTripStatus";
 
 interface EnhancedTripCardProps {
   id: number;
@@ -30,6 +41,7 @@ interface EnhancedTripCardProps {
   startCity: string;
   description: string;
   creator: {
+    id: string; // ✅ NEW: Add creator ID for permission checks
     name: string;
     avatar?: string;
     rating: number;
@@ -43,7 +55,8 @@ interface EnhancedTripCardProps {
   };
   interestedCount: number;
   isLiked?: boolean;
-  isBookmarked?: boolean; // ✅ NEW: Add bookmark prop
+  isBookmarked?: boolean;
+  status?: TripStatus;
   price?: {
     amount: number;
     currency: string;
@@ -55,7 +68,8 @@ interface EnhancedTripCardProps {
   onJoinClick?: (tripId: string | number) => void;
   onChatClick?: () => void;
   onLikeClick?: () => void;
-  onBookmarkClick?: () => void; // ✅ NEW: Add bookmark handler
+  onBookmarkClick?: () => void;
+  onStatusChange?: (newStatus: TripStatus) => void; // ✅ NEW: Status change callback
 }
 
 const EnhancedTripCard = ({
@@ -70,7 +84,8 @@ const EnhancedTripCard = ({
   groupSize,
   interestedCount,
   isLiked = false,
-  isBookmarked = false, // ✅ NEW: Default bookmark state
+  isBookmarked = false,
+  status = "planning",
   price,
   isFemaleOnly = false,
   isInstantJoin = false,
@@ -79,17 +94,136 @@ const EnhancedTripCard = ({
   onJoinClick,
   onChatClick,
   onLikeClick,
-  onBookmarkClick, // ✅ NEW: Bookmark handler
+  onBookmarkClick,
+  onStatusChange,
 }: EnhancedTripCardProps) => {
   const [liked, setLiked] = useState(isLiked);
-  const [bookmarked, setBookmarked] = useState(isBookmarked); // ✅ NEW: Bookmark state
+  const [bookmarked, setBookmarked] = useState(isBookmarked);
   const [interested, setInterested] = useState(interestedCount);
+  const [currentStatus, setCurrentStatus] = useState<TripStatus>(status);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // --- UPDATES START HERE ---
   const { toast } = useToast();
+
+  // ✅ NEW: Initialize the trip status hook
+  const {
+    updateTripStatus,
+    autoUpdateStatusBasedOnDates,
+    loading: statusLoading,
+  } = useTripStatus(currentUser);
+
+  // ✅ NEW: Get current user on component mount
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    getCurrentUser();
+  }, []);
+
+  // ✅ NEW: Auto-update status based on dates when component mounts
+  useEffect(() => {
+    if (currentUser) {
+      autoUpdateStatusBasedOnDates(id);
+    }
+  }, [currentUser, id]);
+
+  // ✅ NEW: Status configuration with enhanced styling
+  const getStatusConfig = (status: TripStatus) => {
+    switch (status) {
+      case "planning":
+        return {
+          label: "Planning",
+          variant: "outline" as const,
+          className:
+            "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
+          icon: <PauseCircle className="w-3 h-3" />,
+        };
+      case "confirmed":
+        return {
+          label: "Confirmed",
+          variant: "default" as const,
+          className:
+            "bg-green-100 text-green-800 border-green-300 hover:bg-green-200",
+          icon: <CheckCircle className="w-3 h-3" />,
+        };
+      case "ongoing":
+        return {
+          label: "Live",
+          variant: "default" as const,
+          className:
+            "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 animate-pulse",
+          icon: <PlayCircle className="w-3 h-3" />,
+        };
+      case "completed":
+        return {
+          label: "Completed",
+          variant: "secondary" as const,
+          className: "bg-gray-100 text-gray-700 border-gray-300",
+          icon: <CheckCircle className="w-3 h-3" />,
+        };
+      default:
+        return {
+          label: "Planning",
+          variant: "outline" as const,
+          className: "bg-blue-50 text-blue-700 border-blue-200",
+          icon: <PauseCircle className="w-3 h-3" />,
+        };
+    }
+  };
+
+  const statusConfig = getStatusConfig(currentStatus);
+
+  // ✅ NEW: Handle status change
+  const handleStatusChange = async (newStatus: TripStatus) => {
+    const success = await updateTripStatus(
+      id,
+      newStatus,
+      `Status changed to ${newStatus}`
+    );
+    if (success) {
+      setCurrentStatus(newStatus);
+      onStatusChange?.(newStatus);
+    }
+  };
+
+  // ✅ NEW: Check if current user can manage trip
+  const canManageTrip = currentUser && currentUser.id === creator.id;
+
+  // ✅ NEW: Get available status transitions
+  const getAvailableStatusTransitions = (
+    currentStatus: TripStatus
+  ): TripStatus[] => {
+    switch (currentStatus) {
+      case "planning":
+        return ["confirmed"];
+      case "confirmed":
+        return ["planning", "ongoing"];
+      case "ongoing":
+        return ["completed"];
+      case "completed":
+        return []; // No transitions from completed
+      default:
+        return [];
+    }
+  };
+
+  const availableTransitions = getAvailableStatusTransitions(currentStatus);
 
   const handleJoin = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Prevent joining completed trips
+    if (currentStatus === "completed") {
+      toast({
+        title: "Trip completed",
+        description: "This trip has already ended",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const {
@@ -128,7 +262,6 @@ const EnhancedTripCard = ({
       });
     }
   };
-  // --- UPDATES END HERE ---
 
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -136,11 +269,10 @@ const EnhancedTripCard = ({
     onLikeClick?.();
   };
 
-  // ✅ NEW: Handle bookmark click
   const handleBookmark = async (tripId: number) => {
     setBookmarked(!bookmarked);
     onBookmarkClick?.();
-    return Promise.resolve(); // Return promise for BookmarkButton compatibility
+    return Promise.resolve();
   };
 
   const handleChat = (e: React.MouseEvent) => {
@@ -154,24 +286,81 @@ const EnhancedTripCard = ({
       (1000 * 60 * 60 * 24)
   );
 
+  // Determine if trip is joinable based on status
+  const isJoinable =
+    currentStatus === "planning" || currentStatus === "confirmed";
+  const buttonText =
+    currentStatus === "completed"
+      ? "Completed"
+      : currentStatus === "ongoing"
+      ? "In Progress"
+      : isInstantJoin
+      ? "Join Now"
+      : "Show Interest";
+
   return (
     <Card
-      className="overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group hover-scale relative" // ✅ ADD: relative
+      className="overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group hover-scale relative"
       onClick={onClick}
     >
-      {/* Top-right icons container with proper spacing */}
+      {/* Top-right icons container */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-        {/* Bookmark Button - Uses bookmark icon */}
+        {/* ✅ NEW: Status Badge with Management Dropdown for Trip Creator */}
+        {canManageTrip && availableTransitions.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Badge
+                variant={statusConfig.variant}
+                className={`text-xs font-medium cursor-pointer hover:opacity-80 ${statusConfig.className}`}
+              >
+                {statusConfig.icon}
+                <span className="ml-1">{statusConfig.label}</span>
+                <Settings className="w-3 h-3 ml-1" />
+              </Badge>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {availableTransitions.map((newStatus) => {
+                const newStatusConfig = getStatusConfig(newStatus);
+                return (
+                  <DropdownMenuItem
+                    key={newStatus}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStatusChange(newStatus);
+                    }}
+                    disabled={statusLoading}
+                  >
+                    {newStatusConfig.icon}
+                    <span className="ml-2">
+                      Mark as {newStatusConfig.label}
+                    </span>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          // ✅ Static status badge for non-creators or when no transitions available
+          <Badge
+            variant={statusConfig.variant}
+            className={`text-xs font-medium ${statusConfig.className}`}
+          >
+            {statusConfig.icon}
+            <span className="ml-1">{statusConfig.label}</span>
+          </Badge>
+        )}
+
+        {/* Bookmark Button */}
         <BookmarkButton
           tripId={id}
           isBookmarked={bookmarked}
           onToggle={handleBookmark}
           size="sm"
-          variant="bookmark" // ✅ IMPORTANT: Use "bookmark" not "heart"
+          variant="bookmark"
           className="bg-white/90 hover:bg-white shadow-sm"
         />
 
-        {/* Heart Button - Separate from bookmark */}
+        {/* Heart Button */}
         <button
           onClick={handleLike}
           className={`p-2 rounded-full bg-white/90 hover:bg-white shadow-sm transition-colors ${
@@ -181,19 +370,24 @@ const EnhancedTripCard = ({
           <Heart className={`w-4 h-4 ${liked ? "fill-current" : ""}`} />
         </button>
       </div>
+
       <CardContent className="p-0">
         <div className="p-4 pb-3 pt-12">
-          {" "}
-          {/* ✅ CHANGED: pt-12 to give space for top icons */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
                 <h3 className="font-semibold text-foreground leading-tight">
                   {destination}
                 </h3>
-                {isInstantJoin && (
+                {isInstantJoin && currentStatus !== "completed" && (
                   <Badge className="bg-green-100 text-green-800 text-xs">
                     ⚡ Instant Join
+                  </Badge>
+                )}
+                {isFemaleOnly && (
+                  <Badge className="bg-pink-100 text-pink-800 text-xs">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Women Only
                   </Badge>
                 )}
               </div>
@@ -211,18 +405,19 @@ const EnhancedTripCard = ({
                     })}
                   </span>
                 </div>
-                {daysUntilTrip <= 3 && daysUntilTrip >= 0 && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs bg-orange-50 text-orange-700 border-orange-200"
-                  >
-                    <Clock className="w-3 h-3 mr-1" />
-                    {daysUntilTrip}d left
-                  </Badge>
-                )}
+                {daysUntilTrip <= 3 &&
+                  daysUntilTrip >= 0 &&
+                  currentStatus !== "completed" && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-orange-50 text-orange-700 border-orange-200"
+                    >
+                      <Clock className="w-3 h-3 mr-1" />
+                      {daysUntilTrip}d left
+                    </Badge>
+                  )}
               </div>
             </div>
-            {/* ✅ REMOVED: The heart button that was here - now in top-right container */}
           </div>
           <div className="flex flex-wrap gap-1 mb-3">
             {vibe.slice(0, 3).map((v, index) => (
@@ -250,6 +445,12 @@ const EnhancedTripCard = ({
                   <span className="text-sm font-medium">{creator.name}</span>
                   {creator.verificationBadges.includes("verified") && (
                     <Verified className="w-3 h-3 text-accent" />
+                  )}
+                  {/* ✅ NEW: Show creator badge */}
+                  {canManageTrip && (
+                    <Badge variant="outline" className="text-xs">
+                      Creator
+                    </Badge>
                   )}
                 </div>
                 <div className="flex items-center space-x-2 text-xs text-muted-foreground">
@@ -295,12 +496,19 @@ const EnhancedTripCard = ({
                 <MessageCircle className="w-4 h-4" />
               </Button>
               <Button
-                variant={isInstantJoin ? "default" : "outline"}
+                variant={isJoinable && isInstantJoin ? "default" : "outline"}
                 size="sm"
                 onClick={handleJoin}
-                className={isInstantJoin ? "bg-accent hover:bg-accent/90" : ""}
+                disabled={!isJoinable}
+                className={
+                  isJoinable && isInstantJoin
+                    ? "bg-accent hover:bg-accent/90"
+                    : currentStatus === "completed"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }
               >
-                {isInstantJoin ? "Join Now" : "Show Interest"}
+                {buttonText}
               </Button>
             </div>
           </div>

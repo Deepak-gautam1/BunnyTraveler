@@ -1,5 +1,5 @@
 // src/components/trip/PostTripModal.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,14 +18,31 @@ import {
   Users,
   Sparkles,
   IndianRupee,
+  Edit3,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+// ✅ NEW: Add trip data type for editing
+interface TripData {
+  id: number;
+  destination: string;
+  start_city: string;
+  start_date: string;
+  end_date: string;
+  description: string | null;
+  max_group_size: number;
+  budget_per_person?: number;
+  travel_style?: string[];
+}
 
 interface PostTripModalProps {
   open: boolean;
   onClose: () => void;
   onTripCreated?: () => void;
+  onTripUpdated?: () => void; // ✅ NEW: Update callback
+  tripData?: TripData; // ✅ NEW: Optional trip data for editing
+  mode?: "create" | "edit"; // ✅ NEW: Modal mode
 }
 
 const availableTravelStyles = [
@@ -47,20 +64,47 @@ const PostTripModal = ({
   open,
   onClose,
   onTripCreated,
+  onTripUpdated,
+  tripData,
+  mode = "create", // ✅ NEW: Default to create mode
 }: PostTripModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const [formData, setFormData] = useState({
-    destination: "",
-    start_city: "",
-    start_date: "",
-    end_date: "",
-    description: "",
-    max_participants: 8,
-    budget_per_person: 0,
-    travel_style: [] as string[],
-  });
+  // ✅ NEW: Initialize form based on mode
+  const getInitialFormData = () => {
+    if (mode === "edit" && tripData) {
+      return {
+        destination: tripData.destination,
+        start_city: tripData.start_city,
+        start_date: tripData.start_date.split("T")[0], // Format for date input
+        end_date: tripData.end_date.split("T")[0],
+        description: tripData.description || "",
+        max_participants: tripData.max_group_size,
+        budget_per_person: tripData.budget_per_person || 0,
+        travel_style: tripData.travel_style || [],
+      };
+    }
+    return {
+      destination: "",
+      start_city: "",
+      start_date: "",
+      end_date: "",
+      description: "",
+      max_participants: 8,
+      budget_per_person: 0,
+      travel_style: [] as string[],
+    };
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData());
+
+  // ✅ NEW: Reset form when modal opens/closes or trip data changes
+  useEffect(() => {
+    if (open) {
+      setFormData(getInitialFormData());
+    }
+  }, [open, tripData, mode]);
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData((prev) => ({
@@ -86,7 +130,7 @@ const PostTripModal = ({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error("You must be logged in to post a trip.");
+      if (!user) throw new Error("You must be logged in to manage trips.");
 
       // Validate dates
       const startDate = new Date(formData.start_date);
@@ -94,7 +138,7 @@ const PostTripModal = ({
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      if (startDate < today) {
+      if (startDate < today && mode === "create") {
         throw new Error("Start date cannot be in the past.");
       }
 
@@ -102,64 +146,106 @@ const PostTripModal = ({
         throw new Error("End date must be after start date.");
       }
 
-      // ✅ FIXED: Match your exact database schema
-      const newTrip = {
-        creator_id: user.id,
-        destination: formData.destination.trim(),
-        start_city: formData.start_city.trim(),
-        start_date: formData.start_date,
-        end_date: formData.end_date,
-        description: formData.description.trim() || null,
-        max_participants: formData.max_participants,
-        budget_per_person:
-          formData.budget_per_person > 0 ? formData.budget_per_person : null,
-        travel_style:
-          formData.travel_style.length > 0 ? formData.travel_style : null,
-        status: "active",
-        current_participants: 1,
-      };
+      if (mode === "edit" && tripData) {
+        // ✅ UPDATE TRIP
+        const updateData = {
+          destination: formData.destination.trim(),
+          start_city: formData.start_city.trim(),
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          description: formData.description.trim() || null,
+          max_group_size: formData.max_participants,
+          budget_per_person:
+            formData.budget_per_person > 0 ? formData.budget_per_person : null,
+          travel_style:
+            formData.travel_style.length > 0 ? formData.travel_style : null,
+          updated_at: new Date().toISOString(),
+        };
 
-      console.log("Creating trip with data:", newTrip);
+        console.log("Updating trip with data:", updateData);
 
-      const { data, error } = await supabase.from("trips").insert([newTrip])
-        .select(`
-          *,
-          profiles:creator_id (
-            full_name,
-            avatar_url
-          )
-        `);
+        const { error } = await supabase
+          .from("trips")
+          .update(updateData)
+          .eq("id", tripData.id);
 
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
+        if (error) {
+          console.error("Supabase update error:", error);
+          throw error;
+        }
+
+        toast({
+          title: "🎉 Trip Updated!",
+          description: "Your trip details have been successfully updated!",
+        });
+
+        onTripUpdated?.();
+      } else {
+        // ✅ CREATE NEW TRIP
+        const newTrip = {
+          creator_id: user.id,
+          destination: formData.destination.trim(),
+          start_city: formData.start_city.trim(),
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          description: formData.description.trim() || null,
+          max_participants: formData.max_participants,
+          budget_per_person:
+            formData.budget_per_person > 0 ? formData.budget_per_person : null,
+          travel_style:
+            formData.travel_style.length > 0 ? formData.travel_style : null,
+          status: "active",
+          current_participants: 1,
+        };
+
+        console.log("Creating trip with data:", newTrip);
+
+        const { data, error } = await supabase.from("trips").insert([newTrip])
+          .select(`
+            *,
+            profiles:creator_id (
+              full_name,
+              avatar_url
+            )
+          `);
+
+        if (error) {
+          console.error("Supabase create error:", error);
+          throw error;
+        }
+
+        console.log("Trip created successfully:", data);
+
+        toast({
+          title: "🎉 Trip Created!",
+          description: "Your adventure is now live and ready for companions!",
+        });
+
+        onTripCreated?.();
       }
 
-      console.log("Trip created successfully:", data);
-
-      toast({
-        title: "🎉 Trip Created!",
-        description: "Your adventure is now live and ready for companions!",
-      });
-
-      // Reset form
-      setFormData({
-        destination: "",
-        start_city: "",
-        start_date: "",
-        end_date: "",
-        description: "",
-        max_participants: 8,
-        budget_per_person: 0,
-        travel_style: [],
-      });
+      // Reset form only for create mode
+      if (mode === "create") {
+        setFormData({
+          destination: "",
+          start_city: "",
+          start_date: "",
+          end_date: "",
+          description: "",
+          max_participants: 8,
+          budget_per_person: 0,
+          travel_style: [],
+        });
+      }
 
       onClose();
-      onTripCreated?.();
     } catch (error: any) {
-      console.error("Error creating trip:", error);
+      console.error(
+        `Error ${mode === "edit" ? "updating" : "creating"} trip:`,
+        error
+      );
       toast({
-        title: "Failed to create trip",
+        title: `Failed to ${mode === "edit" ? "update" : "create"} trip`,
         description: error.message || "Please try again later",
         variant: "destructive",
       });
@@ -181,15 +267,35 @@ const PostTripModal = ({
     return `₹${amount}`;
   };
 
+  // ✅ NEW: Dynamic content based on mode
+  const modalContent = {
+    create: {
+      title: "Create Your Adventure",
+      subtitle: "Share your travel plans and find amazing companions",
+      buttonText: "Create Adventure",
+      buttonIcon: <Sparkles className="w-4 h-4" />,
+      loadingText: "Creating Trip...",
+    },
+    edit: {
+      title: "Edit Your Adventure",
+      subtitle: "Update your trip details and preferences",
+      buttonText: "Update Trip",
+      buttonIcon: <Edit3 className="w-4 h-4" />,
+      loadingText: "Updating Trip...",
+    },
+  };
+
+  const content = modalContent[mode];
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="mx-4 rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
           <DialogTitle className="text-2xl font-bold text-center bg-gradient-warm bg-clip-text text-transparent">
-            Create Your Adventure
+            {content.title}
           </DialogTitle>
           <p className="text-sm text-muted-foreground text-center">
-            Share your travel plans and find amazing companions
+            {content.subtitle}
           </p>
         </DialogHeader>
 
@@ -246,7 +352,11 @@ const PostTripModal = ({
                   handleInputChange("start_date", e.target.value)
                 }
                 className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
-                min={new Date().toISOString().split("T")[0]}
+                min={
+                  mode === "create"
+                    ? new Date().toISOString().split("T")[0]
+                    : undefined
+                }
                 required
               />
             </div>
@@ -388,12 +498,12 @@ const PostTripModal = ({
               {loading ? (
                 <span className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Creating Trip...
+                  {content.loadingText}
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Create Adventure
+                  {content.buttonIcon}
+                  {content.buttonText}
                 </span>
               )}
             </Button>
@@ -401,7 +511,8 @@ const PostTripModal = ({
 
           {!isFormValid && (
             <p className="text-xs text-muted-foreground text-center">
-              Please fill in all required fields (*) to create your trip
+              Please fill in all required fields (*) to{" "}
+              {mode === "edit" ? "update" : "create"} your trip
             </p>
           )}
         </form>

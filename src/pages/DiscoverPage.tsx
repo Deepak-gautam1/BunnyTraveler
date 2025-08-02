@@ -538,6 +538,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                     startCity: trip.start_city,
                     description: trip.description || "No description provided.",
                     creator: {
+                      id: trip.creator_id, // ✅ ADD THIS: Missing creator ID
                       name: trip.profiles?.full_name || "A Wanderer",
                       avatar: trip.profiles?.avatar_url || "",
                       rating: 4.8,
@@ -550,10 +551,13 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                       max: trip.max_participants,
                     },
                     interestedCount: participantCount,
-                    price: {
-                      amount: trip.budget_per_person || 0,
-                      currency: "INR",
-                    },
+                    status: trip.status, // ✅ ADD THIS: Also add status if EnhancedTripCard expects it
+                    price: trip.budget_per_person
+                      ? {
+                          amount: trip.budget_per_person,
+                          currency: "INR",
+                        }
+                      : undefined, // ✅ IMPROVED: Make price optional when budget is null
                     isFemaleOnly: false,
                     isInstantJoin: true,
                     postedAt: trip.created_at,
@@ -561,25 +565,23 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
 
                   return (
                     <div key={trip.id} className="relative">
-                      {/* Bookmark Button */}
-                      <div className="absolute top-6 right-6 z-10">
-                        <BookmarkButton
-                          tripId={trip.id}
-                          isBookmarked={isBookmarked(trip.id)}
-                          onToggle={toggleBookmark}
-                          variant="bookmark"
-                          size="md"
-                        />
-                      </div>
-
                       <EnhancedTripCard
                         {...enhancedTrip}
+                        isBookmarked={isBookmarked(trip.id)} // ✅ ADD THIS: Bookmark state
+                        onBookmarkClick={() => toggleBookmark(trip.id)} // ✅ ADD THIS: Bookmark handler
                         onClick={() => handleTripSelect(trip)}
                         onJoinClick={() => handleTripJoin(trip.id)}
                         onChatClick={() =>
                           console.log("Chat for trip:", trip.id)
                         }
                         onLikeClick={() => console.log("Like trip:", trip.id)}
+                        onStatusChange={(newStatus) => {
+                          // ✅ ADD THIS: Status change handler
+                          console.log(
+                            `Trip ${trip.id} status changed to ${newStatus}`
+                          );
+                          refreshTrips(); // Refresh trips after status change
+                        }}
                       />
                     </div>
                   );
