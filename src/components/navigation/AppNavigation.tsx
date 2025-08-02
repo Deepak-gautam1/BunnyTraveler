@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { Tent } from "lucide-react";
 
 interface AppNavigationProps {
   user: User | null;
@@ -45,7 +47,7 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false); // ✅ ADD THIS STATE
-
+  const { unreadCount } = useUnreadMessages(user);
   const handleSignOut = async () => {
     setIsLoading(true);
     try {
@@ -75,14 +77,13 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
         <div className="container flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Compass className="h-4 w-4" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+              <Tent className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+            <span className="text-xl font-bold bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent">
               WanderTribe
             </span>
           </Link>
-
           {/* Main Navigation */}
           <NavigationMenu className="hidden md:flex">
             <NavigationMenuList>
@@ -186,16 +187,21 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                     >
                       <MessageCircle className="mr-2 h-4 w-4" />
                       Messages
-                      <Badge variant="secondary" className="ml-2">
-                        3
-                      </Badge>
+                      {/* ✅ REPLACED: Dynamic unread count instead of hardcoded "3" */}
+                      {unreadCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="ml-2 animate-pulse"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
                     </Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               )}
             </NavigationMenuList>
           </NavigationMenu>
-
           {/* User Actions */}
           <div className="flex items-center space-x-4">
             {user ? (

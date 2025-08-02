@@ -15,6 +15,7 @@ import {
   Clock,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import BookmarkButton from "@/components/trip/BookmarkButton"; // ✅ NEW: Add import
 
 // --- UPDATES START HERE ---
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +43,7 @@ interface EnhancedTripCardProps {
   };
   interestedCount: number;
   isLiked?: boolean;
+  isBookmarked?: boolean; // ✅ NEW: Add bookmark prop
   price?: {
     amount: number;
     currency: string;
@@ -50,9 +52,10 @@ interface EnhancedTripCardProps {
   isInstantJoin?: boolean;
   postedAt: string;
   onClick?: () => void;
-  onJoinClick?: (tripId: string | number) => void; // Can keep this if parent needs to know
+  onJoinClick?: (tripId: string | number) => void;
   onChatClick?: () => void;
   onLikeClick?: () => void;
+  onBookmarkClick?: () => void; // ✅ NEW: Add bookmark handler
 }
 
 const EnhancedTripCard = ({
@@ -67,6 +70,7 @@ const EnhancedTripCard = ({
   groupSize,
   interestedCount,
   isLiked = false,
+  isBookmarked = false, // ✅ NEW: Default bookmark state
   price,
   isFemaleOnly = false,
   isInstantJoin = false,
@@ -75,8 +79,10 @@ const EnhancedTripCard = ({
   onJoinClick,
   onChatClick,
   onLikeClick,
+  onBookmarkClick, // ✅ NEW: Bookmark handler
 }: EnhancedTripCardProps) => {
   const [liked, setLiked] = useState(isLiked);
+  const [bookmarked, setBookmarked] = useState(isBookmarked); // ✅ NEW: Bookmark state
   const [interested, setInterested] = useState(interestedCount);
 
   // --- UPDATES START HERE ---
@@ -94,8 +100,6 @@ const EnhancedTripCard = ({
           title: "Please sign in to join a trip.",
           variant: "destructive",
         });
-        // Optionally, you can call a function to show the sign-in modal
-        // onJoinClick?.(id); // This would trigger the check in the parent
         return;
       }
 
@@ -105,7 +109,6 @@ const EnhancedTripCard = ({
 
       if (error) {
         if (error.code === "23505") {
-          // Unique constraint violation
           toast({ title: "You've already shown interest in this trip!" });
         } else {
           throw error;
@@ -115,7 +118,7 @@ const EnhancedTripCard = ({
           title: "You're in!",
           description: "You have successfully shown interest in the trip.",
         });
-        setInterested((prev) => prev + 1); // Optimistically update the count
+        setInterested((prev) => prev + 1);
       }
     } catch (error: any) {
       toast({
@@ -130,8 +133,14 @@ const EnhancedTripCard = ({
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     setLiked(!liked);
-    // Note: The interested count shouldn't be tied to the like button
     onLikeClick?.();
+  };
+
+  // ✅ NEW: Handle bookmark click
+  const handleBookmark = async (tripId: number) => {
+    setBookmarked(!bookmarked);
+    onBookmarkClick?.();
+    return Promise.resolve(); // Return promise for BookmarkButton compatibility
   };
 
   const handleChat = (e: React.MouseEvent) => {
@@ -147,11 +156,35 @@ const EnhancedTripCard = ({
 
   return (
     <Card
-      className="overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group hover-scale"
-      onClick={onClick} // Make sure this calls the parent's handleTripClick
+      className="overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group hover-scale relative" // ✅ ADD: relative
+      onClick={onClick}
     >
+      {/* Top-right icons container with proper spacing */}
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+        {/* Bookmark Button - Uses bookmark icon */}
+        <BookmarkButton
+          tripId={id}
+          isBookmarked={bookmarked}
+          onToggle={handleBookmark}
+          size="sm"
+          variant="bookmark" // ✅ IMPORTANT: Use "bookmark" not "heart"
+          className="bg-white/90 hover:bg-white shadow-sm"
+        />
+
+        {/* Heart Button - Separate from bookmark */}
+        <button
+          onClick={handleLike}
+          className={`p-2 rounded-full bg-white/90 hover:bg-white shadow-sm transition-colors ${
+            liked ? "text-red-500" : "text-muted-foreground hover:text-red-500"
+          }`}
+        >
+          <Heart className={`w-4 h-4 ${liked ? "fill-current" : ""}`} />
+        </button>
+      </div>
       <CardContent className="p-0">
-        <div className="p-4 pb-3">
+        <div className="p-4 pb-3 pt-12">
+          {" "}
+          {/* ✅ CHANGED: pt-12 to give space for top icons */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
@@ -189,16 +222,7 @@ const EnhancedTripCard = ({
                 )}
               </div>
             </div>
-            <button
-              onClick={handleLike}
-              className={`p-2 rounded-full transition-colors ${
-                liked
-                  ? "text-red-500"
-                  : "text-muted-foreground hover:text-red-500"
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${liked ? "fill-current" : ""}`} />
-            </button>
+            {/* ✅ REMOVED: The heart button that was here - now in top-right container */}
           </div>
           <div className="flex flex-wrap gap-1 mb-3">
             {vibe.slice(0, 3).map((v, index) => (
@@ -273,7 +297,7 @@ const EnhancedTripCard = ({
               <Button
                 variant={isInstantJoin ? "default" : "outline"}
                 size="sm"
-                onClick={handleJoin} // Updated to use the new functional handler
+                onClick={handleJoin}
                 className={isInstantJoin ? "bg-accent hover:bg-accent/90" : ""}
               >
                 {isInstantJoin ? "Join Now" : "Show Interest"}

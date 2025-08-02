@@ -103,171 +103,171 @@ const RecommendationSection = ({
     );
   }
 
-  return (
-    <div className="px-4 mb-8">
-      {/* Section Header */}
-      <div className="flex items-center justify-between mb-4">
+return (
+    <div className="px-4 mb-6"> {/* ✅ Reduced margin from mb-8 to mb-6 */}
+      {/* Section Header - More Compact */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+            <Sparkles className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">Recommended For You</h2>
-            <p className="text-sm text-muted-foreground">
-              Personalized picks based on your interests
+            <h2 className="text-lg font-bold">Recommended For You</h2>
+            <p className="text-xs text-muted-foreground">
+              AI-powered picks based on your interests
             </p>
           </div>
         </div>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => refreshRecommendations()}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`}
-          />
-          Refresh
+        
+        <Button variant="ghost" size="sm" onClick={() => refreshRecommendations()}>
+          <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
 
-      {/* Recommendations Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {recommendations.map((trip) => (
-          <Card
-            key={trip.trip_id}
-            className="group hover:shadow-lg transition-all duration-200 cursor-pointer border-0 shadow-soft relative overflow-hidden"
-            onClick={() => onTripClick(trip.trip_id)}
-          >
-            {/* Recommendation Score Badge */}
-            <div className="absolute top-1 left-3 z-10">
-              <Badge
-                className={`text-xs font-medium ${getScoreColor(
-                  trip.recommendation_score
-                )}`}
-              >
-                <Star className="w-3 h-3 mr-1 fill-current" />
-                {getScoreLabel(trip.recommendation_score)}
-              </Badge>
-            </div>
+      {/* ✅ NEW: Horizontal Scrolling Container */}
+      <div className="relative">
+        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-mandatory">
+          {recommendations.map((trip) => (
+            <Card 
+              key={trip.trip_id} 
+              className="group hover:shadow-lg transition-all duration-200 cursor-pointer border-0 shadow-soft relative overflow-hidden flex-shrink-0 w-80 snap-start" // ✅ Fixed width for horizontal scroll
+              onClick={() => onTripClick(trip.trip_id)}
+            >
+              {/* Score Badge */}
+              <div className="absolute top-2 left-2 z-10">
+                <Badge className={`text-xs font-medium px-2 py-1 ${getScoreColor(trip.recommendation_score)}`}>
+                  <Star className="w-3 h-3 mr-1 fill-current" />
+                  {Math.round(trip.recommendation_score)}%
+                </Badge>
+              </div>
 
-            {/* Bookmark Button */}
-            <div className="absolute top-3 right-3 z-10">
-              <BookmarkButton
-                tripId={trip.trip_id}
-                isBookmarked={isBookmarked(trip.trip_id)}
-                onToggle={toggleBookmark}
-                variant="bookmark"
+              {/* Bookmark Button */}
+              <div className="absolute top-2 right-2 z-10">
+                <BookmarkButton
+                  tripId={trip.trip_id}
+                  isBookmarked={isBookmarked(trip.trip_id)}
+                  onToggle={toggleBookmark}
+                  variant="bookmark"
+                  size="sm"
+                  className="bg-white/90 hover:bg-white shadow-sm"
+                />
+              </div>
+
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="pt-4"> {/* Space for badges */}
+                    <h3 className="font-semibold text-base group-hover:text-accent transition-colors line-clamp-1 mb-1">
+                      {trip.destination}
+                    </h3>
+                    
+                    <div className="flex items-center text-sm text-muted-foreground mb-2">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      <span>From {trip.start_city}</span>
+                    </div>
+                  </div>
+
+                  {/* Travel Styles */}
+                  {trip.travel_style && trip.travel_style.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {trip.travel_style.slice(0, 2).map((style, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {style}
+                        </Badge>
+                      ))}
+                      {trip.travel_style.length > 2 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{trip.travel_style.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Trip Details */}
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex items-center text-muted-foreground">
+                      <Calendar className="w-3 h-3 mr-1 text-accent" />
+                      <span className="text-xs">
+                        {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-muted-foreground">
+                        <Users className="w-3 h-3 mr-1 text-accent" />
+                        <span className="text-xs">
+                          {trip.current_participants}/{trip.max_participants}
+                        </span>
+                      </div>
+                      
+                      {trip.budget_per_person && (
+                        <div className="flex items-center text-sm">
+                          <IndianRupee className="w-3 h-3 mr-1 text-accent" />
+                          <span className="font-semibold text-accent text-xs">
+                            {formatBudget(trip.budget_per_person)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {trip.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {trip.description}
+                    </p>
+                  )}
+
+                  {/* Creator */}
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex items-center space-x-2">
+                      <Avatar className="w-5 h-5">
+                        <AvatarImage src={trip.creator_avatar} />
+                        <AvatarFallback className="text-xs bg-accent/10 text-accent">
+                          {trip.creator_name?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs text-muted-foreground truncate">
+                        by {trip.creator_name}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          
+          {/* ✅ "View More" Card */}
+          <Card className="flex-shrink-0 w-48 snap-start border-dashed border-2 hover:border-accent transition-colors cursor-pointer">
+            <CardContent className="p-4 h-full flex flex-col items-center justify-center text-center">
+              <div className="p-3 bg-accent/10 rounded-full mb-3">
+                <Sparkles className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="font-semibold text-sm mb-1">More Recommendations</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                View all AI-powered suggestions
+              </p>
+              <Button 
+                variant="outline" 
                 size="sm"
-                className="bg-white/90 hover:bg-white"
-              />
-            </div>
-
-            <CardHeader className="pb-3">
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg group-hover:text-accent transition-colors line-clamp-1">
-                  {trip.destination}
-                </h3>
-
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4 mr-1" />
-                  <span>From {trip.start_city}</span>
-                </div>
-
-                {/* Travel Styles */}
-                {trip.travel_style && trip.travel_style.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {trip.travel_style.slice(0, 2).map((style, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="text-xs"
-                      >
-                        {style}
-                      </Badge>
-                    ))}
-                    {trip.travel_style.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{trip.travel_style.length - 2}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-0">
-              <div className="space-y-3">
-                {/* Trip Details */}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center text-muted-foreground">
-                    <Calendar className="w-4 h-4 mr-1 text-accent" />
-                    <span>
-                      {formatDate(trip.start_date)} -{" "}
-                      {formatDate(trip.end_date)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center text-muted-foreground">
-                    <Users className="w-4 h-4 mr-1 text-accent" />
-                    <span>
-                      {trip.current_participants}/{trip.max_participants}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Budget */}
-                {trip.budget_per_person && (
-                  <div className="flex items-center text-sm">
-                    <IndianRupee className="w-4 h-4 mr-1 text-accent" />
-                    <span className="font-semibold text-accent">
-                      {formatBudget(trip.budget_per_person)} per person
-                    </span>
-                  </div>
-                )}
-
-                {/* Description */}
-                {trip.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {trip.description}
-                  </p>
-                )}
-
-                {/* Creator */}
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <div className="flex items-center space-x-2">
-                    <Avatar className="w-6 h-6">
-                      <AvatarImage src={trip.creator_avatar} />
-                      <AvatarFallback className="text-xs bg-accent/10 text-accent">
-                        {trip.creator_name?.charAt(0) || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs text-muted-foreground">
-                      by {trip.creator_name}
-                    </span>
-                  </div>
-
-                  <Badge variant="outline" className="text-xs">
-                    {Math.round(trip.recommendation_score)}% match
-                  </Badge>
-                </div>
-              </div>
+                onClick={() => navigate('/trips/recommendations')}
+              >
+                View All
+              </Button>
             </CardContent>
           </Card>
-        ))}
-      </div>
-
-      {/* View All Button */}
-      {recommendations.length >= 6 && (
-        <div className="text-center mt-6">
-          <Button variant="outline" onClick={() => refreshRecommendations(20)}>
-            View More Recommendations
-          </Button>
         </div>
-      )}
+        
+        {/* ✅ Scroll Indicators (optional) */}
+        <div className="flex justify-center mt-2 gap-1">
+          <div className="h-1 w-8 bg-accent/20 rounded-full"></div>
+          <div className="h-1 w-2 bg-accent/40 rounded-full"></div>
+          <div className="h-1 w-2 bg-accent/40 rounded-full"></div>
+        </div>
+      </div>
     </div>
   );
 };
+
 
 export default RecommendationSection;

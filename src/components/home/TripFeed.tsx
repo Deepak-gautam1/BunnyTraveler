@@ -367,12 +367,13 @@ const TripFeed = ({ user }: TripFeedProps) => {
     }
     setIsPostModalOpen(true);
   };
-
-  const handleTripClick = (trip: any) => {
+  const handleTripClick = (trip: Trip) => {
     setSelectedTrip(trip);
     navigate(`/trip/${trip.id}`);
   };
-
+  const handleRecommendationClick = (tripId: number) => {
+    navigate(`/trip/${tripId}`);
+  };
   const handleTripJoin = (tripId: string | number) => {
     if (!user) {
       toast({
@@ -452,7 +453,10 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
         {/* ✅ NEW: Recommendation Section */}
         {user && (
-          <RecommendationSection user={user} onTripClick={handleTripClick} />
+          <RecommendationSection
+            user={user}
+            onTripClick={handleRecommendationClick}
+          />
         )}
 
         {/* Map/List Toggle */}
@@ -675,17 +679,19 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 return (
                   <div key={trip.id} className="relative">
                     <div className="absolute top-4 right-4 z-10">
-                      <BookmarkButton
+                      {/* <BookmarkButton
                         tripId={trip.id}
                         isBookmarked={isBookmarked(trip.id)}
                         onToggle={toggleBookmark}
                         variant="bookmark"
                         size="md"
-                      />
+                      /> */}
                     </div>
 
                     <EnhancedTripCard
                       {...enhancedTrip}
+                      isBookmarked={isBookmarked(trip.id)} // ← PASS DOWN
+                      onBookmarkClick={() => toggleBookmark(trip.id)}
                       onClick={() => handleTripClick(trip)}
                       onJoinClick={() => handleTripJoin(trip.id)}
                       onChatClick={() => handleTripChat(trip.id)}

@@ -34,6 +34,19 @@ export const useMessages = (user: User | null) => {
     string | null
   >(null);
 
+  // ✅ HELPER: Time ago calculation
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = (now.getTime() - date.getTime()) / 1000;
+
+    if (diffInSeconds < 60) return "Just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  };
+
   // ✅ UPDATED: Fetch conversations using your private_messages table
   const fetchConversations = async () => {
     if (!user) return;
@@ -113,7 +126,7 @@ export const useMessages = (user: User | null) => {
     }
   };
 
-  // ✅ UPDATED: Fetch messages between user and selected participant
+  // ✅ IMPROVED: Fetch messages with better read handling
   const fetchMessages = async (participantId: string) => {
     if (!user) return;
 
@@ -137,22 +150,38 @@ export const useMessages = (user: User | null) => {
 
       setMessages(messagesWithDetails);
 
-      // Mark received messages as read
-      await supabase
+      // ✅ IMPROVED: Mark received messages as read and get count of updated messages
+      const { count: updatedCount, error: updateError } = await supabase
         .from("private_messages")
         .update({ read_at: new Date().toISOString() })
         .eq("sender_id", participantId)
         .eq("receiver_id", user.id)
-        .is("read_at", null);
+        .is("read_at", null)
+        .select("*", { count: "exact" });
 
-      // Refresh conversations to update unread count
-      await fetchConversations();
+      if (updateError) {
+        console.error("Error marking messages as read:", updateError);
+      } else if (updatedCount && updatedCount > 0) {
+        console.log(`Marked ${updatedCount} messages as read`);
+
+        // ✅ OPTIMIZED: Update conversations state directly instead of refetching
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.participantId === participantId
+              ? {
+                  ...conv,
+                  unreadCount: Math.max(0, conv.unreadCount - updatedCount),
+                }
+              : conv
+          )
+        );
+      }
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
   };
 
-  // ✅ UPDATED: Send message using your table structure
+  // ✅ OPTIMIZED: Send message with optimistic updates to prevent refreshing
   const sendMessage = async (
     receiverId: string,
     content: string,
@@ -160,39 +189,87 @@ export const useMessages = (user: User | null) => {
   ) => {
     if (!user || !content.trim()) return;
 
+    const messageContent = content.trim();
+    const tempId = Date.now();
+
     try {
-      const { error } = await supabase.from("private_messages").insert({
+      // ✅ Create optimistic message first
+      const optimisticMessage: MessageWithDetails = {
+        id: tempId,
         sender_id: user.id,
         receiver_id: receiverId,
         trip_id: tripId || null,
-        content: content.trim(),
-      });
+        content: messageContent,
+        created_at: new Date().toISOString(),
+        read_at: null,
+        isOwn: true,
+      };
+
+      // ✅ Add to messages immediately (optimistic update)
+      setMessages((prev) => [...prev, optimisticMessage]);
+
+      // ✅ Update conversations optimistically - no flicker
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.participantId === receiverId
+            ? {
+                ...conv,
+                lastMessage: messageContent,
+                lastMessageTime: "Just now",
+              }
+            : conv
+        )
+      );
+
+      // Send to database
+      const { data, error } = await supabase
+        .from("private_messages")
+        .insert({
+          sender_id: user.id,
+          receiver_id: receiverId,
+          trip_id: tripId || null,
+          content: messageContent,
+        })
+        .select("*")
+        .single();
 
       if (error) throw error;
 
-      // Refresh messages and conversations
-      await fetchMessages(receiverId);
-      await fetchConversations();
+      // ✅ Replace optimistic message with real one
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? ({ ...data, isOwn: true } as MessageWithDetails)
+            : msg
+        )
+      );
+
+      // ✅ Update conversation with real timestamp
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.participantId === receiverId
+            ? {
+                ...conv,
+                lastMessage: messageContent,
+                lastMessageTime: getTimeAgo(data.created_at),
+              }
+            : conv
+        )
+      );
     } catch (error) {
       console.error("Error sending message:", error);
+
+      // ✅ Remove optimistic message on error
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+
+      // ✅ Restore original conversation state on error
+      // Real-time subscription will handle restoring the correct state
+
       throw error;
     }
   };
 
-  // ✅ HELPER: Time ago calculation
-  const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = (now.getTime() - date.getTime()) / 1000;
-
-    if (diffInSeconds < 60) return "Just now";
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400)
-      return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  };
-
-  // ✅ UPDATED: Real-time subscriptions for your table
+  // ✅ OPTIMIZED: Smart real-time subscriptions to prevent unnecessary refreshes
   useEffect(() => {
     if (!user) return;
 
@@ -201,27 +278,101 @@ export const useMessages = (user: User | null) => {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "private_messages",
         },
         (payload) => {
-          // Refresh conversations when new message arrives
-          fetchConversations();
+          const newMessage = payload.new as any;
+          console.log("📨 New message received:", newMessage);
 
-          // If currently viewing conversation with the sender, refresh messages
+          // ✅ Only update current conversation if viewing it
           if (
             selectedParticipantId &&
-            (payload.new?.sender_id === selectedParticipantId ||
-              payload.new?.receiver_id === selectedParticipantId)
+            (newMessage.sender_id === selectedParticipantId ||
+              newMessage.receiver_id === selectedParticipantId)
           ) {
-            fetchMessages(selectedParticipantId);
+            // Add new message to current conversation only if it's not our own optimistic update
+            const isOwnMessage = newMessage.sender_id === user.id;
+            if (!isOwnMessage) {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  ...newMessage,
+                  isOwn: false,
+                },
+              ]);
+            }
+          }
+
+          // ✅ Smart conversation updates - only update specific conversation
+          const partnerId =
+            newMessage.sender_id === user.id
+              ? newMessage.receiver_id
+              : newMessage.sender_id;
+
+          setConversations((prev) => {
+            const updatedConversations = prev.map((conv) => {
+              if (conv.participantId === partnerId) {
+                return {
+                  ...conv,
+                  lastMessage: newMessage.content,
+                  lastMessageTime: getTimeAgo(newMessage.created_at),
+                  // Increment unread count only if it's not our own message
+                  unreadCount:
+                    newMessage.sender_id === user.id
+                      ? conv.unreadCount
+                      : conv.unreadCount + 1,
+                };
+              }
+              return conv;
+            });
+
+            // Sort conversations by latest message
+            return updatedConversations.sort((a, b) => {
+              if (a.participantId === partnerId) return -1;
+              if (b.participantId === partnerId) return 1;
+              return 0;
+            });
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "private_messages",
+        },
+        (payload) => {
+          const updatedMessage = payload.new as any;
+          const oldMessage = payload.old as any;
+
+          // ✅ Handle read status updates
+          if (!oldMessage.read_at && updatedMessage.read_at) {
+            console.log("📖 Message marked as read");
+
+            // Update read status in current messages if viewing this conversation
+            if (
+              selectedParticipantId &&
+              (updatedMessage.sender_id === selectedParticipantId ||
+                updatedMessage.receiver_id === selectedParticipantId)
+            ) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === updatedMessage.id
+                    ? { ...msg, read_at: updatedMessage.read_at }
+                    : msg
+                )
+              );
+            }
           }
         }
       )
       .subscribe();
 
     return () => {
+      console.log("🔌 Cleaning up message subscription");
       supabase.removeChannel(messageChannel);
     };
   }, [user?.id, selectedParticipantId]);

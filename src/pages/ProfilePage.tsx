@@ -211,7 +211,7 @@ const ProfilePage = ({ currentUser }: ProfilePageProps) => {
             {isOwnProfile && (
               <Button
                 onClick={() => setIsEditModalOpen(true)}
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 bg-accent text-accent-foreground hover:bg-accent/90 hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground transition-colors"
               >
                 <Edit className="w-4 h-4" />
                 <span>Edit Profile</span>

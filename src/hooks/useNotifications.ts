@@ -1,6 +1,8 @@
+// hooks/useNotifications.ts
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Notification {
   id: string;
@@ -19,6 +21,7 @@ export const useNotifications = (user: User | null) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast(); // ✅ ADDED: Toast for user feedback
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -37,6 +40,12 @@ export const useNotifications = (user: User | null) => {
       setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      // ✅ ENHANCED: Better error handling
+      toast({
+        title: "Error",
+        description: "Failed to load notifications",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -57,6 +66,11 @@ export const useNotifications = (user: User | null) => {
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error("Error marking notification as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark notification as read",
+        variant: "destructive",
+      });
     }
   };
 
@@ -74,11 +88,23 @@ export const useNotifications = (user: User | null) => {
 
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
+
+      // ✅ ENHANCED: Success feedback
+      toast({
+        title: "Success",
+        description: "All notifications marked as read",
+      });
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark all notifications as read",
+        variant: "destructive",
+      });
     }
   };
 
+  // ✅ ENHANCED: Better deleteNotification with toast feedback
   const deleteNotification = async (notificationId: string) => {
     try {
       const { error } = await supabase
@@ -88,13 +114,26 @@ export const useNotifications = (user: User | null) => {
 
       if (error) throw error;
 
+      // ✅ IMPROVED: Update state immediately for better UX
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       setUnreadCount((prev) => {
         const notification = notifications.find((n) => n.id === notificationId);
         return notification && !notification.is_read ? prev - 1 : prev;
       });
+
+      // ✅ ENHANCED: Success feedback
+      toast({
+        title: "Notification deleted",
+        description: "The notification has been removed",
+      });
     } catch (error) {
       console.error("Error deleting notification:", error);
+      // ✅ ENHANCED: Better error messaging
+      toast({
+        title: "Error",
+        description: "Could not remove notification. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -111,8 +150,19 @@ export const useNotifications = (user: User | null) => {
 
       setNotifications([]);
       setUnreadCount(0);
+
+      // ✅ ENHANCED: Success feedback
+      toast({
+        title: "All notifications deleted",
+        description: "Your notification history has been cleared",
+      });
     } catch (error) {
       console.error("Error deleting all notifications:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete all notifications",
+        variant: "destructive",
+      });
     }
   };
 
@@ -150,7 +200,7 @@ export const useNotifications = (user: User | null) => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
-    deleteAllNotifications,
+    deleteNotification, // ✅ Enhanced with toast feedback
+    deleteAllNotifications, // ✅ Enhanced with toast feedback
   };
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/useMessages";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   MessageCircle,
   Search,
@@ -38,6 +39,54 @@ const MessagesPage = ({ user }: MessagesPageProps) => {
     sendMessage,
   } = useMessages(user);
 
+  useEffect(() => {
+    if (selectedParticipantId) {
+      // Small delay to ensure messages are loaded first
+      const timer = setTimeout(() => {
+        fetchMessages(selectedParticipantId);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [selectedParticipantId, fetchMessages]);
+
+  // In your MessagesPage.tsx - enhance the mark as read function
+  useEffect(() => {
+    if (user && conversations.length > 0) {
+      const markAllAsRead = async () => {
+        try {
+          const { count, error } = await supabase
+            .from("private_messages")
+            .update({ read_at: new Date().toISOString() })
+            .eq("receiver_id", user.id)
+            .is("read_at", null)
+            .select("*", { count: "exact" });
+
+          if (error) {
+            console.error("Error marking all messages as read:", error);
+          } else if (count && count > 0) {
+            console.log(`✅ Marked ${count} messages as read on page load`);
+
+            // ✅ NEW: Manually trigger a count refresh immediately
+            // This ensures the navigation updates without waiting for real-time
+            if (window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent("unread-count-changed"));
+            }
+          }
+        } catch (error) {
+          console.error("Error marking messages as read:", error);
+        }
+      };
+
+      // Small delay to ensure conversations are loaded
+      const timer = setTimeout(() => {
+        markAllAsRead();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [user, conversations.length]);
+
   // Handle conversation selection
   const handleConversationSelect = async (participantId: string) => {
     setSelectedParticipantId(participantId);
@@ -45,26 +94,35 @@ const MessagesPage = ({ user }: MessagesPageProps) => {
   };
 
   // Handle sending message
+  // ✅ FIXED: Optimistic UI - clear input immediately
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedParticipantId) return;
+
+    // ✅ Store message content and clear input IMMEDIATELY
+    const messageContent = newMessage.trim();
+    setNewMessage(""); // Clear input box right away for instant feedback
 
     try {
       // Get trip ID from current conversation if exists
       const currentConversation = conversations.find(
         (c) => c.participantId === selectedParticipantId
       );
+
+      // Send message with stored content
       await sendMessage(
         selectedParticipantId,
-        newMessage,
+        messageContent,
         currentConversation?.tripId
       );
-      setNewMessage("");
 
       toast({
         title: "Message sent! 📨",
         description: "Your message has been delivered.",
       });
     } catch (error) {
+      // ✅ IMPORTANT: Restore message if sending fails
+      setNewMessage(messageContent);
+
       toast({
         title: "Failed to send message",
         description: "Please try again.",

@@ -20,7 +20,7 @@ import {
   BellRing,
   Check,
   CheckCheck,
-  Trash2,
+  Trash2, // ✅ Already imported - good!
   X,
   Users,
   MessageCircle,
@@ -43,7 +43,7 @@ const NotificationsDropdown = ({ user }: NotificationsDropdownProps) => {
     loading,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
+    deleteNotification, // ✅ Already destructured - perfect!
     deleteAllNotifications,
   } = useNotifications(user);
 
@@ -218,7 +218,7 @@ const NotificationsDropdown = ({ user }: NotificationsDropdownProps) => {
                   </div>
                 </DropdownMenuItem>
 
-                {/* Individual notification actions */}
+                {/* ✅ ENHANCED: Individual notification actions with better styling */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="flex gap-1">
                     {!notification.is_read && (
@@ -229,11 +229,13 @@ const NotificationsDropdown = ({ user }: NotificationsDropdownProps) => {
                           e.stopPropagation();
                           markAsRead(notification.id);
                         }}
-                        className="w-6 h-6 p-0"
+                        className="w-7 h-7 p-0 hover:bg-green-100 hover:text-green-700"
+                        title="Mark as read"
                       >
                         <Check className="w-3 h-3" />
                       </Button>
                     )}
+                    {/* ✅ ENHANCED: Better delete button with Trash2 icon */}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -241,9 +243,10 @@ const NotificationsDropdown = ({ user }: NotificationsDropdownProps) => {
                         e.stopPropagation();
                         deleteNotification(notification.id);
                       }}
-                      className="w-6 h-6 p-0 text-red-600 hover:text-red-700"
+                      className="w-7 h-7 p-0 hover:bg-red-100 hover:text-red-700"
+                      title="Delete notification"
                     >
-                      <X className="w-3 h-3" />
+                      <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>

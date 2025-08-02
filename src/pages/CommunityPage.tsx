@@ -629,11 +629,12 @@ const CommunityPage = ({ user }: CommunityPageProps) => {
             <div className="flex gap-4 justify-center">
               <Button
                 onClick={handleCreateTrip}
-                className="flex items-center space-x-2"
+                className="group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 bg-accent text-accent-foreground space-x-2"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Create a Trip</span>
               </Button>
+
               <Button variant="outline" asChild>
                 <Link to="/discover">Discover Trips</Link>
               </Button>

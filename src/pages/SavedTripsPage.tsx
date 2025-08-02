@@ -270,22 +270,16 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                 isInstantJoin: true,
                 postedAt: trip.start_date,
                 bookmarkedAt: bookmark.bookmarked_at,
+                // ✅ NEW: Pass bookmark state to avoid external wrapper
+                isBookmarked: true,
+                isLiked: false, // Default like state
               };
 
               return (
                 <div key={bookmark.id} className="relative">
-                  {/* Bookmark Badge */}
-                  <div className="absolute top-4 right-4 z-10">
-                    <BookmarkButton
-                      tripId={trip.id}
-                      isBookmarked={true}
-                      onToggle={toggleBookmark}
-                      variant="heart"
-                      size="md"
-                    />
-                  </div>
+                  {/* ✅ REMOVE: External BookmarkButton wrapper that was causing overlap */}
 
-                  {/* Saved Date Badge */}
+                  {/* Saved Date Badge - Keep this */}
                   <div className="absolute top-4 left-4 z-10">
                     <Badge
                       variant="secondary"
@@ -296,12 +290,14 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                     </Badge>
                   </div>
 
+                  {/* ✅ FIXED: EnhancedTripCard handles both bookmark and heart internally */}
                   <EnhancedTripCard
                     {...enhancedTrip}
                     onClick={() => handleTripClick(trip.id)}
                     onJoinClick={() => console.log("Join trip:", trip.id)}
                     onChatClick={() => console.log("Chat for trip:", trip.id)}
                     onLikeClick={() => console.log("Like trip:", trip.id)}
+                    onBookmarkClick={() => toggleBookmark(trip.id)} // ✅ NEW: Handle bookmark toggle
                   />
                 </div>
               );
