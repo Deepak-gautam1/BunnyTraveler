@@ -15,9 +15,9 @@ import { useJoinRequestManagement } from "@/hooks/useJoinRequestManagement";
 import JoinRequestActions from "@/components/trip/JoinRequestActions";
 import JoinRequestsList from "@/components/trip/JoinRequestsList";
 import JoinRequestDialog from "@/components/trip/JoinRequestDialog";
-import { XCircle } from "lucide-react"; // Add these if not already imported
+import { XCircle } from "lucide-react";
 
-// ✅ Add AlertDialog imports for delete confirmation
+// AlertDialog imports for delete confirmation
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,7 +60,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-// Types (keep existing)
+// Types
 type Profile = {
   id: string;
   full_name: string | null;
@@ -101,40 +101,18 @@ const TripDetailsPage = () => {
   const [isPrivateChatOpen, setIsPrivateChatOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // ✅ NEW: Delete confirmation dialog state
+  // Delete confirmation dialog state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Check if current user is the trip creator
   const isCreator = user && trip && user.id === trip.creator_id;
 
-  // Keep all your existing functions (fetchTripDetails, handleJoin, etc.)
-  const fetchTripDetails = async () => {
-    if (!tripId) {
-      console.error("No tripId provided");
-      toast({
-        title: "Invalid Trip",
-        description: "No trip ID provided.",
-        variant: "destructive",
-      });
-      navigate("/");
-      return;
-    }
+  // ✅ NEW: Clean refresh function for trip data
+  const refreshTripData = useCallback(async () => {
+    if (!tripId) return;
 
-    const tripIdNumber = Number(tripId);
-    if (isNaN(tripIdNumber) || tripIdNumber <= 0) {
-      console.error("Invalid tripId format:", tripId);
-      toast({
-        title: "Invalid Trip",
-        description: "Trip ID must be a valid number.",
-        variant: "destructive",
-      });
-      navigate("/");
-      return;
-    }
-
-    console.log("Fetching trip details for ID:", tripIdNumber);
-    setLoading(true);
+    console.log("🔄 Refreshing trip data...");
 
     try {
       const { data, error } = await supabase
@@ -149,40 +127,15 @@ const TripDetailsPage = () => {
           )
         `
         )
-        .eq("id", tripIdNumber)
+        .eq("id", Number(tripId))
         .single();
 
-      if (error) {
-        console.error("Supabase error:", error);
-        if (error.code === "PGRST116") {
-          toast({
-            title: "Trip Not Found",
-            description: `No trip found with ID ${tripIdNumber}.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Database Error",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-        navigate("/");
+      if (error || !data) {
+        console.error("Refresh error:", error);
         return;
       }
 
-      if (!data) {
-        console.error("No data returned from Supabase");
-        toast({
-          title: "Trip Not Found",
-          description: "Trip data could not be loaded.",
-          variant: "destructive",
-        });
-        navigate("/");
-        return;
-      }
-
-      const fetchedTrip: TripDetail = {
+      const tripData: TripDetail = {
         id: data.id,
         destination: data.destination,
         start_date: data.start_date,
@@ -194,33 +147,65 @@ const TripDetailsPage = () => {
         travel_style: data.travel_style,
         created_at: data.created_at,
         creator_id: data.creator_id,
-        status: data.status || "planning", // ✅ FIXED: Added status
+        status: data.status || "planning",
         profiles: data.profiles,
         trip_participants: data.trip_participants || [],
       };
 
-      setTrip(fetchedTrip);
+      setTrip(tripData);
+      console.log(
+        "✅ Trip refreshed - participants:",
+        data.trip_participants?.length || 0
+      );
 
-      if (user && fetchedTrip.trip_participants) {
-        const userJoined = fetchedTrip.trip_participants.some(
-          (participant) => participant.profiles?.id === user.id
+      // Update joined status
+      if (user && data.trip_participants) {
+        const userJoined = data.trip_participants.some(
+          (participant: any) => participant.profiles?.id === user.id
         );
         setIsJoined(userJoined);
+        console.log("👥 User joined status updated:", userJoined);
       }
-    } catch (error: any) {
-      console.error("Unexpected error fetching trip details:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while loading the trip.",
-        variant: "destructive",
-      });
-      navigate("/");
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error("Error refreshing trip:", error);
     }
-  };
+  }, [tripId, user]);
 
-  // ✅ FIXED: Moved hooks to proper location
+  // ✅ UPDATED: Clean loading approach
+  useEffect(() => {
+    console.log("🚀 Loading trip data...");
+
+    const loadTripData = async () => {
+      try {
+        // Get user first
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setUser(user);
+        console.log("👤 User loaded:", user?.id || "No user");
+
+        if (!tripId) return;
+
+        setLoading(true);
+
+        // Load trip data using refresh function
+        await refreshTripData();
+      } catch (error) {
+        console.error("Error loading trip:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load trip details",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTripData();
+  }, [tripId]); // Only depend on tripId for clean loading
+
+  // ✅ UPDATED: Use RPC-based join request management
   const {
     participants,
     stats,
@@ -231,72 +216,8 @@ const TripDetailsPage = () => {
     joinTrip,
     leaveTrip,
     removeParticipant,
-    refetchParticipants, // ✅ Add this from your hook
   } = useParticipantManagement(trip?.id || 0, user);
 
-  const refreshTripData = useCallback(async () => {
-    if (!tripId) return;
-
-    console.log("🔄 Refreshing trip data...");
-
-    try {
-      const { data, error } = await supabase
-        .from("trips")
-        .select(
-          `
-        *,
-        profiles!trips_creator_id_fkey(id, full_name, avatar_url),
-        trip_participants(
-          joined_at,
-          profiles!trip_participants_user_id_fkey(id, full_name, avatar_url)
-        )
-      `
-        )
-        .eq("id", Number(tripId))
-        .single();
-
-      if (error) {
-        console.error("Refresh error:", error);
-        return;
-      }
-
-      if (data) {
-        const tripData: TripDetail = {
-          id: data.id,
-          destination: data.destination,
-          start_date: data.start_date,
-          end_date: data.end_date,
-          start_city: data.start_city,
-          description: data.description,
-          max_group_size: data.max_group_size || 8,
-          budget_per_person: data.budget_per_person,
-          travel_style: data.travel_style,
-          created_at: data.created_at,
-          creator_id: data.creator_id,
-          status: data.status || "planning",
-          profiles: data.profiles,
-          trip_participants: data.trip_participants || [],
-        };
-
-        setTrip(tripData);
-        console.log(
-          "✅ Trip refreshed - participants:",
-          data.trip_participants?.length || 0
-        );
-
-        // Update isJoined status
-        if (user && data.trip_participants) {
-          const userJoined = data.trip_participants.some(
-            (participant: any) => participant.profiles?.id === user.id
-          );
-          setIsJoined(userJoined);
-        }
-      }
-    } catch (error) {
-      console.error("Error refreshing trip:", error);
-    }
-  }, [tripId, user, toast, navigate]);
-  // In TripDetailsPage.tsx - Pass the refresh function
   const {
     joinRequests,
     userRequest,
@@ -304,16 +225,16 @@ const TripDetailsPage = () => {
     requestLoading,
     responseLoading,
     sendJoinRequest,
-    approveRequest,
+    approveRequest, // ✅ Now uses RPC function
     rejectRequest,
     cancelRequest,
   } = useJoinRequestManagement(
     trip?.id || 0,
     user,
-    refreshTripData // ✅ Pass your memoized refresh function
+    refreshTripData // ✅ Pass refresh function for automatic updates
   );
 
-  // ✅ IMPROVED: Handle trip deletion with smooth navigation
+  // Handle trip deletion with smooth navigation
   const handleDeleteTrip = async () => {
     if (!user || !trip) return;
 
@@ -328,20 +249,19 @@ const TripDetailsPage = () => {
 
       if (error) throw error;
 
-      // ✅ Show success toast first
+      // Show success toast first
       toast({
         title: "Trip deleted! 🗑️",
         description: "Your trip has been successfully deleted.",
       });
 
-      // ✅ Close dialog immediately
+      // Close dialog immediately
       setIsDeleteDialogOpen(false);
 
-      // ✅ Smooth navigation with slight delay for UX
+      // Smooth navigation with slight delay for UX
       setTimeout(() => {
-        // Navigate to home page (adjust route as needed)
-        navigate("/", { replace: true }); // Using replace to prevent going back to deleted trip
-      }, 500); // 500ms delay for smooth UX
+        navigate("/", { replace: true });
+      }, 500);
     } catch (error: any) {
       console.error("Error deleting trip:", error);
       toast({
@@ -349,126 +269,21 @@ const TripDetailsPage = () => {
         description: error.message || "Please try again later",
         variant: "destructive",
       });
-      setIsDeleteDialogOpen(false); // Close dialog even on error
+      setIsDeleteDialogOpen(false);
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  // In TripDetailsPage.tsx - Add real-time subscription for trip data
-  // In TripDetailsPage.tsx - Split into two useEffect hooks
-
-  // ✅ Step 1: Fetch user once on mount
-  useEffect(() => {
-    const fetchUser = async () => {
-      console.log("👤 Fetching user...");
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      console.log("👤 User set:", user?.id || "No user");
-    };
-
-    fetchUser();
-  }, []); // Empty dependency - runs once on mount
-
-  // ✅ Step 2: Fetch trip data when both user and tripId are available
-  useEffect(() => {
-    if (!tripId) return;
-
-    console.log("🚀 Loading trip data with user:", user?.id);
-
-    const loadTripData = async () => {
-      setLoading(true);
-
-      try {
-        // Fetch trip with participants
-        const { data, error } = await supabase
-          .from("trips")
-          .select(
-            `
-          *,
-          profiles!trips_creator_id_fkey(id, full_name, avatar_url),
-          trip_participants(
-            joined_at,
-            profiles!trip_participants_user_id_fkey(id, full_name, avatar_url)
-          )
-        `
-          )
-          .eq("id", Number(tripId))
-          .single();
-
-        if (error) {
-          console.error("Trip loading error:", error);
-          if (error.code === "PGRST116") {
-            toast({
-              title: "Trip Not Found",
-              description: `No trip found with ID ${tripId}.`,
-              variant: "destructive",
-            });
-          }
-          navigate("/");
-          return;
-        }
-
-        if (data) {
-          const tripData: TripDetail = {
-            id: data.id,
-            destination: data.destination,
-            start_date: data.start_date,
-            end_date: data.end_date,
-            start_city: data.start_city,
-            description: data.description,
-            max_group_size: data.max_group_size || 8,
-            budget_per_person: data.budget_per_person,
-            travel_style: data.travel_style,
-            created_at: data.created_at,
-            creator_id: data.creator_id,
-            status: data.status || "planning",
-            profiles: data.profiles,
-            trip_participants: data.trip_participants || [],
-          };
-
-          setTrip(tripData);
-          console.log(
-            "✅ Trip set with participants:",
-            data.trip_participants?.length || 0
-          );
-
-          // ✅ FIXED: Check if user is joined ONLY after user state is available
-          if (user && data.trip_participants) {
-            const userJoined = data.trip_participants.some(
-              (participant: any) => participant.profiles?.id === user.id
-            );
-            setIsJoined(userJoined);
-            console.log("👥 User joined status:", userJoined);
-          }
-        }
-      } catch (error) {
-        console.error("Unexpected error:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load trip details",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTripData();
-  }, [tripId, user]); // ✅ Depends on both tripId and user
-  // ✅ Create memoized refresh function
-
   const handleTripUpdated = () => {
-    fetchTripDetails();
+    refreshTripData();
     toast({
       title: "Trip updated! ✅",
       description: "Your trip details have been updated successfully.",
     });
   };
 
-  // ✅ KEEP: Original handleJoin function (for backward compatibility)
+  // ✅ KEEP: Original handleJoin function for backward compatibility
   const handleJoin = async () => {
     if (!user || !trip) {
       toast({
@@ -506,7 +321,7 @@ const TripDetailsPage = () => {
           } is excited to join this adventure!`,
         });
 
-        await fetchTripDetails();
+        await refreshTripData();
       }
     } catch (error: any) {
       toast({
@@ -519,7 +334,7 @@ const TripDetailsPage = () => {
     }
   };
 
-  // ✅ KEEP: Original handleLeave function (for backward compatibility)
+  // ✅ KEEP: Original handleLeave function for backward compatibility
   const handleLeave = async () => {
     if (!user || !trip) return;
 
@@ -532,6 +347,13 @@ const TripDetailsPage = () => {
         .eq("user_id", user.id);
 
       if (error) throw error;
+
+      // ✅ Clean up old join requests when user leaves
+      await supabase
+        .from("trip_join_requests")
+        .delete()
+        .eq("trip_id", trip.id)
+        .eq("user_id", user.id);
 
       setIsJoined(false);
       toast({
@@ -548,7 +370,7 @@ const TripDetailsPage = () => {
         } had to leave the trip.`,
       });
 
-      await fetchTripDetails();
+      await refreshTripData();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -639,7 +461,7 @@ const TripDetailsPage = () => {
     )} - ${endDate.toLocaleDateString("en-IN", options)}`;
   };
 
-  // Loading and error states (keep existing)
+  // Loading and error states
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-4">
@@ -649,6 +471,7 @@ const TripDetailsPage = () => {
             Back
           </Button>
           <div className="text-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-muted-foreground">Loading trip details...</p>
           </div>
         </div>
@@ -693,7 +516,7 @@ const TripDetailsPage = () => {
               Back
             </Button>
             <div className="flex items-center space-x-2">
-              {/* ✅ UPDATED: Edit/Delete dropdown menu for trip creator */}
+              {/* Edit/Delete dropdown menu for trip creator */}
               {isCreator && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -729,7 +552,6 @@ const TripDetailsPage = () => {
       </header>
 
       <main className="p-4 max-w-2xl mx-auto pb-20">
-        {/* Keep all your existing main content */}
         {/* Trip Header */}
         <Card className="mb-6">
           <CardContent className="p-6">
@@ -867,7 +689,7 @@ const TripDetailsPage = () => {
           </CardContent>
         </Card>
 
-        {/* ✅ NEW: Join Request Actions (replaces old direct join for non-creators) */}
+        {/* ✅ UPDATED: Join Request Actions for non-creators */}
         {!isCreator && (
           <JoinRequestActions
             user={user}
@@ -882,21 +704,29 @@ const TripDetailsPage = () => {
           />
         )}
 
-        {/* ✅ NEW: Join Requests List for creators */}
+        {/* ✅ UPDATED: Join Requests List for creators with RPC approval */}
         {isCreator && (
+          // In TripDetailsPage.tsx - Ensure correct prop passing
+          // In TripDetailsPage.tsx - Fix the onApproveRequest prop
           <JoinRequestsList
             joinRequests={joinRequests}
             loading={requestsLoading}
             responseLoading={responseLoading}
             currentUser={user}
             tripCreatorId={trip?.creator_id || ""}
-            onApproveRequest={approveRequest}
-            onRejectRequest={rejectRequest}
+            onApproveRequest={(request) => {
+              // ✅ DEBUG: Log what we're about to approve
+              console.log("TripDetailsPage approving:", request); // Should log full object, not just ID
+              return approveRequest(request); // ✅ Pass the complete request object
+            }}
+            onRejectRequest={(request, message) =>
+              rejectRequest(request, message)
+            }
             className="mb-6"
           />
         )}
 
-        {/* ✅ KEEP: Original Participant Actions for creators */}
+        {/* Participant Actions for creators */}
         {isCreator && (
           <ParticipantActions
             user={user}
@@ -926,7 +756,7 @@ const TripDetailsPage = () => {
           className="mb-6"
         />
 
-        {/* ✅ KEEP: Original Participants display (from old code) */}
+        {/* Original Participants display */}
         <Card className="mb-6">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-3">
@@ -1004,11 +834,10 @@ const TripDetailsPage = () => {
           </CardContent>
         </Card>
 
-        {/* ✅ ENHANCED: Activity Feed (keep existing) */}
+        {/* Activity Feed */}
         <ActivityFeed tripId={trip.id} user={user} className="mb-6" />
 
-        {/* Group Chat */}
-        {/* Group Chat - Updated with permission props */}
+        {/* ✅ UPDATED: Group Chat with permissions */}
         <TripChat
           tripId={trip.id}
           user={user}
@@ -1050,7 +879,7 @@ const TripDetailsPage = () => {
         />
       )}
 
-      {/* ✅ NEW: Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
@@ -1100,7 +929,6 @@ const TripDetailsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ✅ KEEP: Original Fixed Bottom Action */}
       {/* ✅ UPDATED: Bottom Action Bar with Join Request Dialog */}
       {user && !isCreator && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
@@ -1122,7 +950,6 @@ const TripDetailsPage = () => {
               </div>
             ) : spotsLeft > 0 ? (
               <>
-                {/* ✅ NEW: Show join request dialog instead of direct join */}
                 {userRequest?.status === "pending" ? (
                   <Button disabled className="w-full" size="lg">
                     <Clock className="w-4 h-4 mr-2" />
@@ -1156,7 +983,7 @@ const TripDetailsPage = () => {
         </div>
       )}
 
-      {/* ✅ NEW: Simplified Bottom Action Bar for creators and general users */}
+      {/* Bottom Action Bar for creators */}
       {user && isCreator && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
           <div className="max-w-2xl mx-auto flex gap-2">

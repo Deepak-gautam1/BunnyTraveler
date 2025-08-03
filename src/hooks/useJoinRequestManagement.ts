@@ -5,8 +5,8 @@ import { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 
 export interface JoinRequest {
-  id: number;
-  trip_id: number;
+  id: number; // ✅ FIXED: Use number instead of string | number
+  trip_id: number; // ✅ FIXED: Use number instead of string | number
   user_id: string;
   status: "pending" | "approved" | "rejected";
   message: string | null;
@@ -21,11 +21,10 @@ export interface JoinRequest {
   } | null;
 }
 
-// ✅ UPDATED: Added onTripDataRefresh parameter
 export const useJoinRequestManagement = (
   tripId: number,
   user: User | null,
-  onTripDataRefresh?: () => Promise<void> // ✅ NEW: Optional callback to refresh trip data
+  onTripDataRefresh?: () => Promise<void>
 ) => {
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [userRequest, setUserRequest] = useState<JoinRequest | null>(null);
@@ -34,18 +33,19 @@ export const useJoinRequestManagement = (
   const [responseLoading, setResponseLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch join requests for trip creators
+  // ✅ FIXED: Simplified and working fetch function
   const fetchJoinRequests = useCallback(async () => {
     if (!tripId || !user) return;
 
     setLoading(true);
     try {
+      // ✅ FIXED: Proper query with profiles relationship
       const { data, error } = await supabase
         .from("trip_join_requests")
         .select(
           `
           *,
-          profiles!trip_join_requests_user_id_fkey(
+          profiles:user_id (
             id,
             full_name,
             avatar_url
@@ -128,47 +128,82 @@ export const useJoinRequestManagement = (
     [user, tripId, toast, fetchJoinRequests]
   );
 
-  // ✅ UPDATED: Approve join request with trip data refresh
+  // ✅ FIXED: Correct approval function signature matching Gemini's working version
   const approveRequest = useCallback(
-    async (requestId: number, responseMessage?: string) => {
-      if (!user) return false;
+    async (request: JoinRequest, message?: string) => {
+      if (!user || responseLoading) return false;
+
+      // ✅ FIXED: Proper validation for all required fields
+      if (!request || !request.id || !request.trip_id || !request.user_id) {
+        console.error("Invalid request data: Missing required fields", request);
+        toast({
+          title: "Error",
+          description: "Invalid request data provided.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (request.status !== "pending") {
+        toast({
+          title: "Error",
+          description: "Request has already been processed",
+          variant: "destructive",
+        });
+        return false;
+      }
 
       setResponseLoading(true);
       try {
-        const { error } = await supabase
-          .from("trip_join_requests")
-          .update({
-            status: "approved",
-            responded_at: new Date().toISOString(),
-            responded_by: user.id,
-            response_message: responseMessage || null,
-          })
-          .eq("id", requestId);
-
-        if (error) throw error;
-
-        toast({
-          title: "Request approved! ✅",
-          description: "The user has been added to your trip",
+        console.log("🔄 Approving request via RPC:", {
+          requestId: request.id,
+          tripId: request.trip_id,
+          userId: request.user_id,
         });
 
-        // ✅ CRITICAL: Refresh both join requests AND trip data
+        // ✅ Use RPC function for atomic approval
+        const { error } = await supabase.rpc("approve_join_request", {
+          request_id_param: request.id,
+          trip_id_param: request.trip_id,
+          user_id_param: request.user_id,
+        });
+
+        if (error) {
+          console.error("RPC Error:", error);
+          throw error;
+        }
+
+        toast({
+          title: "Request Approved! ✅",
+          description: `${
+            request.profiles?.full_name || "A user"
+          } has been added to the trip.`,
+        });
+
+        // Refresh both requests and trip data
         await fetchJoinRequests();
 
-        // ✅ NEW: Trigger a refresh of trip details to update participants
         if (onTripDataRefresh) {
           setTimeout(() => {
-            console.log("🔄 Refreshing participants after approval");
+            console.log("🔄 Refreshing trip data after approval");
             onTripDataRefresh();
-          }, 1000); // 1 second delay for database trigger to complete
+          }, 500);
         }
 
         return true;
       } catch (error: any) {
         console.error("Error approving request:", error);
+
+        let errorMessage = error.message;
+        if (error.message?.includes("permission")) {
+          errorMessage = "You don't have permission to approve this request";
+        } else if (error.message?.includes("not found")) {
+          errorMessage = "Request not found or already processed";
+        }
+
         toast({
           title: "Failed to approve request",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
         return false;
@@ -176,16 +211,25 @@ export const useJoinRequestManagement = (
         setResponseLoading(false);
       }
     },
-    [user, toast, fetchJoinRequests, onTripDataRefresh] // ✅ Add onTripDataRefresh dependency
+    [user, responseLoading, onTripDataRefresh, toast, fetchJoinRequests]
   );
 
-  // Reject join request
+  // ✅ FIXED: Correct reject function signature
   const rejectRequest = useCallback(
-    async (requestId: number, responseMessage?: string) => {
-      if (!user) return false;
+    async (request: JoinRequest, responseMessage?: string) => {
+      if (!user || responseLoading) return false;
 
       setResponseLoading(true);
       try {
+        // ✅ Enhanced validation
+        if (!request?.id) {
+          throw new Error("Invalid request: Missing request ID");
+        }
+
+        if (request.status !== "pending") {
+          throw new Error("Request has already been processed");
+        }
+
         const { error } = await supabase
           .from("trip_join_requests")
           .update({
@@ -194,13 +238,16 @@ export const useJoinRequestManagement = (
             responded_by: user.id,
             response_message: responseMessage || null,
           })
-          .eq("id", requestId);
+          .eq("id", request.id)
+          .eq("status", "pending"); // Only update if still pending
 
         if (error) throw error;
 
         toast({
           title: "Request rejected",
-          description: "The join request has been rejected",
+          description: `${
+            request.profiles?.full_name || "The user"
+          }'s request has been rejected`,
         });
 
         await fetchJoinRequests();
@@ -217,7 +264,7 @@ export const useJoinRequestManagement = (
         setResponseLoading(false);
       }
     },
-    [user, toast, fetchJoinRequests]
+    [user, responseLoading, toast, fetchJoinRequests]
   );
 
   // Cancel own join request
@@ -290,7 +337,7 @@ export const useJoinRequestManagement = (
     requestLoading,
     responseLoading,
     sendJoinRequest,
-    approveRequest,
+    approveRequest, // ✅ Now correctly matches the expected signature
     rejectRequest,
     cancelRequest,
     refetchRequests: fetchJoinRequests,
