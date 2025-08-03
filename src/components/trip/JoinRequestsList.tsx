@@ -27,14 +27,18 @@ import { formatDistanceToNow } from "date-fns";
 import ProfileHoverCard from "@/components/profile/ProfileHoverCard";
 import { JoinRequest } from "@/hooks/useJoinRequestManagement";
 
+// ✅ FIXED: Correct interface matching the working Gemini version
 interface JoinRequestsListProps {
   joinRequests: JoinRequest[];
   loading: boolean;
   responseLoading: boolean;
   currentUser: User | null;
   tripCreatorId: string;
-  onApproveRequest: (requestId: number, message?: string) => Promise<boolean>;
-  onRejectRequest: (requestId: number, message?: string) => Promise<boolean>;
+  onApproveRequest: (
+    request: JoinRequest,
+    message?: string
+  ) => Promise<boolean>; // ✅ FIXED: Correct signature
+  onRejectRequest: (request: JoinRequest, message?: string) => Promise<boolean>; // ✅ FIXED: Correct signature
   className?: string;
 }
 
@@ -73,19 +77,40 @@ const JoinRequestsList = ({
     setDialogOpen(true);
   };
 
+  // ✅ FIXED: Correct function call matching Gemini's working version
   const handleConfirmAction = async () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest) {
+      console.error("No selected request");
+      return;
+    }
 
-    const success =
-      actionType === "approve"
-        ? await onApproveRequest(
-            selectedRequest.id,
-            responseMessage.trim() || undefined
-          )
-        : await onRejectRequest(
-            selectedRequest.id,
-            responseMessage.trim() || undefined
-          );
+    console.log("Handling request:", selectedRequest);
+
+    // ✅ Validate required fields
+    if (
+      !selectedRequest.id ||
+      !selectedRequest.trip_id ||
+      !selectedRequest.user_id
+    ) {
+      console.error("❌ Missing required fields in request:", selectedRequest);
+      return;
+    }
+
+    let success = false;
+
+    if (actionType === "approve") {
+      // ✅ FIXED: Pass complete request object and optional message
+      success = await onApproveRequest(
+        selectedRequest,
+        responseMessage.trim() || undefined
+      );
+    } else if (actionType === "reject") {
+      // ✅ FIXED: Pass complete request object and optional message
+      success = await onRejectRequest(
+        selectedRequest,
+        responseMessage.trim() || undefined
+      );
+    }
 
     if (success) {
       setDialogOpen(false);
