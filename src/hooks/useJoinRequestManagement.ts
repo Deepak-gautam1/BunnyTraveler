@@ -129,7 +129,6 @@ export const useJoinRequestManagement = (
   );
 
   // ✅ UPDATED: Approve join request with trip data refresh
-  // In useJoinRequestManagement.ts - Enhanced approveRequest
   const approveRequest = useCallback(
     async (requestId: number, responseMessage?: string) => {
       if (!user) return false;
@@ -153,20 +152,16 @@ export const useJoinRequestManagement = (
           description: "The user has been added to your trip",
         });
 
-        // ✅ CRITICAL: Multiple refresh strategy
+        // ✅ CRITICAL: Refresh both join requests AND trip data
         await fetchJoinRequests();
 
-        // ✅ Refresh trip data immediately
+        // ✅ NEW: Trigger a refresh of trip details to update participants
         if (onTripDataRefresh) {
-          await onTripDataRefresh();
+          setTimeout(() => {
+            console.log("🔄 Refreshing participants after approval");
+            onTripDataRefresh();
+          }, 1000); // 1 second delay for database trigger to complete
         }
-
-        // ✅ Additional refresh after delay to ensure trigger completed
-        setTimeout(async () => {
-          if (onTripDataRefresh) {
-            await onTripDataRefresh();
-          }
-        }, 1000);
 
         return true;
       } catch (error: any) {
@@ -181,7 +176,7 @@ export const useJoinRequestManagement = (
         setResponseLoading(false);
       }
     },
-    [user, toast, fetchJoinRequests, onTripDataRefresh]
+    [user, toast, fetchJoinRequests, onTripDataRefresh] // ✅ Add onTripDataRefresh dependency
   );
 
   // Reject join request

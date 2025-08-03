@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import ProfileHoverCard from "@/components/profile/ProfileHoverCard"; // ADD THIS IMPORT
 
 import {
@@ -13,7 +14,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Send, MessageCircle, Smile, MoreHorizontal } from "lucide-react";
+import {
+  Send,
+  MessageCircle,
+  Smile,
+  MoreHorizontal,
+  Lock,
+  Clock,
+  XCircle,
+  AlertTriangle,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -53,12 +63,24 @@ type Activity = {
   } | null;
 };
 
+// ✅ NEW: Updated interface to include permission props
 interface TripChatProps {
   tripId: number;
   user: User | null;
+  userRequest?: {
+    status: "pending" | "approved" | "rejected" | null;
+  } | null;
+  isParticipant?: boolean;
+  tripCreatorId?: string;
 }
 
-const TripChat = ({ tripId, user }: TripChatProps) => {
+const TripChat = ({
+  tripId,
+  user,
+  userRequest,
+  isParticipant = false,
+  tripCreatorId,
+}: TripChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -66,6 +88,84 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // ✅ NEW: Chat permissions logic
+  const getChatPermissions = () => {
+    if (!user) {
+      return {
+        canChat: false,
+        reason: "sign_in_required",
+        message: "Please sign in to participate in group chat",
+        icon: Lock,
+      };
+    }
+
+    // Trip creator can always chat
+    if (user.id === tripCreatorId) {
+      return {
+        canChat: true,
+        reason: "creator",
+        message: "",
+        icon: MessageCircle,
+      };
+    }
+
+    // Check if user is an approved participant
+    if (isParticipant) {
+      return {
+        canChat: true,
+        reason: "approved_participant",
+        message: "",
+        icon: MessageCircle,
+      };
+    }
+
+    // Check join request status
+    if (userRequest) {
+      switch (userRequest.status) {
+        case "pending":
+          return {
+            canChat: false,
+            reason: "pending_approval",
+            message:
+              "Your join request is pending approval. You can chat once approved by the trip creator.",
+            icon: Clock,
+          };
+        case "rejected":
+          return {
+            canChat: false,
+            reason: "request_rejected",
+            message:
+              "Your join request was rejected. You cannot participate in group chat.",
+            icon: XCircle,
+          };
+        case "approved":
+          return {
+            canChat: true,
+            reason: "approved",
+            message: "",
+            icon: MessageCircle,
+          };
+        default:
+          return {
+            canChat: false,
+            reason: "no_request",
+            message: "Send a join request to participate in group chat.",
+            icon: Lock,
+          };
+      }
+    }
+
+    // Default: user hasn't sent a join request
+    return {
+      canChat: false,
+      reason: "no_request",
+      message: "Send a join request to participate in group chat.",
+      icon: Lock,
+    };
+  };
+
+  const chatPermissions = getChatPermissions();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -208,8 +308,19 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
     scrollToBottom();
   }, [messages, activities]);
 
+  // ✅ UPDATED: sendMessage with permission check
   const sendMessage = async () => {
     if (!newMessage.trim() || !user || sending) return;
+
+    // ✅ NEW: Check chat permissions before sending
+    if (!chatPermissions.canChat) {
+      toast({
+        title: "Cannot send message",
+        description: chatPermissions.message,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSending(true);
     try {
@@ -252,10 +363,21 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
     }
   };
 
+  // ✅ UPDATED: addReaction with permission check
   const addReaction = async (messageId: number, emoji: string) => {
     if (!user) {
       toast({
         title: "Please sign in to react to messages",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // ✅ NEW: Check chat permissions for reactions
+    if (!chatPermissions.canChat) {
+      toast({
+        title: "Cannot react to messages",
+        description: chatPermissions.message,
         variant: "destructive",
       });
       return;
@@ -343,6 +465,16 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
         <CardTitle className="flex items-center">
           <MessageCircle className="w-5 h-5 mr-2" />
           Group Chat
+          {/* ✅ NEW: Show restricted badge if user can't chat */}
+          {!chatPermissions.canChat && (
+            <Badge
+              variant="outline"
+              className="ml-2 text-orange-600 border-orange-600"
+            >
+              <Lock className="w-3 h-3 mr-1" />
+              Restricted
+            </Badge>
+          )}
           <span className="ml-2 text-sm font-normal text-muted-foreground">
             ({messages.length} messages)
           </span>
@@ -379,6 +511,12 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
                             <span className="font-medium text-sm">
                               {item.profiles?.full_name || "Anonymous"}
                             </span>
+                            {/* ✅ NEW: Show creator badge */}
+                            {item.sender_id === tripCreatorId && (
+                              <Badge variant="outline" className="text-xs">
+                                Creator
+                              </Badge>
+                            )}
                             <span className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(item.created_at), {
                                 addSuffix: true,
@@ -399,6 +537,7 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
                                 <button
                                   key={emoji}
                                   onClick={() => addReaction(item.id, emoji)}
+                                  disabled={!chatPermissions.canChat} // ✅ NEW: Disable if can't chat
                                   className={`
                                     inline-flex items-center px-2 py-1 rounded-full text-xs
                                     transition-colors hover:bg-muted
@@ -406,6 +545,11 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
                                       data.userReacted
                                         ? "bg-blue-100 border border-blue-300 text-blue-700"
                                         : "bg-muted/50 border border-border"
+                                    }
+                                    ${
+                                      !chatPermissions.canChat
+                                        ? "opacity-50 cursor-not-allowed"
+                                        : ""
                                     }
                                   `}
                                   title={`${data.users.join(
@@ -418,38 +562,40 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
                               ))}
                             </div>
 
-                            {/* Reaction Popover */}
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                            {/* Reaction Popover - Only show if user can chat */}
+                            {chatPermissions.canChat && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                  >
+                                    <Smile className="w-3 h-3" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-auto p-2"
+                                  align="start"
                                 >
-                                  <Smile className="w-3 h-3" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                className="w-auto p-2"
-                                align="start"
-                              >
-                                <div className="flex space-x-1">
-                                  {REACTIONS.map((emoji) => (
-                                    <Button
-                                      key={emoji}
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 hover:bg-muted"
-                                      onClick={() =>
-                                        addReaction(item.id, emoji)
-                                      }
-                                    >
-                                      <span className="text-lg">{emoji}</span>
-                                    </Button>
-                                  ))}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
+                                  <div className="flex space-x-1">
+                                    {REACTIONS.map((emoji) => (
+                                      <Button
+                                        key={emoji}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 hover:bg-muted"
+                                        onClick={() =>
+                                          addReaction(item.id, emoji)
+                                        }
+                                      >
+                                        <span className="text-lg">{emoji}</span>
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -476,26 +622,69 @@ const TripChat = ({ tripId, user }: TripChatProps) => {
             </div>
           </ScrollArea>
 
+          {/* ✅ UPDATED: Message input area with permission checks */}
           {user ? (
-            <div className="p-4 border-t">
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={sending}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim() || sending}
-                  size="icon"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
+            chatPermissions.canChat ? (
+              <div className="p-4 border-t">
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="Type your message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    disabled={sending}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    disabled={!newMessage.trim() || sending}
+                    size="icon"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+                {/* Character count */}
+                {newMessage && (
+                  <div className="text-right mt-1">
+                    <span className="text-xs text-muted-foreground">
+                      {newMessage.length}/1000
+                    </span>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              /* ✅ NEW: Permission denied message */
+              <div className="p-4 border-t">
+                <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <chatPermissions.icon className="w-5 h-5 text-orange-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-orange-800 dark:text-orange-200 mb-1">
+                        {chatPermissions.reason === "sign_in_required" &&
+                          "Sign In Required"}
+                        {chatPermissions.reason === "pending_approval" &&
+                          "Approval Pending"}
+                        {chatPermissions.reason === "request_rejected" &&
+                          "Access Denied"}
+                        {chatPermissions.reason === "no_request" &&
+                          "Join Request Required"}
+                      </p>
+                      <p className="text-sm text-orange-700 dark:text-orange-300">
+                        {chatPermissions.message}
+                      </p>
+                      {chatPermissions.reason === "pending_approval" && (
+                        <div className="flex items-center gap-1 mt-2">
+                          <Clock className="w-3 h-3 text-orange-600" />
+                          <span className="text-xs text-orange-600">
+                            Waiting for trip creator approval
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
           ) : (
             <div className="p-4 border-t text-center text-muted-foreground">
               <p className="text-sm">Sign in to join the conversation</p>

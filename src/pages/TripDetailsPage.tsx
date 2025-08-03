@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@supabase/supabase-js";
@@ -234,6 +234,69 @@ const TripDetailsPage = () => {
     refetchParticipants, // ✅ Add this from your hook
   } = useParticipantManagement(trip?.id || 0, user);
 
+  const refreshTripData = useCallback(async () => {
+    if (!tripId) return;
+
+    console.log("🔄 Refreshing trip data...");
+
+    try {
+      const { data, error } = await supabase
+        .from("trips")
+        .select(
+          `
+        *,
+        profiles!trips_creator_id_fkey(id, full_name, avatar_url),
+        trip_participants(
+          joined_at,
+          profiles!trip_participants_user_id_fkey(id, full_name, avatar_url)
+        )
+      `
+        )
+        .eq("id", Number(tripId))
+        .single();
+
+      if (error) {
+        console.error("Refresh error:", error);
+        return;
+      }
+
+      if (data) {
+        const tripData: TripDetail = {
+          id: data.id,
+          destination: data.destination,
+          start_date: data.start_date,
+          end_date: data.end_date,
+          start_city: data.start_city,
+          description: data.description,
+          max_group_size: data.max_group_size || 8,
+          budget_per_person: data.budget_per_person,
+          travel_style: data.travel_style,
+          created_at: data.created_at,
+          creator_id: data.creator_id,
+          status: data.status || "planning",
+          profiles: data.profiles,
+          trip_participants: data.trip_participants || [],
+        };
+
+        setTrip(tripData);
+        console.log(
+          "✅ Trip refreshed - participants:",
+          data.trip_participants?.length || 0
+        );
+
+        // Update isJoined status
+        if (user && data.trip_participants) {
+          const userJoined = data.trip_participants.some(
+            (participant: any) => participant.profiles?.id === user.id
+          );
+          setIsJoined(userJoined);
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing trip:", error);
+    }
+  }, [tripId, user, toast, navigate]);
+  // In TripDetailsPage.tsx - Pass the refresh function
   const {
     joinRequests,
     userRequest,
@@ -247,7 +310,7 @@ const TripDetailsPage = () => {
   } = useJoinRequestManagement(
     trip?.id || 0,
     user,
-    fetchTripDetails // ✅ Pass fetchTripDetails to refresh trip data after approval
+    refreshTripData // ✅ Pass your memoized refresh function
   );
 
   // ✅ IMPROVED: Handle trip deletion with smooth navigation
@@ -293,22 +356,32 @@ const TripDetailsPage = () => {
   };
 
   // In TripDetailsPage.tsx - Add real-time subscription for trip data
-  // In TripDetailsPage.tsx - SIMPLE, WORKING VERSION
+  // In TripDetailsPage.tsx - Split into two useEffect hooks
+
+  // ✅ Step 1: Fetch user once on mount
   useEffect(() => {
-    console.log("🚀 Loading trip data...");
+    const fetchUser = async () => {
+      console.log("👤 Fetching user...");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+      console.log("👤 User set:", user?.id || "No user");
+    };
+
+    fetchUser();
+  }, []); // Empty dependency - runs once on mount
+
+  // ✅ Step 2: Fetch trip data when both user and tripId are available
+  useEffect(() => {
+    if (!tripId) return;
+
+    console.log("🚀 Loading trip data with user:", user?.id);
 
     const loadTripData = async () => {
+      setLoading(true);
+
       try {
-        // Get user
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setUser(user);
-
-        if (!tripId) return;
-
-        setLoading(true);
-
         // Fetch trip with participants
         const { data, error } = await supabase
           .from("trips")
@@ -357,13 +430,18 @@ const TripDetailsPage = () => {
           };
 
           setTrip(tripData);
+          console.log(
+            "✅ Trip set with participants:",
+            data.trip_participants?.length || 0
+          );
 
-          // Check if user is joined
+          // ✅ FIXED: Check if user is joined ONLY after user state is available
           if (user && data.trip_participants) {
             const userJoined = data.trip_participants.some(
               (participant: any) => participant.profiles?.id === user.id
             );
             setIsJoined(userJoined);
+            console.log("👥 User joined status:", userJoined);
           }
         }
       } catch (error) {
@@ -379,7 +457,8 @@ const TripDetailsPage = () => {
     };
 
     loadTripData();
-  }, [tripId]); // Only depend on tripId
+  }, [tripId, user]); // ✅ Depends on both tripId and user
+  // ✅ Create memoized refresh function
 
   const handleTripUpdated = () => {
     fetchTripDetails();
@@ -929,7 +1008,14 @@ const TripDetailsPage = () => {
         <ActivityFeed tripId={trip.id} user={user} className="mb-6" />
 
         {/* Group Chat */}
-        <TripChat tripId={trip.id} user={user} />
+        {/* Group Chat - Updated with permission props */}
+        <TripChat
+          tripId={trip.id}
+          user={user}
+          userRequest={userRequest}
+          isParticipant={isParticipant}
+          tripCreatorId={trip.creator_id}
+        />
       </main>
 
       {/* Keep all existing modals */}
