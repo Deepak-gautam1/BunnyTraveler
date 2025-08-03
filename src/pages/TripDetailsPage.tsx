@@ -234,6 +234,7 @@ const TripDetailsPage = () => {
     refetchParticipants, // ✅ Add this from your hook
   } = useParticipantManagement(trip?.id || 0, user);
 
+  // In TripDetailsPage.tsx - FIXED refreshTripData
   const refreshTripData = useCallback(async () => {
     if (!tripId) return;
 
@@ -284,18 +285,20 @@ const TripDetailsPage = () => {
           data.trip_participants?.length || 0
         );
 
-        // Update isJoined status
+        // ✅ CRITICAL: Use current user state for checking joined status
         if (user && data.trip_participants) {
           const userJoined = data.trip_participants.some(
             (participant: any) => participant.profiles?.id === user.id
           );
           setIsJoined(userJoined);
+          console.log("👥 Refresh - User joined status:", userJoined);
         }
       }
     } catch (error) {
       console.error("Error refreshing trip:", error);
     }
-  }, [tripId, user, toast, navigate]);
+  }, [tripId, user]); // ✅ Include user in dependencies
+
   // In TripDetailsPage.tsx - Pass the refresh function
   const {
     joinRequests,
@@ -356,33 +359,38 @@ const TripDetailsPage = () => {
   };
 
   // In TripDetailsPage.tsx - Add real-time subscription for trip data
-  // In TripDetailsPage.tsx - Split into two useEffect hooks
-
-  // ✅ Step 1: Fetch user once on mount
+  // In TripDetailsPage.tsx - ONLY keep this ONE useEffect (remove any others)
   useEffect(() => {
-    const fetchUser = async () => {
-      console.log("👤 Fetching user...");
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      console.log("👤 User set:", user?.id || "No user");
-    };
+    console.log("🚀 Initializing trip page...");
 
-    fetchUser();
-  }, []); // Empty dependency - runs once on mount
+    let isMounted = true; // ✅ Add cleanup flag
 
-  // ✅ Step 2: Fetch trip data when both user and tripId are available
-  useEffect(() => {
-    if (!tripId) return;
-
-    console.log("🚀 Loading trip data with user:", user?.id);
-
-    const loadTripData = async () => {
-      setLoading(true);
-
+    const initializePage = async () => {
       try {
-        // Fetch trip with participants
+        // ✅ Step 1: Always fetch user first
+        console.log("👤 Fetching user...");
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        console.log("👤 User fetched:", user?.id || "No user");
+
+        if (!isMounted) return; // ✅ Check if component still mounted
+        setUser(user);
+
+        // ✅ Step 2: Only proceed with trip loading if we have tripId
+        if (!tripId) {
+          console.log("❌ No tripId, stopping");
+          return;
+        }
+
+        console.log(
+          "🚀 Loading trip data ONCE with user:",
+          user?.id || "undefined"
+        );
+        if (!isMounted) return;
+        setLoading(true);
+
+        // ✅ Step 3: Fetch trip with participants
         const { data, error } = await supabase
           .from("trips")
           .select(
@@ -397,6 +405,8 @@ const TripDetailsPage = () => {
           )
           .eq("id", Number(tripId))
           .single();
+
+        if (!isMounted) return; // ✅ Check before state updates
 
         if (error) {
           console.error("Trip loading error:", error);
@@ -431,34 +441,45 @@ const TripDetailsPage = () => {
 
           setTrip(tripData);
           console.log(
-            "✅ Trip set with participants:",
+            "✅ Trip set ONCE with participants:",
             data.trip_participants?.length || 0
           );
 
-          // ✅ FIXED: Check if user is joined ONLY after user state is available
+          // ✅ Check if user is joined (user is guaranteed to be set here)
           if (user && data.trip_participants) {
             const userJoined = data.trip_participants.some(
               (participant: any) => participant.profiles?.id === user.id
             );
             setIsJoined(userJoined);
-            console.log("👥 User joined status:", userJoined);
+            console.log("👥 User joined status SET ONCE:", userJoined);
+          } else {
+            console.log("👥 No user or no participants data");
+            setIsJoined(false);
           }
         }
       } catch (error) {
         console.error("Unexpected error:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load trip details",
-          variant: "destructive",
-        });
+        if (isMounted) {
+          toast({
+            title: "Error",
+            description: "Failed to load trip details",
+            variant: "destructive",
+          });
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    loadTripData();
-  }, [tripId, user]); // ✅ Depends on both tripId and user
-  // ✅ Create memoized refresh function
+    initializePage();
+
+    return () => {
+      console.log("🧹 Cleanup: Component unmounting");
+      isMounted = false;
+    };
+  }, [tripId]); // ✅ Only depend on tripId
 
   const handleTripUpdated = () => {
     fetchTripDetails();
