@@ -11,6 +11,11 @@ import ProfileHoverCard from "@/components/profile/ProfileHoverCard";
 import { useParticipantManagement } from "@/hooks/useParticipantManagement";
 import ParticipantsList from "@/components/trip/ParticipantsList";
 import ParticipantActions from "@/components/trip/ParticipantActions";
+import { useJoinRequestManagement } from "@/hooks/useJoinRequestManagement";
+import JoinRequestActions from "@/components/trip/JoinRequestActions";
+import JoinRequestsList from "@/components/trip/JoinRequestsList";
+import JoinRequestDialog from "@/components/trip/JoinRequestDialog";
+import { XCircle } from "lucide-react"; // Add these if not already imported
 
 // ✅ Add AlertDialog imports for delete confirmation
 import {
@@ -29,7 +34,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator, // ✅ Add separator
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -51,7 +56,7 @@ import {
   Star,
   Edit3,
   MoreVertical,
-  Trash2, // ✅ Add delete icon
+  Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -79,6 +84,7 @@ type TripDetail = {
   travel_style?: string[] | null;
   created_at: string;
   creator_id: string;
+  status?: string;
   profiles: Profile | null;
   trip_participants: TripParticipant[];
 };
@@ -89,7 +95,8 @@ const TripDetailsPage = () => {
   const { toast } = useToast();
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [loading, setLoading] = useState(true);
-
+  const [isJoined, setIsJoined] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
   const [user, setUser] = useState<UserType | null>(null);
   const [isPrivateChatOpen, setIsPrivateChatOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -100,49 +107,6 @@ const TripDetailsPage = () => {
 
   // Check if current user is the trip creator
   const isCreator = user && trip && user.id === trip.creator_id;
-
-  // ✅ NEW: Handle trip deletion
-  // ✅ IMPROVED: Handle trip deletion with smooth navigation
-  const handleDeleteTrip = async () => {
-    if (!user || !trip) return;
-
-    setDeleteLoading(true);
-    try {
-      // Delete the trip (CASCADE will handle related data)
-      const { error } = await supabase
-        .from("trips")
-        .delete()
-        .eq("id", trip.id)
-        .eq("creator_id", user.id); // Extra security check
-
-      if (error) throw error;
-
-      // ✅ Show success toast first
-      toast({
-        title: "Trip deleted! 🗑️",
-        description: "Your trip has been successfully deleted.",
-      });
-
-      // ✅ Close dialog immediately
-      setIsDeleteDialogOpen(false);
-
-      // ✅ Smooth navigation with slight delay for UX
-      setTimeout(() => {
-        // Navigate to home page (adjust route as needed)
-        navigate("/", { replace: true }); // Using replace to prevent going back to deleted trip
-      }, 500); // 500ms delay for smooth UX
-    } catch (error: any) {
-      console.error("Error deleting trip:", error);
-      toast({
-        title: "Failed to delete trip",
-        description: error.message || "Please try again later",
-        variant: "destructive",
-      });
-      setIsDeleteDialogOpen(false); // Close dialog even on error
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
 
   // Keep all your existing functions (fetchTripDetails, handleJoin, etc.)
   const fetchTripDetails = async () => {
@@ -230,6 +194,7 @@ const TripDetailsPage = () => {
         travel_style: data.travel_style,
         created_at: data.created_at,
         creator_id: data.creator_id,
+        status: data.status || "planning", // ✅ FIXED: Added status
         profiles: data.profiles,
         trip_participants: data.trip_participants || [],
       };
@@ -254,28 +219,167 @@ const TripDetailsPage = () => {
       setLoading(false);
     }
   };
+
+  // ✅ FIXED: Moved hooks to proper location
   const {
     participants,
     stats,
     loading: participantLoading,
-    joinLoading,
+    joinLoading: hookJoinLoading,
     leaveLoading,
     isParticipant,
     joinTrip,
     leaveTrip,
     removeParticipant,
+    refetchParticipants, // ✅ Add this from your hook
   } = useParticipantManagement(trip?.id || 0, user);
+
+  const {
+    joinRequests,
+    userRequest,
+    loading: requestsLoading,
+    requestLoading,
+    responseLoading,
+    sendJoinRequest,
+    approveRequest,
+    rejectRequest,
+    cancelRequest,
+  } = useJoinRequestManagement(
+    trip?.id || 0,
+    user,
+    fetchTripDetails // ✅ Pass fetchTripDetails to refresh trip data after approval
+  );
+
+  // ✅ IMPROVED: Handle trip deletion with smooth navigation
+  const handleDeleteTrip = async () => {
+    if (!user || !trip) return;
+
+    setDeleteLoading(true);
+    try {
+      // Delete the trip (CASCADE will handle related data)
+      const { error } = await supabase
+        .from("trips")
+        .delete()
+        .eq("id", trip.id)
+        .eq("creator_id", user.id); // Extra security check
+
+      if (error) throw error;
+
+      // ✅ Show success toast first
+      toast({
+        title: "Trip deleted! 🗑️",
+        description: "Your trip has been successfully deleted.",
+      });
+
+      // ✅ Close dialog immediately
+      setIsDeleteDialogOpen(false);
+
+      // ✅ Smooth navigation with slight delay for UX
+      setTimeout(() => {
+        // Navigate to home page (adjust route as needed)
+        navigate("/", { replace: true }); // Using replace to prevent going back to deleted trip
+      }, 500); // 500ms delay for smooth UX
+    } catch (error: any) {
+      console.error("Error deleting trip:", error);
+      toast({
+        title: "Failed to delete trip",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+      setIsDeleteDialogOpen(false); // Close dialog even on error
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // In TripDetailsPage.tsx - Add real-time subscription for trip data
+  // In TripDetailsPage.tsx - SIMPLE, WORKING VERSION
   useEffect(() => {
-    const fetchUserAndTrip = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      await fetchTripDetails();
+    console.log("🚀 Loading trip data...");
+
+    const loadTripData = async () => {
+      try {
+        // Get user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setUser(user);
+
+        if (!tripId) return;
+
+        setLoading(true);
+
+        // Fetch trip with participants
+        const { data, error } = await supabase
+          .from("trips")
+          .select(
+            `
+          *,
+          profiles!trips_creator_id_fkey(id, full_name, avatar_url),
+          trip_participants(
+            joined_at,
+            profiles!trip_participants_user_id_fkey(id, full_name, avatar_url)
+          )
+        `
+          )
+          .eq("id", Number(tripId))
+          .single();
+
+        if (error) {
+          console.error("Trip loading error:", error);
+          if (error.code === "PGRST116") {
+            toast({
+              title: "Trip Not Found",
+              description: `No trip found with ID ${tripId}.`,
+              variant: "destructive",
+            });
+          }
+          navigate("/");
+          return;
+        }
+
+        if (data) {
+          const tripData: TripDetail = {
+            id: data.id,
+            destination: data.destination,
+            start_date: data.start_date,
+            end_date: data.end_date,
+            start_city: data.start_city,
+            description: data.description,
+            max_group_size: data.max_group_size || 8,
+            budget_per_person: data.budget_per_person,
+            travel_style: data.travel_style,
+            created_at: data.created_at,
+            creator_id: data.creator_id,
+            status: data.status || "planning",
+            profiles: data.profiles,
+            trip_participants: data.trip_participants || [],
+          };
+
+          setTrip(tripData);
+
+          // Check if user is joined
+          if (user && data.trip_participants) {
+            const userJoined = data.trip_participants.some(
+              (participant: any) => participant.profiles?.id === user.id
+            );
+            setIsJoined(userJoined);
+          }
+        }
+      } catch (error) {
+        console.error("Unexpected error:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load trip details",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchUserAndTrip();
-  }, [tripId]);
+    loadTripData();
+  }, [tripId]); // Only depend on tripId
 
   const handleTripUpdated = () => {
     fetchTripDetails();
@@ -285,7 +389,7 @@ const TripDetailsPage = () => {
     });
   };
 
-  // Keep all your existing handlers (handleJoin, handleLeave, etc.)
+  // ✅ KEEP: Original handleJoin function (for backward compatibility)
   const handleJoin = async () => {
     if (!user || !trip) {
       toast({
@@ -336,6 +440,7 @@ const TripDetailsPage = () => {
     }
   };
 
+  // ✅ KEEP: Original handleLeave function (for backward compatibility)
   const handleLeave = async () => {
     if (!user || !trip) return;
 
@@ -545,6 +650,7 @@ const TripDetailsPage = () => {
       </header>
 
       <main className="p-4 max-w-2xl mx-auto pb-20">
+        {/* Keep all your existing main content */}
         {/* Trip Header */}
         <Card className="mb-6">
           <CardContent className="p-6">
@@ -682,20 +788,51 @@ const TripDetailsPage = () => {
           </CardContent>
         </Card>
 
-        {/* ✅ NEW: Enhanced Participant Actions */}
-        <ParticipantActions
-          user={user}
-          stats={stats}
-          isParticipant={isParticipant}
-          joinLoading={joinLoading}
-          leaveLoading={leaveLoading}
-          tripStatus={trip.status || "planning"}
-          onJoin={joinTrip}
-          onLeave={leaveTrip}
-          className="mb-6"
-        />
+        {/* ✅ NEW: Join Request Actions (replaces old direct join for non-creators) */}
+        {!isCreator && (
+          <JoinRequestActions
+            user={user}
+            stats={stats}
+            isParticipant={isParticipant}
+            userRequest={userRequest}
+            requestLoading={requestLoading}
+            tripStatus={trip?.status || "planning"}
+            onSendRequest={sendJoinRequest}
+            onCancelRequest={cancelRequest}
+            className="mb-6"
+          />
+        )}
 
-        {/* ✅ NEW: Enhanced Participants List */}
+        {/* ✅ NEW: Join Requests List for creators */}
+        {isCreator && (
+          <JoinRequestsList
+            joinRequests={joinRequests}
+            loading={requestsLoading}
+            responseLoading={responseLoading}
+            currentUser={user}
+            tripCreatorId={trip?.creator_id || ""}
+            onApproveRequest={approveRequest}
+            onRejectRequest={rejectRequest}
+            className="mb-6"
+          />
+        )}
+
+        {/* ✅ KEEP: Original Participant Actions for creators */}
+        {isCreator && (
+          <ParticipantActions
+            user={user}
+            stats={stats}
+            isParticipant={isParticipant}
+            joinLoading={hookJoinLoading}
+            leaveLoading={leaveLoading}
+            tripStatus={trip?.status || "planning"}
+            onJoin={joinTrip}
+            onLeave={leaveTrip}
+            className="mb-6"
+          />
+        )}
+
+        {/* Enhanced Participants List */}
         <ParticipantsList
           participants={participants}
           stats={stats}
@@ -705,11 +842,88 @@ const TripDetailsPage = () => {
           onRemoveParticipant={removeParticipant}
           onChatWithParticipant={(userId) => {
             console.log("Chat with participant:", userId);
-            // You can implement private chat functionality here
             setIsPrivateChatOpen(true);
           }}
           className="mb-6"
         />
+
+        {/* ✅ KEEP: Original Participants display (from old code) */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">
+                Who's joining ({participantCount})
+              </h3>
+              {user && isJoined && !isCreator && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLeave}
+                  disabled={joinLoading}
+                >
+                  {joinLoading ? "Leaving..." : "Leave Trip"}
+                </Button>
+              )}
+            </div>
+
+            {trip.trip_participants && trip.trip_participants.length > 0 ? (
+              <div className="space-y-3">
+                {trip.trip_participants.map((participant, index) =>
+                  participant.profiles ? (
+                    <div
+                      key={participant.profiles.id || index}
+                      className="flex items-center space-x-3"
+                    >
+                      <ProfileHoverCard
+                        userId={participant.profiles.id}
+                        userName={participant.profiles.full_name || "Anonymous"}
+                        userAvatar={
+                          participant.profiles.avatar_url || undefined
+                        }
+                      >
+                        <Avatar className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
+                          {participant.profiles.avatar_url ? (
+                            <AvatarImage
+                              src={participant.profiles.avatar_url}
+                            />
+                          ) : (
+                            <AvatarFallback>
+                              {participant.profiles.full_name
+                                ?.charAt(0)
+                                .toUpperCase() || "U"}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                      </ProfileHoverCard>
+
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          {participant.profiles.full_name || "Anonymous"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Joined{" "}
+                          {formatDistanceToNow(
+                            new Date(participant.joined_at),
+                            { addSuffix: true }
+                          )}
+                        </p>
+                      </div>
+                      {participant.profiles.id === trip.creator_id && (
+                        <Badge variant="outline" className="text-xs">
+                          Creator
+                        </Badge>
+                      )}
+                    </div>
+                  ) : null
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">
+                No one has joined yet. Be the first!
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* ✅ ENHANCED: Activity Feed (keep existing) */}
         <ActivityFeed tripId={trip.id} user={user} className="mb-6" />
@@ -800,8 +1014,64 @@ const TripDetailsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ✅ UPDATED: Simplified Bottom Action Bar */}
-      {user && (
+      {/* ✅ KEEP: Original Fixed Bottom Action */}
+      {/* ✅ UPDATED: Bottom Action Bar with Join Request Dialog */}
+      {user && !isCreator && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
+          <div className="max-w-2xl mx-auto">
+            {isJoined ? (
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={handleLeave}
+                  disabled={joinLoading}
+                  className="flex-1"
+                >
+                  Leave Trip
+                </Button>
+                <Button className="flex-1">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Chat with Group
+                </Button>
+              </div>
+            ) : spotsLeft > 0 ? (
+              <>
+                {/* ✅ NEW: Show join request dialog instead of direct join */}
+                {userRequest?.status === "pending" ? (
+                  <Button disabled className="w-full" size="lg">
+                    <Clock className="w-4 h-4 mr-2" />
+                    Request Pending
+                  </Button>
+                ) : userRequest?.status === "rejected" ? (
+                  <Button
+                    disabled
+                    className="w-full"
+                    size="lg"
+                    variant="destructive"
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Request Rejected
+                  </Button>
+                ) : (
+                  <JoinRequestDialog
+                    user={user}
+                    tripDestination={trip.destination}
+                    onSendRequest={sendJoinRequest}
+                    requestLoading={requestLoading}
+                  />
+                )}
+              </>
+            ) : (
+              <Button disabled className="w-full" size="lg">
+                Trip is Full
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NEW: Simplified Bottom Action Bar for creators and general users */}
+      {user && isCreator && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
           <div className="max-w-2xl mx-auto flex gap-2">
             <Button variant="outline" className="flex-1">

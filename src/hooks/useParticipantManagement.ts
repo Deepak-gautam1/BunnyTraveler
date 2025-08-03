@@ -262,34 +262,63 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
     [user, tripId, toast, fetchParticipants]
   );
 
-  // Set up real-time subscriptions
+  // In useParticipantManagement.ts - Enhanced real-time subscription
+  // In useParticipantManagement.ts - Enhanced real-time subscription
   useEffect(() => {
     if (!tripId) return;
 
-    // Initial fetch
     fetchParticipants();
 
-    // Subscribe to changes
-    const subscription = supabase
+    // ✅ CRITICAL: Subscribe to trip_participants changes
+    const participantSubscription = supabase
       .channel(`trip_participants_${tripId}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "*", // Listen to INSERT, UPDATE, DELETE
           schema: "public",
           table: "trip_participants",
           filter: `trip_id=eq.${tripId}`,
         },
         (payload) => {
-          console.log("Participant change:", payload);
-          // Refresh participants on any change
-          fetchParticipants();
+          console.log("Participant change detected:", payload);
+          // ✅ Immediately refresh participant data
+          setTimeout(() => {
+            fetchParticipants();
+          }, 200); // Small delay to ensure database consistency
+        }
+      )
+      .subscribe();
+
+    // ✅ ALSO listen to join request approvals
+    const requestSubscription = supabase
+      .channel(`join_requests_${tripId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "trip_join_requests",
+          filter: `trip_id=eq.${tripId}`,
+        },
+        (payload) => {
+          console.log("Join request updated:", payload);
+          // If request was approved, refresh participants
+          if (
+            payload.new?.status === "approved" &&
+            payload.old?.status === "pending"
+          ) {
+            setTimeout(() => {
+              fetchParticipants();
+            }, 500); // Longer delay for trigger to complete
+          }
         }
       )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      participantSubscription.unsubscribe();
+      requestSubscription.unsubscribe();
     };
   }, [tripId, fetchParticipants]);
 
