@@ -16,6 +16,10 @@ import JoinRequestActions from "@/components/trip/JoinRequestActions";
 import JoinRequestsList from "@/components/trip/JoinRequestsList";
 import JoinRequestDialog from "@/components/trip/JoinRequestDialog";
 import { XCircle } from "lucide-react";
+import PhotoGallery from "@/components/trip/PhotoGallery";
+// ✅ NEW: Import post-trip review components
+import { usePostTripNotifications } from "@/hooks/usePostTripNotifications";
+import PostTripReviewModal from "@/components/trip/PostTripReviewModal";
 
 // AlertDialog imports for delete confirmation
 import {
@@ -40,7 +44,6 @@ import {
 
 import PrivateChat from "@/components/trip/PrivateChat";
 import TripChat from "@/components/trip/TripChat";
-import ActivityFeed from "@/components/trip/ActivityFeed";
 import PostTripModal from "@/components/trip/PostTripModal";
 
 import {
@@ -101,12 +104,55 @@ const TripDetailsPage = () => {
   const [isPrivateChatOpen, setIsPrivateChatOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  // ✅ NEW: Post-trip review states
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [userHasReviewed, setUserHasReviewed] = useState(false);
+  const { schedulePostTripNotification } = usePostTripNotifications();
+
   // Delete confirmation dialog state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Check if current user is the trip creator
   const isCreator = user && trip && user.id === trip.creator_id;
+
+  // ✅ NEW: Check if user should be prompted for review
+  useEffect(() => {
+    const checkForReviewPrompt = async () => {
+      if (!user || !trip || !isJoined) return;
+
+      try {
+        // Check if user has already reviewed this trip
+        const { data: existingReview } = await supabase
+          .from("trip_reviews")
+          .select("id")
+          .eq("trip_id", trip.id)
+          .eq("user_id", user.id)
+          .single();
+
+        if (existingReview) {
+          setUserHasReviewed(true);
+          return;
+        }
+
+        // Calculate if it's time to show review prompt (2 days after trip end)
+        const tripEndDate = new Date(trip.end_date);
+        const twoDaysAfter = new Date(tripEndDate);
+        twoDaysAfter.setDate(twoDaysAfter.getDate() + 2);
+
+        const now = new Date();
+
+        // Show modal if it's been 2+ days since trip ended and user hasn't reviewed
+        if (now >= twoDaysAfter && !userHasReviewed) {
+          setShowReviewModal(true);
+        }
+      } catch (error) {
+        console.error("Error checking review status:", error);
+      }
+    };
+
+    checkForReviewPrompt();
+  }, [trip?.end_date, user, isJoined, userHasReviewed]);
 
   // ✅ Clean refresh function
   const refreshTripData = useCallback(async () => {
@@ -366,7 +412,7 @@ const TripDetailsPage = () => {
     });
   };
 
-  // Legacy join/leave functions for backward compatibility
+  // ✅ NEW: Enhanced handleJoin with notification scheduling
   const handleJoin = async () => {
     if (!user || !trip) {
       toast({
@@ -394,6 +440,14 @@ const TripDetailsPage = () => {
           title: "You're in!",
           description: "You have successfully joined the trip.",
         });
+
+        // ✅ NEW: Schedule post-trip review notification
+        await schedulePostTripNotification(
+          trip.id,
+          user.id,
+          trip.destination,
+          trip.end_date
+        );
 
         await supabase.from("trip_activities").insert({
           trip_id: trip.id,
@@ -522,6 +576,16 @@ const TripDetailsPage = () => {
       return;
     }
     setIsPrivateChatOpen(true);
+  };
+
+  // ✅ NEW: Handle review submission
+  const handleReviewSubmitted = () => {
+    setUserHasReviewed(true);
+    setShowReviewModal(false);
+    toast({
+      title: "Review submitted! 🌟",
+      description: "Thank you for sharing your experience",
+    });
   };
 
   const formatDateRange = (start: string, end: string) => {
@@ -834,8 +898,17 @@ const TripDetailsPage = () => {
           className="mb-6"
         />
 
-        {/* Activity Feed */}
-        <ActivityFeed tripId={trip.id} user={user} className="mb-6" />
+        {/* ✅ ADD: Trip Photos Section */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <h3 className="font-semibold mb-4">Trip Photos</h3>
+            <PhotoGallery
+              tripId={trip.id}
+              isParticipant={isParticipant}
+              tripCreatorId={trip.creator_id}
+            />
+          </CardContent>
+        </Card>
 
         {/* ✅ Group Chat with permissions */}
         <TripChat
@@ -878,6 +951,18 @@ const TripDetailsPage = () => {
           mode="edit"
         />
       )}
+
+      {/* ✅ NEW: Post-Trip Review Modal */}
+      <PostTripReviewModal
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        trip={{
+          id: trip.id,
+          title: trip.destination,
+          destination: trip.destination,
+        }}
+        onReviewSubmitted={handleReviewSubmitted}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

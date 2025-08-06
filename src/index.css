@@ -56,19 +56,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -91,7 +84,7 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%z;
+    --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
@@ -181,13 +174,28 @@
     }
   }
 
-  /* Interactive elements */
+  /* ✅ Enhanced hover scale that prevents overflow */
   .hover-scale {
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease-in-out, z-index 0s;
+    position: relative;
+    z-index: 1;
   }
 
   .hover-scale:hover {
-    transform: scale(1.02);
+    transform: scale(1.01);
+    z-index: 10;
+  }
+
+  /* ✅ Safe hover scale for sensitive layouts */
+  .hover-scale-safe {
+    transition: transform 0.2s ease-in-out, z-index 0s;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hover-scale-safe:hover {
+    transform: scale(1.01);
+    z-index: 10;
   }
 
   /* Rounded design philosophy */
@@ -239,6 +247,109 @@
   }
 }
 
+/* ✅ Enhanced component-specific hover fixes */
+@layer components {
+  /* Fix for trip cards to prevent content cutoff */
+  .trip-card-container {
+    padding: 8px;
+    margin: -8px;
+    overflow: visible;
+  }
+
+  /* Fix for community cards grid */
+  .community-grid-container {
+    gap: 1rem;
+    padding: 0.5rem;
+    overflow: visible;
+  }
+
+  /* Specific fix for trending communities */
+  .trending-communities-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    padding: 0.5rem;
+  }
+
+  .trending-communities-grid > * {
+    position: relative;
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .trending-communities-grid > *:hover {
+    transform: scale(1.02);
+    z-index: 10;
+  }
+
+  /* Enhanced trip cards wrapper */
+  .trips-grid-wrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    padding: 0.75rem;
+  }
+
+  .trips-grid-wrapper > * {
+    position: relative;
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .trips-grid-wrapper > *:hover {
+    transform: scale(1.02);
+    z-index: 10;
+  }
+
+  /* Prevent container overflow */
+  .hover-container {
+    overflow: visible !important;
+    position: relative;
+  }
+
+  /* Enhanced hover effects for specific components */
+  .testimonial-card:hover,
+  .community-card:hover,
+  .trip-card:hover {
+    transform: scale(1.02);
+    z-index: 10;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Container fixes for grid layouts */
+  .grid > .hover-scale,
+  .space-y-4 > .hover-scale,
+  .space-y-3 > .hover-scale {
+    margin: 4px;
+  }
+
+  /* Prevent overflow in flex and grid containers */
+  .grid,
+  .flex,
+  [class*="space-"] {
+    overflow: visible;
+  }
+
+  /* Specific fix for community highlights */
+  .grid.grid-cols-2 {
+    gap: 1rem;
+    padding: 0.5rem;
+  }
+
+  /* Safe scaling for mobile devices */
+  @media (max-width: 768px) {
+    .hover-scale:hover,
+    .hover-scale-safe:hover {
+      transform: scale(1.01);
+    }
+
+    .testimonial-card:hover,
+    .community-card:hover,
+    .trip-card:hover {
+      transform: scale(1.01);
+    }
+  }
+}
+
+/* Map Styling */
 .trip-map-container .leaflet-container {
   border-radius: 16px;
   z-index: 1;
@@ -248,7 +359,7 @@
 
 /* Modern Control Styling */
 .trip-map-container .leaflet-control-zoom {
-  display: none; /* Hide default controls, we have custom ones */
+  display: none;
 }
 
 .trip-map-container .leaflet-control-attribution {
@@ -277,7 +388,7 @@
 }
 
 .trip-map-container .leaflet-popup-close-button {
-  display: none; /* Hide default close button */
+  display: none;
 }
 
 /* Custom Marker Styling */
@@ -426,14 +537,15 @@
     transform: scale(1) translateY(0);
   }
 }
+
 /* Horizontal scroll styling */
 .scrollbar-hide {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none;
 }
 
 /* Smooth scroll snap */
@@ -449,7 +561,6 @@
 .overflow-x-auto {
   scroll-behavior: smooth;
 }
-/* src/index.css or globals.css */
 
 /* ✨ Custom keyframes for additional effects */
 @keyframes gradient-shift {
@@ -496,16 +607,6 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* ✨ Smooth transitions for all interactive elements */
-.hover-scale {
-  transition: transform 0.2s ease-in-out;
-}
-
-.hover-scale:hover {
-  transform: scale(1.05);
-}
-/* src/index.css or globals.css */
-
 /* ✨ Ken Burns effect for image fallback */
 @keyframes kenBurns {
   0% {
@@ -531,9 +632,7 @@
 
 /* ✨ Video-specific styles */
 video {
-  /* Ensure video covers container */
   object-fit: cover;
-  /* Prevent video controls */
   pointer-events: none;
 }
 
@@ -560,6 +659,7 @@ video {
     background-position: 0% 50%;
   }
 }
+
 /* ✨ Enhanced Micro-animations */
 @keyframes shimmer {
   0% {

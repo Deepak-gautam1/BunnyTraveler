@@ -6,7 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useBookmarks } from "@/hooks/useBookmarks"; // ✅ ADDED: Import bookmark hook
+import { useBookmarks } from "@/hooks/useBookmarks";
+import PostTripModal from "@/components/trip/PostTripModal";
+import SavedTripsPage from "@/pages/SavedTripsPage";
+import { Link } from "react-router-dom";
+
 import {
   Calendar,
   MapPin,
@@ -16,8 +20,6 @@ import {
   CheckCircle,
   Bookmark,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import SavedTripsPage from "@/pages/SavedTripsPage";
 
 interface MyTripsPageProps {
   user: User | null;
@@ -49,6 +51,9 @@ interface JoinedTripData {
 
 const MyTripsPage = ({ user }: MyTripsPageProps) => {
   const { toast } = useToast();
+
+  // ✅ FIXED: Moved PostTripModal state to main component
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
 
   // ✅ FIXED: Use bookmark hook to get saved trips
   const { bookmarks, loading: bookmarksLoading } = useBookmarks(user);
@@ -150,6 +155,21 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
     }
   };
 
+  // ✅ FIXED: Moved trip creation handlers to main component
+  const handlePostTrip = () => {
+    setIsPostModalOpen(true);
+  };
+
+  const handleTripCreated = () => {
+    console.log("Trip created successfully!");
+    toast({
+      title: "Success! 🎉",
+      description: "Your trip has been created successfully",
+    });
+    // Refresh trips after creation
+    fetchMyTrips();
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
@@ -170,7 +190,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
     const isUpcoming = new Date(trip.start_date) > new Date();
 
     return (
-      <Card className="hover:shadow-md transition-shadow">
+      <Card className="hover:shadow-md transition-shadow hover-scale">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div>
@@ -297,11 +317,13 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
             Manage your created trips and view trips you've joined
           </p>
         </div>
-        <Button asChild>
-          <Link to="/create-trip">
-            <Plus className="w-4 h-4 mr-2" />
-            Create New Trip
-          </Link>
+        {/* ✅ FIXED: Create Trip button with proper integration */}
+        <Button
+          onClick={handlePostTrip}
+          className="hover-scale bg-accent hover:bg-accent/90 text-accent-foreground border-accent shadow-sm"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create New Trips
         </Button>
       </div>
 
@@ -342,11 +364,9 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
               <p className="text-muted-foreground mb-4">
                 Start planning your first adventure and invite others to join!
               </p>
-              <Button asChild>
-                <Link to="/create-trip">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Trip
-                </Link>
+              <Button onClick={handlePostTrip}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Trip
               </Button>
             </div>
           ) : (
@@ -388,6 +408,13 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
           <SavedTripsPage user={user} />
         </TabsContent>
       </Tabs>
+
+      {/* ✅ FIXED: PostTripModal properly integrated */}
+      <PostTripModal
+        open={isPostModalOpen}
+        onClose={() => setIsPostModalOpen(false)}
+        onTripCreated={handleTripCreated}
+      />
     </div>
   );
 };

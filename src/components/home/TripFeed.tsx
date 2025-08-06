@@ -46,6 +46,8 @@ import {
   Loader2,
   RefreshCw,
   Filter,
+  ChevronUp,
+  Mountain,
 } from "lucide-react";
 
 // Types
@@ -179,16 +181,26 @@ const TripFeed = ({ user }: TripFeedProps) => {
         const from = page * TRIPS_PER_PAGE;
         const to = from + TRIPS_PER_PAGE - 1;
 
+        // ✅ FIXED: Both queries use same status filter
+        const statusFilter = ["active", "upcoming"];
+
         // Get total count (only for first page)
         let countQuery = supabase
           .from("trips")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "active");
+          .select(
+            `
+        *,
+        profiles!trips_creator_id_fkey(full_name, avatar_url),
+        trip_participants(user_id, joined_at)
+      `
+          )
+          .in("status", statusFilter) // ✅ Same filter as data query
+          .order("start_date", { ascending: true });
 
         // Apply filters to count query
         countQuery = applyFiltersToQuery(countQuery, filters);
 
-        // Get paginated data
+        // ✅ FIXED: Data query now matches count query
         let dataQuery = supabase
           .from("trips")
           .select(
@@ -210,7 +222,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           trip_participants(user_id, joined_at)
         `
           )
-          .eq("status", "active")
+          .in("status", statusFilter) // ✅ FIXED: Now includes both active and upcoming
           .range(from, to);
 
         // Apply same filters to data query
@@ -433,7 +445,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
     <div className="min-h-screen bg-background">
       <main className="pb-20">
         {/* Keep existing Welcome Banner unchanged */}
-        <div className="p-4">
+        <div className="px-4  pb-4">
           <div className="gradient-warm rounded-2xl p-6 text-center space-y-2 shadow-soft">
             <h2 className="text-lg font-semibold text-white">
               🏔️ Discover Your Next Adventure
@@ -532,28 +544,34 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 className="rounded-2xl overflow-hidden shadow-soft border"
               />
 
-              {hasMore && (
-                <div className="text-center">
+              {/* ✅ UPDATED: Enhanced Load More UI for Map View */}
+              <div className="flex justify-center items-center space-x-3 pt-6">
+                {hasMore && (
                   <Button
-                    variant="outline"
                     onClick={loadMoreTrips}
                     disabled={loadingMore}
-                    className="hover-scale"
+                    variant="outline"
+                    size="default"
+                    className="text-accent border-accent hover:bg-accent hover:text-white transition-all duration-300 min-w-[240px] hover-scale shadow-sm"
                   >
                     {loadingMore ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Loading More Trips...
+                        <span>Loading Adventures...</span>
                       </>
                     ) : (
                       <>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Load More Trips on Map
+                        <ChevronDown className="w-4 h-4 mr-2" />
+                        <span>Load More on Map</span>
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          {Math.min(TRIPS_PER_PAGE, totalTrips - trips.length)}{" "}
+                          more
+                        </Badge>
                       </>
                     )}
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground bg-muted/50 p-3 rounded-xl">
                 <div className="flex items-center gap-2">
@@ -593,7 +611,10 @@ const TripFeed = ({ user }: TripFeedProps) => {
         <div className="px-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <h3 className="text-lg font-semibold">Active Adventures</h3>
+              <h3 className="text-lg font-semibold flex items-center space-x-2">
+                <Mountain className="w-5 h-5 text-accent" />
+                <span>Active Adventures</span>
+              </h3>
               <Button
                 variant="ghost"
                 size="sm"
@@ -609,8 +630,12 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
 
             <div className="flex items-center space-x-2">
-              <Badge variant="outline" className="text-xs">
-                Showing {trips.length} of {totalTrips}
+              <Badge
+                variant="outline"
+                className="text-xs flex items-center gap-1"
+              >
+                <MapPin className="w-3 h-3" />
+                <span>{totalTrips} adventures available</span>
               </Badge>
               <Badge variant="outline" className="text-xs">
                 Page {currentPage + 1}
@@ -650,7 +675,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           ) : (
             <div className="space-y-4">
               {/* ✅ UPDATED: Enhanced trip mapping with status support */}
-              {trips.map((trip) => {
+              {trips.map((trip, index) => {
                 const participantCount = trip.current_participants || 0;
 
                 const enhancedTrip = {
@@ -691,12 +716,12 @@ const TripFeed = ({ user }: TripFeedProps) => {
                     <div className="absolute top-4 right-4 z-10">
                       {/* Keep existing bookmark button commented */}
                       {/* <BookmarkButton
-                        tripId={trip.id}
-                        isBookmarked={isBookmarked(trip.id)}
-                        onToggle={toggleBookmark}
-                        variant="bookmark"
-                        size="md"
-                      /> */}
+                      tripId={trip.id}
+                      isBookmarked={isBookmarked(trip.id)}
+                      onToggle={toggleBookmark}
+                      variant="bookmark"
+                      size="md"
+                    /> */}
                     </div>
 
                     <EnhancedTripCard
@@ -721,28 +746,66 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           )}
 
-          {/* Keep all existing Load More and pagination unchanged */}
-          {hasMore && trips.length > 0 && (
-            <div className="flex justify-center pt-6">
+          {/* ✅ UPDATED: Enhanced Load More UI - Matching Comments Design */}
+          <div className="flex justify-center items-center space-x-3 pt-6">
+            {/* Load More Adventures Button */}
+            {hasMore && trips.length > 0 && (
               <Button
-                variant="outline"
                 onClick={loadMoreTrips}
                 disabled={loadingMore}
-                className="hover-scale min-w-[200px]"
+                variant="outline"
+                size="default"
+                className="text-accent border-accent hover:bg-accent hover:text-white transition-all duration-300 min-w-[240px] hover-scale shadow-sm"
               >
                 {loadingMore ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Loading More...
+                    <span>Loading Adventures...</span>
                   </>
                 ) : (
                   <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Load More Adventures (
-                    {Math.min(TRIPS_PER_PAGE, totalTrips - trips.length)} more)
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                    <span>Load More Adventures</span>
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {Math.min(TRIPS_PER_PAGE, totalTrips - trips.length)} more
+                    </Badge>
                   </>
                 )}
               </Button>
+            )}
+
+            {/* Show Less Button */}
+            {trips.length > TRIPS_PER_PAGE && (
+              <Button
+                onClick={() => {
+                  // Reset to initial page size
+                  setTrips(trips.slice(0, TRIPS_PER_PAGE));
+                  setCurrentPage(0);
+                }}
+                variant="ghost"
+                size="default"
+                className="text-muted-foreground hover:text-accent hover:bg-accent/10 transition-all duration-300"
+              >
+                <ChevronUp className="w-4 h-4 mr-2" />
+                <span>Show Less</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Progress Indicator */}
+          {trips.length > 0 && totalTrips > TRIPS_PER_PAGE && (
+            <div className="flex justify-center pt-4">
+              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                <span>
+                  Showing {trips.length} of {totalTrips} adventures
+                </span>
+                <div className="w-24 bg-muted rounded-full h-1">
+                  <div
+                    className="bg-accent h-1 rounded-full transition-all duration-300"
+                    style={{ width: `${(trips.length / totalTrips) * 100}%` }}
+                  />
+                </div>
+              </div>
             </div>
           )}
 

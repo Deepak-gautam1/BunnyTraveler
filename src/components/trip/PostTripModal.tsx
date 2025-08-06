@@ -181,7 +181,23 @@ const PostTripModal = ({
 
         onTripUpdated?.();
       } else {
-        // ✅ CREATE NEW TRIP
+        // ✅ CREATE NEW TRIP - Updated with correct initial status logic
+
+        // Determine correct initial status based on start date
+        let initialStatus = "pending";
+        const tripStartDate = new Date(formData.start_date);
+        const tripEndDate = new Date(formData.end_date);
+        const currentDate = new Date();
+        currentDate.setHours(0, 0, 0, 0);
+
+        if (tripEndDate < currentDate) {
+          initialStatus = "completed";
+        } else if (tripStartDate <= currentDate && tripEndDate >= currentDate) {
+          initialStatus = "active";
+        } else if (tripStartDate > currentDate) {
+          initialStatus = "upcoming";
+        }
+
         const newTrip = {
           creator_id: user.id,
           destination: formData.destination.trim(),
@@ -194,7 +210,7 @@ const PostTripModal = ({
             formData.budget_per_person > 0 ? formData.budget_per_person : null,
           travel_style:
             formData.travel_style.length > 0 ? formData.travel_style : null,
-          status: "active",
+          status: initialStatus, // ✅ Use calculated initial status instead of hardcoded "active"
           current_participants: 1,
         };
 
@@ -202,12 +218,12 @@ const PostTripModal = ({
 
         const { data, error } = await supabase.from("trips").insert([newTrip])
           .select(`
-            *,
-            profiles:creator_id (
-              full_name,
-              avatar_url
-            )
-          `);
+          *,
+          profiles:creator_id (
+            full_name,
+            avatar_url
+          )
+        `);
 
         if (error) {
           console.error("Supabase create error:", error);
@@ -215,6 +231,22 @@ const PostTripModal = ({
         }
 
         console.log("Trip created successfully:", data);
+
+        // ✅ Log the initial status to history table
+        if (data && data[0]) {
+          try {
+            await supabase.from("trip_status_history").insert({
+              trip_id: data[0].id,
+              old_status: null,
+              new_status: initialStatus,
+              changed_by: user.id,
+              reason: "Trip created",
+            });
+          } catch (historyError) {
+            console.warn("Failed to log status history:", historyError);
+            // Don't throw error as trip was created successfully
+          }
+        }
 
         toast({
           title: "🎉 Trip Created!",

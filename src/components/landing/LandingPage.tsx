@@ -1,5 +1,5 @@
 // src/components/landing/LandingPage.tsx
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode, useRef } from "react";
 import {
   motion,
   useScroll,
@@ -12,11 +12,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import SignUpForm from "@/components/auth/SignUpForm";
-import { useAudio } from "@/hooks/useAudio";
 
-import heroImage from "@/assets/storyCamp.png"; // fallback image
+import heroImage from "@/assets/storyCamp.png";
 import heroPosterXL from "@/assets/heroPoster@2x.webp.png";
-import heroVideo from "@/assets/HeroVideo.mp4";
+import heroVideo from "@/assets/HeroVideo2.mp4";
 
 import {
   Chrome,
@@ -32,8 +31,6 @@ import {
   Download,
   Navigation,
   Smartphone,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 
 interface LandingPageProps {
@@ -247,6 +244,7 @@ const LocationAwareLiveActivity = ({
   state: string | null;
   loading: boolean;
 }) => {
+  if (typeof window !== "undefined" && window.innerWidth < 640) return null;
   const [activities, setActivities] = useState<any[]>([]);
   const [visible, setVisible] = useState(true);
 
@@ -271,7 +269,6 @@ const LocationAwareLiveActivity = ({
     };
   };
 
-  /* start generating once we have (or fail to have) location --------------- */
   useEffect(() => {
     if (loading) return;
     setActivities([buildActivity(), buildActivity(), buildActivity()]);
@@ -478,9 +475,48 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
   const [videoOK, setVideoOK] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [prefersVideo, setPrefersVideo] = useState(false);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  /* NEW: audio hook */
-  const audio = useAudio("/ambient.mp3");
+  // ✅ ENHANCED: Better video audio handling
+  // ✅ CORRECT: Restart video with audio after user interaction
+  const handleFirstInteraction = async () => {
+    if (videoRef.current && !hasUserInteracted) {
+      try {
+        console.log("🎵 User clicked - restarting video with audio");
+
+        // Store current time to resume from same position
+        const currentTime = videoRef.current.currentTime;
+
+        // Pause the current muted video
+        videoRef.current.pause();
+
+        // Unmute the video
+        videoRef.current.muted = false;
+
+        // Set the time back to where it was
+        videoRef.current.currentTime = currentTime;
+
+        // ✅ CRITICAL: Start fresh playback with audio
+        await videoRef.current.play();
+
+        console.log("✅ Video restarted successfully with audio");
+        setHasUserInteracted(true);
+      } catch (error) {
+        console.error("❌ Error restarting video with audio:", error);
+
+        // Fallback: try without preserving time
+        try {
+          videoRef.current.muted = false;
+          videoRef.current.currentTime = 0;
+          await videoRef.current.play();
+          setHasUserInteracted(true);
+        } catch (fallbackError) {
+          console.error("❌ Fallback also failed:", fallbackError);
+        }
+      }
+    }
+  };
 
   /* Connection speed check */
   useEffect(() => {
@@ -568,9 +604,6 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
     },
   };
 
-  /* ---------------------------------------------------------------------- */
-  /*                                 RENDER                                 */
-  /* ---------------------------------------------------------------------- */
   return (
     <div className="min-h-screen relative flex flex-col overflow-hidden">
       {/* ─────────── Hero background ─────────── */}
@@ -583,13 +616,16 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
             transition={{ duration: 1.2 }}
           >
             <video
+              ref={videoRef}
               autoPlay
-              muted
+              muted={!hasUserInteracted}
               loop
               playsInline
+              onClick={handleFirstInteraction}
+              onTouchStart={handleFirstInteraction}
               preload="metadata"
               poster={heroPosterXL}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover cursor-pointer"
               onLoadedData={() => setVideoLoaded(true)}
               onError={() => {
                 console.log("Video failed; falling back to image");
@@ -599,6 +635,33 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
             >
               <source src={heroVideo} type="video/mp4" />
             </video>
+
+            {/* ✅ Audio indicator overlay */}
+            {/* ✅ FIXED: Audio indicator overlay with proper z-index */}
+            {videoLoaded && !hasUserInteracted && (
+              <motion.div
+                className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-sm text-white px-3 py-2 rounded-full text-sm flex items-center gap-2 cursor-pointer z-50"
+                onClick={(e) => {
+                  e.stopPropagation(); // ✅ Prevent video click from interfering
+                  handleFirstInteraction();
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation(); // ✅ Prevent touch propagation issues
+                  handleFirstInteraction();
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                style={{
+                  pointerEvents: "auto", // ✅ Ensure button is clickable
+                  zIndex: 9999, // ✅ Force high z-index
+                }}
+              >
+                🔊 Tap for sound
+              </motion.div>
+            )}
+
             <motion.div
               className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50"
               initial={{ opacity: 0 }}
@@ -671,47 +734,6 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
               <Play className="w-4 h-4" />
               Watch Video
             </motion.button>
-          )}
-
-          {/* NEW: Audio toggle */}
-          {audio.ready ? (
-            <motion.button
-              onClick={audio.playing ? audio.pause : audio.play}
-              aria-label="Toggle ambience"
-              className="text-white/70 hover:text-white bg-white/10 px-2.5 py-2 rounded-full border border-white/20"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.92 }}
-            >
-              {audio.playing ? (
-                <Volume2 className="w-4 h-4" />
-              ) : (
-                <VolumeX className="w-4 h-4" />
-              )}
-            </motion.button>
-          ) : (
-            /* First-tap activator */
-            <motion.button
-              onClick={audio.init}
-              aria-label="Enable sound"
-              className="text-white/70 hover:text-white bg-white/10 px-2.5 py-2 rounded-full border border-white/20"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.92 }}
-            >
-              <VolumeX className="w-4 h-4" />
-            </motion.button>
-          )}
-
-          {/* Equalizer animation */}
-          {audio.playing && (
-            <motion.span
-              className="w-4 h-4 bg-gradient-to-b from-pink-500 to-orange-500 rounded-sm"
-              animate={{ scaleY: [0.4, 1, 0.6, 1], originY: 1 }}
-              transition={{
-                duration: 0.7,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
           )}
         </div>
       </header>
