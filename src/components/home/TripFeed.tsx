@@ -88,7 +88,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
   const { toast } = useToast();
   const { toggleBookmark, isBookmarked } = useBookmarks(user);
 
-  // State management (keep all existing state)
+  // State management
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -116,7 +116,9 @@ const TripFeed = ({ user }: TripFeedProps) => {
     actionType: "join" as "join" | "create" | "chat",
   });
 
-  const TRIPS_PER_PAGE = 5;
+  // ✅ FIXED: Better pagination constants
+  const TRIPS_PER_PAGE = 5; // Change back to 5 for better UX
+  const INITIAL_TRIPS_COUNT = 5; // First load shows 5 trips
 
   // ✅ Keep existing applyFiltersToQuery function unchanged
   const applyFiltersToQuery = (query: any, currentFilters: FilterOptions) => {
@@ -168,7 +170,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
     return query;
   };
 
-  // ✅ Keep existing fetchTrips function unchanged
+  // ✅ FIXED: Improved fetchTrips function
   const fetchTrips = useCallback(
     async (page: number, append: boolean = false) => {
       if (page === 0) {
@@ -181,51 +183,45 @@ const TripFeed = ({ user }: TripFeedProps) => {
         const from = page * TRIPS_PER_PAGE;
         const to = from + TRIPS_PER_PAGE - 1;
 
-        // ✅ FIXED: Both queries use same status filter
-        const statusFilter = ["active", "upcoming"];
+        console.log(`🔄 Fetching page ${page}, range ${from}-${to}`); // Debug log
 
         // Get total count (only for first page)
-        let countQuery = supabase
-          .from("trips")
-          .select(
-            `
-        *,
-        profiles!trips_creator_id_fkey(full_name, avatar_url),
-        trip_participants(user_id, joined_at)
-      `
-          )
-          .in("status", statusFilter) // ✅ Same filter as data query
-          .order("start_date", { ascending: true });
+        if (page === 0) {
+          const { count } = await supabase
+            .from("trips")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "active");
 
-        // Apply filters to count query
-        countQuery = applyFiltersToQuery(countQuery, filters);
+          console.log(`📊 Total trips available: ${count}`); // Debug log
+          setTotalTrips(count || 0);
+        }
 
-        // ✅ FIXED: Data query now matches count query
+        // Get paginated data
         let dataQuery = supabase
           .from("trips")
           .select(
             `
-          id,
-          creator_id,
-          destination,
-          start_city,
-          start_date,
-          end_date,
-          description,
-          created_at,
-          max_participants,
-          current_participants,
-          budget_per_person,
-          travel_style,
-          status,
-          profiles!trips_creator_id_fkey(full_name, avatar_url),
-          trip_participants(user_id, joined_at)
-        `
+            id,
+            creator_id,
+            destination,
+            start_city,
+            start_date,
+            end_date,
+            description,
+            created_at,
+            max_participants,
+            current_participants,
+            budget_per_person,
+            travel_style,
+            status,
+            profiles!trips_creator_id_fkey(full_name, avatar_url),
+            trip_participants(user_id, joined_at)
+          `
           )
-          .in("status", statusFilter) // ✅ FIXED: Now includes both active and upcoming
+          .eq("status", "active")
           .range(from, to);
 
-        // Apply same filters to data query
+        // Apply filters
         dataQuery = applyFiltersToQuery(dataQuery, filters);
 
         // Apply sorting
@@ -250,14 +246,10 @@ const TripFeed = ({ user }: TripFeedProps) => {
             break;
         }
 
-        // Execute both queries
-        const [{ count }, { data, error }] = await Promise.all([
-          page === 0 ? countQuery : Promise.resolve({ count: totalTrips }),
-          dataQuery,
-        ]);
+        const { data, error } = await dataQuery;
 
         if (error) {
-          console.error("Error fetching trips:", error);
+          console.error("❌ Error fetching trips:", error);
           toast({
             title: "Error loading trips",
             description: "Failed to load trips. Please try again.",
@@ -268,39 +260,46 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
         if (data) {
           const newTrips = data as Trip[];
+          console.log(`✅ Fetched ${newTrips.length} trips for page ${page}`); // Debug log
 
           if (append) {
-            setTrips((prev) => [...prev, ...newTrips]);
+            setTrips((prev) => {
+              const combined = [...prev, ...newTrips];
+              console.log(`📈 Total trips now: ${combined.length}`); // Debug log
+              return combined;
+            });
           } else {
             setTrips(newTrips);
             setCurrentPage(0);
           }
 
-          if (page === 0 && count !== null) {
-            setTotalTrips(count);
-          }
-
           setCurrentPage(page);
         }
       } catch (err) {
-        console.error("Unexpected error fetching trips:", err);
-        toast({
-          title: "Unexpected error",
-          description: "Something went wrong. Please refresh the page.",
-          variant: "destructive",
-        });
+        console.error("💥 Unexpected error fetching trips:", err);
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [filters, totalTrips, toast]
+    [filters, toast]
   );
 
-  // ✅ Keep all existing functions unchanged
+  // ✅ FIXED: Improved loadMoreTrips function
   const loadMoreTrips = useCallback(async () => {
+    console.log(
+      `🔄 Load more called. Current: ${trips.length}, Total: ${totalTrips}, Loading: ${loadingMore}`
+    );
+
     if (trips.length < totalTrips && !loadingMore) {
+      console.log(`📥 Loading page ${currentPage + 1}`);
       await fetchTrips(currentPage + 1, true);
+    } else {
+      console.log(
+        `⏹️ Cannot load more. Reason: ${
+          trips.length >= totalTrips ? "No more trips" : "Already loading"
+        }`
+      );
     }
   }, [trips.length, totalTrips, loadingMore, currentPage, fetchTrips]);
 
@@ -438,14 +437,14 @@ const TripFeed = ({ user }: TripFeedProps) => {
     });
   }, [handleFiltersChange]);
 
-  // ✅ Keep existing computed property unchanged
-  const hasMore = trips.length < totalTrips;
+  // ✅ FIXED: Better hasMore calculation
+  const hasMore = trips.length < totalTrips && totalTrips > 0;
 
   return (
     <div className="min-h-screen bg-background">
       <main className="pb-20">
         {/* Keep existing Welcome Banner unchanged */}
-        <div className="px-4  pb-4">
+        <div className="px-4 pb-4">
           <div className="gradient-warm rounded-2xl p-6 text-center space-y-2 shadow-soft">
             <h2 className="text-lg font-semibold text-white">
               🏔️ Discover Your Next Adventure
@@ -686,7 +685,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
                   startCity: trip.start_city,
                   description: trip.description || "No description provided.",
                   creator: {
-                    id: trip.creator_id, // ✅ NEW: Add creator ID for status management
+                    id: trip.creator_id,
                     name: trip.profiles?.full_name || "A Wanderer",
                     avatar: trip.profiles?.avatar_url || "",
                     rating: 4.8,
@@ -699,7 +698,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
                     max: trip.max_participants,
                   },
                   interestedCount: participantCount,
-                  status: trip.status as TripStatus, // ✅ NEW: Add status with proper typing
+                  status: "active",
                   price: trip.budget_per_person
                     ? {
                         amount: trip.budget_per_person,
@@ -733,11 +732,10 @@ const TripFeed = ({ user }: TripFeedProps) => {
                       onChatClick={() => handleTripChat(trip.id)}
                       onLikeClick={() => console.log("Like trip:", trip.id)}
                       onStatusChange={(newStatus) => {
-                        // ✅ NEW: Add status change handler
                         console.log(
                           `Trip ${trip.id} status changed to ${newStatus}`
                         );
-                        refreshTrips(); // Refresh trips after status change
+                        refreshTrips();
                       }}
                     />
                   </div>
@@ -746,10 +744,10 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           )}
 
-          {/* ✅ UPDATED: Enhanced Load More UI - Matching Comments Design */}
+          {/* ✅ UPDATED: Enhanced Load More Button Section */}
           <div className="flex justify-center items-center space-x-3 pt-6">
             {/* Load More Adventures Button */}
-            {hasMore && trips.length > 0 && (
+            {hasMore && (
               <Button
                 onClick={loadMoreTrips}
                 disabled={loadingMore}
@@ -775,11 +773,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
             )}
 
             {/* Show Less Button */}
-            {trips.length > TRIPS_PER_PAGE && (
+            {trips.length > INITIAL_TRIPS_COUNT && (
               <Button
                 onClick={() => {
-                  // Reset to initial page size
-                  setTrips(trips.slice(0, TRIPS_PER_PAGE));
+                  console.log("🔙 Showing less trips");
+                  setTrips(trips.slice(0, INITIAL_TRIPS_COUNT));
                   setCurrentPage(0);
                 }}
                 variant="ghost"

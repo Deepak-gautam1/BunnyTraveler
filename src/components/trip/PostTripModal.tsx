@@ -1,4 +1,3 @@
-// src/components/trip/PostTripModal.tsx
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -23,7 +22,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-// ✅ NEW: Add trip data type for editing
 interface TripData {
   id: number;
   destination: string;
@@ -40,9 +38,9 @@ interface PostTripModalProps {
   open: boolean;
   onClose: () => void;
   onTripCreated?: () => void;
-  onTripUpdated?: () => void; // ✅ NEW: Update callback
-  tripData?: TripData; // ✅ NEW: Optional trip data for editing
-  mode?: "create" | "edit"; // ✅ NEW: Modal mode
+  onTripUpdated?: () => void;
+  tripData?: TripData;
+  mode?: "create" | "edit";
 }
 
 const availableTravelStyles = [
@@ -66,18 +64,17 @@ const PostTripModal = ({
   onTripCreated,
   onTripUpdated,
   tripData,
-  mode = "create", // ✅ NEW: Default to create mode
+  mode = "create",
 }: PostTripModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  // ✅ NEW: Initialize form based on mode
   const getInitialFormData = () => {
     if (mode === "edit" && tripData) {
       return {
         destination: tripData.destination,
         start_city: tripData.start_city,
-        start_date: tripData.start_date.split("T")[0], // Format for date input
+        start_date: tripData.start_date.split("T")[0],
         end_date: tripData.end_date.split("T")[0],
         description: tripData.description || "",
         max_participants: tripData.max_group_size,
@@ -99,7 +96,6 @@ const PostTripModal = ({
 
   const [formData, setFormData] = useState(getInitialFormData());
 
-  // ✅ NEW: Reset form when modal opens/closes or trip data changes
   useEffect(() => {
     if (open) {
       setFormData(getInitialFormData());
@@ -122,6 +118,7 @@ const PostTripModal = ({
     });
   };
 
+  // ✅ FIXED: Reverted handleSubmit function to simple "active" status
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -147,14 +144,14 @@ const PostTripModal = ({
       }
 
       if (mode === "edit" && tripData) {
-        // ✅ UPDATE TRIP
+        // ✅ UPDATE TRIP - Fixed variable name
         const updateData = {
           destination: formData.destination.trim(),
           start_city: formData.start_city.trim(),
           start_date: formData.start_date,
           end_date: formData.end_date,
           description: formData.description.trim() || null,
-          max_group_size: formData.max_participants,
+          max_group_size: formData.max_participants, // ✅ FIXED: Use correct field name
           budget_per_person:
             formData.budget_per_person > 0 ? formData.budget_per_person : null,
           travel_style:
@@ -181,23 +178,7 @@ const PostTripModal = ({
 
         onTripUpdated?.();
       } else {
-        // ✅ CREATE NEW TRIP - Updated with correct initial status logic
-
-        // Determine correct initial status based on start date
-        let initialStatus = "pending";
-        const tripStartDate = new Date(formData.start_date);
-        const tripEndDate = new Date(formData.end_date);
-        const currentDate = new Date();
-        currentDate.setHours(0, 0, 0, 0);
-
-        if (tripEndDate < currentDate) {
-          initialStatus = "completed";
-        } else if (tripStartDate <= currentDate && tripEndDate >= currentDate) {
-          initialStatus = "active";
-        } else if (tripStartDate > currentDate) {
-          initialStatus = "upcoming";
-        }
-
+        // ✅ REVERTED: CREATE NEW TRIP - Back to simple "active" status
         const newTrip = {
           creator_id: user.id,
           destination: formData.destination.trim(),
@@ -210,7 +191,7 @@ const PostTripModal = ({
             formData.budget_per_person > 0 ? formData.budget_per_person : null,
           travel_style:
             formData.travel_style.length > 0 ? formData.travel_style : null,
-          status: initialStatus, // ✅ Use calculated initial status instead of hardcoded "active"
+          status: "active", // ✅ REVERTED: Back to simple active status
           current_participants: 1,
         };
 
@@ -218,12 +199,12 @@ const PostTripModal = ({
 
         const { data, error } = await supabase.from("trips").insert([newTrip])
           .select(`
-          *,
-          profiles:creator_id (
-            full_name,
-            avatar_url
-          )
-        `);
+            *,
+            profiles:creator_id (
+              full_name,
+              avatar_url
+            )
+          `);
 
         if (error) {
           console.error("Supabase create error:", error);
@@ -231,22 +212,6 @@ const PostTripModal = ({
         }
 
         console.log("Trip created successfully:", data);
-
-        // ✅ Log the initial status to history table
-        if (data && data[0]) {
-          try {
-            await supabase.from("trip_status_history").insert({
-              trip_id: data[0].id,
-              old_status: null,
-              new_status: initialStatus,
-              changed_by: user.id,
-              reason: "Trip created",
-            });
-          } catch (historyError) {
-            console.warn("Failed to log status history:", historyError);
-            // Don't throw error as trip was created successfully
-          }
-        }
 
         toast({
           title: "🎉 Trip Created!",
@@ -299,7 +264,6 @@ const PostTripModal = ({
     return `₹${amount}`;
   };
 
-  // ✅ NEW: Dynamic content based on mode
   const modalContent = {
     create: {
       title: "Create Your Adventure",
