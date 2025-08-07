@@ -1,8 +1,8 @@
 // src/components/discover/TripMap.tsx
 import { useEffect, useRef, useState, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import { MarkerClusterGroup } from "@changey/react-leaflet-markercluster"; // ✅ FIXED
-import "@changey/react-leaflet-markercluster/dist/styles.min.css"; // ✅ Required CSS
+import MarkerClusterGroup from "@changey/react-leaflet-markercluster";
+import "@changey/react-leaflet-markercluster/dist/styles.min.css";
 import L from "leaflet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
