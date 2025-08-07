@@ -19,19 +19,19 @@ import {
   Users,
   Verified,
   Clock,
-  CheckCircle,
-  PlayCircle,
-  PauseCircle,
-  MoreVertical,
-  Settings,
+  // CheckCircle,
+  // PlayCircle,
+  // PauseCircle,
+  // MoreVertical,
+  // Settings,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import BookmarkButton from "@/components/trip/BookmarkButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-// ✅ NEW: Import the trip status hook
-import { useTripStatus, TripStatus } from "@/hooks/useTripStatus";
+// ❌ COMMENTED: Import the trip status hook
+// import { useTripStatus, TripStatus } from "@/hooks/useTripStatus";
 
 interface EnhancedTripCardProps {
   id: number;
@@ -41,7 +41,7 @@ interface EnhancedTripCardProps {
   startCity: string;
   description: string;
   creator: {
-    id: string; // ✅ NEW: Add creator ID for permission checks
+    id: string; // ✅ Keep creator ID for permission checks
     name: string;
     avatar?: string;
     rating: number;
@@ -56,7 +56,7 @@ interface EnhancedTripCardProps {
   interestedCount: number;
   isLiked?: boolean;
   isBookmarked?: boolean;
-  status?: TripStatus;
+  // status?: TripStatus; // ❌ COMMENTED: Status prop
   price?: {
     amount: number;
     currency: string;
@@ -69,7 +69,7 @@ interface EnhancedTripCardProps {
   onChatClick?: () => void;
   onLikeClick?: () => void;
   onBookmarkClick?: () => void;
-  onStatusChange?: (newStatus: TripStatus) => void; // ✅ NEW: Status change callback
+  // onStatusChange?: (newStatus: TripStatus) => void; // ❌ COMMENTED: Status change callback
 }
 
 const EnhancedTripCard = ({
@@ -85,7 +85,7 @@ const EnhancedTripCard = ({
   interestedCount,
   isLiked = false,
   isBookmarked = false,
-  status = "planning",
+  // status = "planning", // ❌ COMMENTED: Status prop
   price,
   isFemaleOnly = false,
   isInstantJoin = false,
@@ -95,24 +95,24 @@ const EnhancedTripCard = ({
   onChatClick,
   onLikeClick,
   onBookmarkClick,
-  onStatusChange,
-}: EnhancedTripCardProps) => {
+}: // onStatusChange, // ❌ COMMENTED: Status change callback
+EnhancedTripCardProps) => {
   const [liked, setLiked] = useState(isLiked);
   const [bookmarked, setBookmarked] = useState(isBookmarked);
   const [interested, setInterested] = useState(interestedCount);
-  const [currentStatus, setCurrentStatus] = useState<TripStatus>(status);
+  // const [currentStatus, setCurrentStatus] = useState<TripStatus>(status); // ❌ COMMENTED: Status state
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const { toast } = useToast();
 
-  // ✅ NEW: Initialize the trip status hook
-  const {
-    updateTripStatus,
-    autoUpdateStatusBasedOnDates,
-    loading: statusLoading,
-  } = useTripStatus(currentUser);
+  // ❌ COMMENTED: Initialize the trip status hook
+  // const {
+  //   updateTripStatus,
+  //   autoUpdateStatusBasedOnDates,
+  //   loading: statusLoading,
+  // } = useTripStatus(currentUser);
 
-  // ✅ NEW: Get current user on component mount
+  // ✅ Keep: Get current user on component mount
   useEffect(() => {
     const getCurrentUser = async () => {
       const {
@@ -123,107 +123,107 @@ const EnhancedTripCard = ({
     getCurrentUser();
   }, []);
 
-  // ✅ NEW: Auto-update status based on dates when component mounts
-  useEffect(() => {
-    if (currentUser) {
-      autoUpdateStatusBasedOnDates(id);
-    }
-  }, [currentUser, id]);
+  // ❌ COMMENTED: Auto-update status based on dates when component mounts
+  // useEffect(() => {
+  //   if (currentUser) {
+  //     autoUpdateStatusBasedOnDates(id);
+  //   }
+  // }, [currentUser, id]);
 
-  // ✅ NEW: Status configuration with enhanced styling
-  const getStatusConfig = (status: TripStatus) => {
-    switch (status) {
-      case "planning":
-        return {
-          label: "Planning",
-          variant: "outline" as const,
-          className:
-            "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
-          icon: <PauseCircle className="w-3 h-3" />,
-        };
-      case "confirmed":
-        return {
-          label: "Confirmed",
-          variant: "default" as const,
-          className:
-            "bg-green-100 text-green-800 border-green-300 hover:bg-green-200",
-          icon: <CheckCircle className="w-3 h-3" />,
-        };
-      case "ongoing":
-        return {
-          label: "Live",
-          variant: "default" as const,
-          className:
-            "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 animate-pulse",
-          icon: <PlayCircle className="w-3 h-3" />,
-        };
-      case "completed":
-        return {
-          label: "Completed",
-          variant: "secondary" as const,
-          className: "bg-gray-100 text-gray-700 border-gray-300",
-          icon: <CheckCircle className="w-3 h-3" />,
-        };
-      default:
-        return {
-          label: "Planning",
-          variant: "outline" as const,
-          className: "bg-blue-50 text-blue-700 border-blue-200",
-          icon: <PauseCircle className="w-3 h-3" />,
-        };
-    }
-  };
+  // ❌ COMMENTED: Status configuration with enhanced styling
+  // const getStatusConfig = (status: TripStatus) => {
+  //   switch (status) {
+  //     case "planning":
+  //       return {
+  //         label: "Planning",
+  //         variant: "outline" as const,
+  //         className:
+  //           "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
+  //         icon: <PauseCircle className="w-3 h-3" />,
+  //       };
+  //     case "confirmed":
+  //       return {
+  //         label: "Confirmed",
+  //         variant: "default" as const,
+  //         className:
+  //           "bg-green-100 text-green-800 border-green-300 hover:bg-green-200",
+  //         icon: <CheckCircle className="w-3 h-3" />,
+  //       };
+  //     case "ongoing":
+  //       return {
+  //         label: "Live",
+  //         variant: "default" as const,
+  //         className:
+  //           "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 animate-pulse",
+  //         icon: <PlayCircle className="w-3 h-3" />,
+  //       };
+  //     case "completed":
+  //       return {
+  //         label: "Completed",
+  //         variant: "secondary" as const,
+  //         className: "bg-gray-100 text-gray-700 border-gray-300",
+  //         icon: <CheckCircle className="w-3 h-3" />,
+  //       };
+  //     default:
+  //       return {
+  //         label: "Planning",
+  //         variant: "outline" as const,
+  //         className: "bg-blue-50 text-blue-700 border-blue-200",
+  //         icon: <PauseCircle className="w-3 h-3" />,
+  //       };
+  //   }
+  // };
 
-  const statusConfig = getStatusConfig(currentStatus);
+  // const statusConfig = getStatusConfig(currentStatus); // ❌ COMMENTED: Status config
 
-  // ✅ NEW: Handle status change
-  const handleStatusChange = async (newStatus: TripStatus) => {
-    const success = await updateTripStatus(
-      id,
-      newStatus,
-      `Status changed to ${newStatus}`
-    );
-    if (success) {
-      setCurrentStatus(newStatus);
-      onStatusChange?.(newStatus);
-    }
-  };
+  // ❌ COMMENTED: Handle status change
+  // const handleStatusChange = async (newStatus: TripStatus) => {
+  //   const success = await updateTripStatus(
+  //     id,
+  //     newStatus,
+  //     `Status changed to ${newStatus}`
+  //   );
+  //   if (success) {
+  //     setCurrentStatus(newStatus);
+  //     onStatusChange?.(newStatus);
+  //   }
+  // };
 
-  // ✅ NEW: Check if current user can manage trip
+  // ✅ Keep: Check if current user can manage trip
   const canManageTrip = currentUser && currentUser.id === creator.id;
 
-  // ✅ NEW: Get available status transitions
-  const getAvailableStatusTransitions = (
-    currentStatus: TripStatus
-  ): TripStatus[] => {
-    switch (currentStatus) {
-      case "planning":
-        return ["confirmed"];
-      case "confirmed":
-        return ["planning", "ongoing"];
-      case "ongoing":
-        return ["completed"];
-      case "completed":
-        return []; // No transitions from completed
-      default:
-        return [];
-    }
-  };
+  // ❌ COMMENTED: Get available status transitions
+  // const getAvailableStatusTransitions = (
+  //   currentStatus: TripStatus
+  // ): TripStatus[] => {
+  //   switch (currentStatus) {
+  //     case "planning":
+  //       return ["confirmed"];
+  //     case "confirmed":
+  //       return ["planning", "ongoing"];
+  //     case "ongoing":
+  //       return ["completed"];
+  //     case "completed":
+  //       return []; // No transitions from completed
+  //     default:
+  //       return [];
+  //   }
+  // };
 
-  const availableTransitions = getAvailableStatusTransitions(currentStatus);
+  // const availableTransitions = getAvailableStatusTransitions(currentStatus); // ❌ COMMENTED: Available transitions
 
   const handleJoin = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // Prevent joining completed trips
-    if (currentStatus === "completed") {
-      toast({
-        title: "Trip completed",
-        description: "This trip has already ended",
-        variant: "destructive",
-      });
-      return;
-    }
+    // ❌ COMMENTED: Prevent joining completed trips
+    // if (currentStatus === "completed") {
+    //   toast({
+    //     title: "Trip completed",
+    //     description: "This trip has already ended",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
 
     try {
       const {
@@ -277,7 +277,7 @@ const EnhancedTripCard = ({
 
   const handleChat = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onChatClick?.();
+    onChatChat?.();
   };
 
   const timeAgo = formatDistanceToNow(new Date(postedAt), { addSuffix: true });
@@ -286,17 +286,21 @@ const EnhancedTripCard = ({
       (1000 * 60 * 60 * 24)
   );
 
-  // Determine if trip is joinable based on status
-  const isJoinable =
-    currentStatus === "planning" || currentStatus === "confirmed";
-  const buttonText =
-    currentStatus === "completed"
-      ? "Completed"
-      : currentStatus === "ongoing"
-      ? "In Progress"
-      : isInstantJoin
-      ? "Join Now"
-      : "Show Interest";
+  // ❌ COMMENTED: Determine if trip is joinable based on status
+  // const isJoinable =
+  //   currentStatus === "planning" || currentStatus === "confirmed";
+  // const buttonText =
+  //   currentStatus === "completed"
+  //     ? "Completed"
+  //     : currentStatus === "ongoing"
+  //     ? "In Progress"
+  //     : isInstantJoin
+  //     ? "Join Now"
+  //     : "Show Interest";
+
+  // ✅ SIMPLIFIED: Without status dependency
+  const isJoinable = true; // Always joinable when status is disabled
+  const buttonText = isInstantJoin ? "Join Now" : "Show Interest";
 
   return (
     <Card
@@ -305,8 +309,8 @@ const EnhancedTripCard = ({
     >
       {/* Top-right icons container */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-        {/* ✅ NEW: Status Badge with Management Dropdown for Trip Creator */}
-        {canManageTrip && availableTransitions.length > 0 ? (
+        {/* ❌ COMMENTED: Status Badge with Management Dropdown for Trip Creator */}
+        {/* {canManageTrip && availableTransitions.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Badge
@@ -348,7 +352,7 @@ const EnhancedTripCard = ({
             {statusConfig.icon}
             <span className="ml-1">{statusConfig.label}</span>
           </Badge>
-        )}
+        )} */}
 
         {/* Bookmark Button */}
         <BookmarkButton
@@ -379,7 +383,9 @@ const EnhancedTripCard = ({
                 <h3 className="font-semibold text-foreground leading-tight">
                   {destination}
                 </h3>
-                {isInstantJoin && currentStatus !== "completed" && (
+                {/* ❌ COMMENTED: Instant join badge with status check */}
+                {/* {isInstantJoin && currentStatus !== "completed" && ( */}
+                {isInstantJoin && (
                   <Badge className="bg-green-100 text-green-800 text-xs">
                     ⚡ Instant Join
                   </Badge>
@@ -405,17 +411,17 @@ const EnhancedTripCard = ({
                     })}
                   </span>
                 </div>
-                {daysUntilTrip <= 3 &&
-                  daysUntilTrip >= 0 &&
-                  currentStatus !== "completed" && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-orange-50 text-orange-700 border-orange-200"
-                    >
-                      <Clock className="w-3 h-3 mr-1" />
-                      {daysUntilTrip}d left
-                    </Badge>
-                  )}
+                {/* ❌ COMMENTED: Days left badge with status check */}
+                {daysUntilTrip <= 3 && daysUntilTrip >= 0 && (
+                  // currentStatus !== "completed" && ( // ❌ COMMENTED
+                  <Badge
+                    variant="outline"
+                    className="text-xs bg-orange-50 text-orange-700 border-orange-200"
+                  >
+                    <Clock className="w-3 h-3 mr-1" />
+                    {daysUntilTrip}d left
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -446,7 +452,7 @@ const EnhancedTripCard = ({
                   {creator.verificationBadges.includes("verified") && (
                     <Verified className="w-3 h-3 text-accent" />
                   )}
-                  {/* ✅ NEW: Show creator badge */}
+                  {/* ✅ Keep: Show creator badge */}
                   {canManageTrip && (
                     <Badge variant="outline" className="text-xs">
                       Creator
@@ -503,9 +509,11 @@ const EnhancedTripCard = ({
                 className={
                   isJoinable && isInstantJoin
                     ? "bg-accent hover:bg-accent/90"
-                    : currentStatus === "completed"
-                    ? "opacity-50 cursor-not-allowed"
                     : ""
+                  // ❌ COMMENTED: Status-based styling
+                  // : currentStatus === "completed"
+                  // ? "opacity-50 cursor-not-allowed"
+                  // : ""
                 }
               >
                 {buttonText}

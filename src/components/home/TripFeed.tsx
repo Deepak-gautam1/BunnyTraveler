@@ -183,8 +183,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
         const from = page * TRIPS_PER_PAGE;
         const to = from + TRIPS_PER_PAGE - 1;
 
-        console.log(`🔄 Fetching page ${page}, range ${from}-${to}`); // Debug log
-
         // Get total count (only for first page)
         if (page === 0) {
           const { count } = await supabase
@@ -192,7 +190,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
             .select("*", { count: "exact", head: true })
             .eq("status", "active");
 
-          console.log(`📊 Total trips available: ${count}`); // Debug log
           setTotalTrips(count || 0);
         }
 
@@ -249,7 +246,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
         const { data, error } = await dataQuery;
 
         if (error) {
-          console.error("❌ Error fetching trips:", error);
           toast({
             title: "Error loading trips",
             description: "Failed to load trips. Please try again.",
@@ -260,12 +256,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
         if (data) {
           const newTrips = data as Trip[];
-          console.log(`✅ Fetched ${newTrips.length} trips for page ${page}`); // Debug log
 
           if (append) {
             setTrips((prev) => {
               const combined = [...prev, ...newTrips];
-              console.log(`📈 Total trips now: ${combined.length}`); // Debug log
+
               return combined;
             });
           } else {
@@ -276,7 +271,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
           setCurrentPage(page);
         }
       } catch (err) {
-        console.error("💥 Unexpected error fetching trips:", err);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -287,19 +281,9 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
   // ✅ FIXED: Improved loadMoreTrips function
   const loadMoreTrips = useCallback(async () => {
-    console.log(
-      `🔄 Load more called. Current: ${trips.length}, Total: ${totalTrips}, Loading: ${loadingMore}`
-    );
-
     if (trips.length < totalTrips && !loadingMore) {
-      console.log(`📥 Loading page ${currentPage + 1}`);
       await fetchTrips(currentPage + 1, true);
     } else {
-      console.log(
-        `⏹️ Cannot load more. Reason: ${
-          trips.length >= totalTrips ? "No more trips" : "Already loading"
-        }`
-      );
     }
   }, [trips.length, totalTrips, loadingMore, currentPage, fetchTrips]);
 
@@ -354,7 +338,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
   };
 
   const handleSettings = () => {
-    console.log("Navigate to settings");
+  
     toast({
       title: "Settings",
       description: "Settings page coming soon!",
@@ -409,7 +393,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
       });
       return;
     }
-    console.log("Join trip:", tripId);
+   
   };
 
   const handleTripChat = (tripId: string | number) => {
@@ -417,7 +401,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
       setAuthGuard({ isOpen: true, actionType: "chat" });
       return;
     }
-    console.log("Chat for trip:", tripId);
+
   };
 
   const handleLocationSelect = (location: any) => {
@@ -730,11 +714,9 @@ const TripFeed = ({ user }: TripFeedProps) => {
                       onClick={() => handleTripClick(trip)}
                       onJoinClick={() => handleTripJoin(trip.id)}
                       onChatClick={() => handleTripChat(trip.id)}
-                      onLikeClick={() => console.log("Like trip:", trip.id)}
+                      
                       onStatusChange={(newStatus) => {
-                        console.log(
-                          `Trip ${trip.id} status changed to ${newStatus}`
-                        );
+                        
                         refreshTrips();
                       }}
                     />

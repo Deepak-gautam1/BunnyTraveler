@@ -236,10 +236,14 @@ const PostTripReviewModal = ({
       const photoUrls = await uploadPhotosToStorage();
 
       // Submit review
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const { error } = await supabase.from("trip_reviews").insert({
         trip_id: trip.id,
+        user_id:user?.id,
         rating,
-        comment: comment.trim(),
+        comment: comment.trim() || "No comment provided",
         photo_urls: photoUrls,
         photo_count: photoUrls.length,
       });

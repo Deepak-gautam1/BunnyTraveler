@@ -965,6 +965,7 @@ const TripDetailsPage = () => {
       />
 
       {/* Delete Confirmation Dialog */}
+
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
@@ -975,19 +976,20 @@ const TripDetailsPage = () => {
               <Trash2 className="w-5 h-5 text-red-500" />
               Delete Trip?
             </AlertDialogTitle>
+
+            {/* ✅ FIX: The <div> is now a sibling to the description, not a child. */}
             <AlertDialogDescription>
               Are you sure you want to delete this trip? This action cannot be
               undone.
-              <div className="mt-2 p-3 bg-muted rounded-lg">
-                <p className="font-medium text-foreground">
-                  {trip.destination}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  From {trip.start_city} • {stats.current_participants}{" "}
-                  participants
-                </p>
-              </div>
             </AlertDialogDescription>
+
+            <div className="mt-2 p-3 bg-muted rounded-lg text-sm">
+              <p className="font-medium text-foreground">{trip.destination}</p>
+              <p className="text-muted-foreground">
+                From {trip.start_city} • {stats.current_participants}{" "}
+                participants
+              </p>
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteLoading}>
@@ -996,19 +998,9 @@ const TripDetailsPage = () => {
             <AlertDialogAction
               onClick={handleDeleteTrip}
               disabled={deleteLoading}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              className="bg-red-600 hover:bg-red-700"
             >
-              {deleteLoading ? (
-                <span className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Deleting...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Trash2 className="w-4 h-4" />
-                  Delete Trip
-                </span>
-              )}
+              {deleteLoading ? "Deleting..." : "Delete Trip"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
