@@ -1,7 +1,8 @@
 // src/components/discover/TripMap.tsx
 import { useEffect, useRef, useState, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
+import { MarkerClusterGroup } from "@changey/react-leaflet-markercluster"; // ✅ FIXED
+import "@changey/react-leaflet-markercluster/dist/styles.min.css"; // ✅ Required CSS
 import L from "leaflet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,20 +21,29 @@ import {
 } from "lucide-react";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import BookmarkButton from "@/components/trip/BookmarkButton";
-import "leaflet/dist/leaflet.css";
-import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
-import "leaflet-defaulticon-compatibility";
 
-// Fix for default markers in Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+// ✅ Leaflet CSS and icon fixes
+import "leaflet/dist/leaflet.css";
+
+// ✅ Simplified icon fix for React Leaflet 4.2.1
+import icon from "leaflet/dist/images/marker-icon.png";
+import iconShadow from "leaflet/dist/images/marker-shadow.png";
+import iconRetina from "leaflet/dist/images/marker-icon-2x.png";
+
+// ✅ Configure default icons
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  iconRetinaUrl: iconRetina,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41],
 });
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
 const createAdvancedTripMarker = (
   tripType: string,
   status: "available" | "filling" | "full" = "available",

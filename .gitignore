@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Environment variables - ✅ ADDED for Supabase security
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# Supabase - ✅ ADDED for Supabase project files
+.supabase
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +33,106 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Build outputs - ✅ ADDED for better coverage
+build/
+out/
+
+# Runtime data - ✅ ADDED
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul - ✅ ADDED
+coverage/
+*.lcov
+
+# nyc test coverage - ✅ ADDED
+.nyc_output
+
+# Dependency directories - ✅ ADDED
+jspm_packages/
+
+# Optional npm cache directory - ✅ ADDED
+.npm
+
+# Optional eslint cache - ✅ ADDED
+.eslintcache
+
+# Microbundle cache - ✅ ADDED
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history - ✅ ADDED
+.node_repl_history
+
+# Output of 'npm pack' - ✅ ADDED
+*.tgz
+
+# Yarn Integrity file - ✅ ADDED
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/) - ✅ ADDED
+.cache
+.parcel-cache
+
+# Next.js build output - ✅ ADDED (in case you switch to Next.js)
+.next
+
+# Nuxt.js build / generate output - ✅ ADDED
+.nuxt
+
+# Storybook build outputs - ✅ ADDED
+.out
+.storybook-out
+
+# Temporary folders - ✅ ADDED
+tmp/
+temp/
+
+# macOS - ✅ ENHANCED
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows - ✅ ADDED
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux - ✅ ADDED
+*~
+
+# Vercel - ✅ ADDED for deployment
+.vercel
+
+# TypeScript - ✅ ADDED
+*.tsbuildinfo
+
+# Firebase - ✅ ADDED (in case you use Firebase in future)
+.firebase
+.firebaserc
+firebase-debug.log
+
+# Sentry - ✅ ADDED (in case you add error tracking)
+.sentryclirc
+
+# Package manager lock files (keep package-lock.json but ignore others if needed)
+# yarn.lock
+# pnpm-lock.yaml
+
+# Generated files - ✅ ADDED
+generated/
+auto-generated/
+
+# API keys and secrets - ✅ ADDED as extra security
+secrets.json
+config/secrets.js
+*.key
+*.pem
