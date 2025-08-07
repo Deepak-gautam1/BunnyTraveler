@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "install-force": "npm install --legacy-peer-deps"
   },
   "dependencies": {
+    "@changey/react-leaflet-markercluster": "^4.0.0-rc1",
     "@hookform/resolvers": "^5.2.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -58,7 +60,6 @@
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.61.1",
     "react-leaflet": "^5.0.0",
-    "react-leaflet-cluster": "^3.1.0",
     "react-resizable-panels": "^3.0.3",
     "react-router-dom": "^7.7.1",
     "recharts": "^2.15.4",
