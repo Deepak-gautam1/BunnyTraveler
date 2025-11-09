@@ -316,9 +316,7 @@ const SettingsPage = ({ user }: SettingsPageProps) => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">
-                WanderTribe v1.0.0
-              </p>
+              <p className="text-sm text-muted-foreground">SafarSquad v1.0.0</p>
               <div className="flex justify-center space-x-4 text-sm">
                 <Link
                   to="/terms"

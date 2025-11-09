@@ -81,7 +81,7 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
               <Tent className="h-5 w-5" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent">
-              WanderTribe
+              SafarSquad
             </span>
           </Link>
           {/* Main Navigation */}

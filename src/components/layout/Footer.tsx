@@ -32,7 +32,7 @@ const Footer = () => {
               <div className="w-6 h-6 bg-gradient-to-r from-orange-500 to-pink-500 rounded-lg flex items-center justify-center">
                 <Globe className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-lg font-bold">WanderTribe</h3>
+              <h3 className="text-lg font-bold">SafarSquad</h3>
             </div>
             <p className="text-gray-300 text-sm">
               Connect with fellow travelers and create unforgettable memories
@@ -107,7 +107,7 @@ const Footer = () => {
             <div className="space-y-2">
               <div className="flex items-center space-x-2 text-sm text-gray-300">
                 <Mail className="w-3 h-3 text-orange-400" />
-                <span>hello@wandertribe.com</span>
+                <span>hello@SafarSquad.com</span>
               </div>
               <div className="flex items-center space-x-2 text-sm text-gray-300">
                 <MapPin className="w-3 h-3 text-orange-400" />
@@ -162,7 +162,7 @@ const Footer = () => {
         {/* Bottom Bar - Minimal */}
         <div className="flex flex-col md:flex-row justify-between items-center pt-4 space-y-2 md:space-y-0">
           <div className="flex items-center space-x-4 text-xs text-gray-400">
-            <span>© {currentYear} WanderTribe. All rights reserved.</span>
+            <span>© {currentYear} SafarSquad. All rights reserved.</span>
             <span className="flex items-center space-x-1">
               <span>Made with</span>
               <Heart className="w-3 h-3 text-red-400 fill-red-400" />

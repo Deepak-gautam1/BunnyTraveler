@@ -1,5 +1,5 @@
 // src/components/landing/LandingPage.tsx
-import { useState, useEffect, ReactNode, useRef } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import {
   motion,
   useScroll,
@@ -14,8 +14,6 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import SignUpForm from "@/components/auth/SignUpForm";
 
 import heroImage from "@/assets/storyCamp.png";
-import heroPosterXL from "@/assets/heroPoster@2x.webp.png";
-import heroVideo from "@/assets/HeroVideo2.mp4";
 
 import {
   Chrome,
@@ -27,7 +25,6 @@ import {
   Shield,
   Clock,
   Sparkles,
-  Play,
   Download,
   Navigation,
   Smartphone,
@@ -117,7 +114,7 @@ const PWAInstallPrompt = () => {
             <Smartphone className="w-6 h-6 flex-shrink-0 mt-0.5" />
           </motion.div>
           <div className="flex-1">
-            <h4 className="font-semibold text-sm mb-1">Install WanderTribe</h4>
+            <h4 className="font-semibold text-sm mb-1">Install SafarSquad</h4>
             <p className="text-xs text-white/90 mb-3 leading-relaxed">
               Get the full app experience with offline access and notifications!
             </p>
@@ -469,74 +466,8 @@ const PrivacySafeFloatingNotifications = () => {
 const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
   const { toast } = useToast();
 
-  /* sign-up & video states */
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [videoOK, setVideoOK] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
-  const [prefersVideo, setPrefersVideo] = useState(false);
-  const [hasUserInteracted, setHasUserInteracted] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  // ✅ ENHANCED: Better video audio handling
-  // ✅ CORRECT: Restart video with audio after user interaction
-  const handleFirstInteraction = async () => {
-    if (videoRef.current && !hasUserInteracted) {
-      try {
-        console.log("🎵 User clicked - restarting video with audio");
-
-        // Store current time to resume from same position
-        const currentTime = videoRef.current.currentTime;
-
-        // Pause the current muted video
-        videoRef.current.pause();
-
-        // Unmute the video
-        videoRef.current.muted = false;
-
-        // Set the time back to where it was
-        videoRef.current.currentTime = currentTime;
-
-        // ✅ CRITICAL: Start fresh playback with audio
-        await videoRef.current.play();
-
-        console.log("✅ Video restarted successfully with audio");
-        setHasUserInteracted(true);
-      } catch (error) {
-        console.error("❌ Error restarting video with audio:", error);
-
-        // Fallback: try without preserving time
-        try {
-          videoRef.current.muted = false;
-          videoRef.current.currentTime = 0;
-          await videoRef.current.play();
-          setHasUserInteracted(true);
-        } catch (fallbackError) {
-          console.error("❌ Fallback also failed:", fallbackError);
-        }
-      }
-    }
-  };
-
-  /* Connection speed check */
-  useEffect(() => {
-    const check = () => {
-      const c: any =
-        (navigator as any).connection ||
-        (navigator as any).mozConnection ||
-        (navigator as any).webkitConnection;
-      const fast = c ? c.effectiveType === "4g" && !c.saveData : true;
-      setVideoOK(fast || window.innerWidth > 1_024);
-    };
-    check();
-    window.addEventListener("resize", check);
-
-    /* Reduced-motion users → always disable background video */
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setVideoOK(false);
-    }
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   /* geolocation (single call) */
   const {
@@ -546,7 +477,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
     displayLocation,
   } = useGeolocation();
 
-  /* headline helper (unchanged) */
+  /* headline helper */
   const headline = () => {
     if (locLoading) return "Connect with fellow travelers across India";
     if (hasCity) return `Connect with travelers in ${location.city}`;
@@ -606,90 +537,37 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
 
   return (
     <div className="min-h-screen relative flex flex-col overflow-hidden">
-      {/* ─────────── Hero background ─────────── */}
+      {/* ✅ OPTIMIZED: Hero Image Background (No Video) */}
       <div className="absolute inset-0">
-        {videoOK || prefersVideo ? (
+        <motion.div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105"
+          style={{
+            backgroundImage: `url(${heroImage})`,
+            y: bgY,
+          }}
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.5 }}
+        >
+          {/* Gradient Overlay */}
           <motion.div
-            className="absolute inset-0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: videoLoaded ? 1 : 0 }}
-            transition={{ duration: 1.2 }}
-          >
-            <video
-              ref={videoRef}
-              autoPlay
-              muted={!hasUserInteracted}
-              loop
-              playsInline
-              onClick={handleFirstInteraction}
-              onTouchStart={handleFirstInteraction}
-              preload="metadata"
-              poster={heroPosterXL}
-              className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-              onLoadedData={() => setVideoLoaded(true)}
-              onError={() => {
-                console.log("Video failed; falling back to image");
-                setVideoOK(false);
-                setPrefersVideo(false);
-              }}
-            >
-              <source src={heroVideo} type="video/mp4" />
-            </video>
-
-            {/* ✅ Audio indicator overlay */}
-            {/* ✅ FIXED: Audio indicator overlay with proper z-index */}
-            {videoLoaded && !hasUserInteracted && (
-              <motion.div
-                className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-sm text-white px-3 py-2 rounded-full text-sm flex items-center gap-2 cursor-pointer z-50"
-                onClick={(e) => {
-                  e.stopPropagation(); // ✅ Prevent video click from interfering
-                  handleFirstInteraction();
-                }}
-                onTouchStart={(e) => {
-                  e.stopPropagation(); // ✅ Prevent touch propagation issues
-                  handleFirstInteraction();
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                animate={{ opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                style={{
-                  pointerEvents: "auto", // ✅ Ensure button is clickable
-                  zIndex: 9999, // ✅ Force high z-index
-                }}
-              >
-                🔊 Tap for sound
-              </motion.div>
-            )}
-
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.5 }}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${heroImage})`, y: bgY }}
+            className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/70"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-          >
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/40 to-black/60"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.5 }}
-            />
-          </motion.div>
-        )}
+            transition={{ duration: 2 }}
+          />
+
+          {/* ✅ Optional: Subtle zoom animation */}
+          <motion.div
+            className="absolute inset-0"
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </motion.div>
       </div>
 
       {/* ─────────── Header ─────────── */}
       <header className="relative z-10 p-4 md:p-6 flex justify-between items-center">
-        {/* Brand + location badge */}
         <motion.div
           className="text-white/90 font-bold text-xl tracking-wide flex items-center"
           initial={{ y: -50, opacity: 0 }}
@@ -706,7 +584,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
           >
             <Sparkles className="w-5 h-5" />
           </motion.div>
-          WanderTribe
+          SafarSquad
           {hasCity && (
             <motion.span
               className="ml-2 text-xs text-white/60 flex items-center gap-1"
@@ -719,23 +597,6 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
             </motion.span>
           )}
         </motion.div>
-
-        {/* Right-side controls */}
-        <div className="flex items-center gap-2">
-          {/* Toggle video (if disabled) */}
-          {!videoOK && !prefersVideo && (
-            <motion.button
-              onClick={() => setPrefersVideo(true)}
-              className="text-white/70 hover:text-white flex items-center gap-2 text-sm bg-white/10 px-3 py-2.5 rounded-full backdrop-blur-sm transition-all hover:bg-white/20 border border-white/20"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 1.2 }}
-            >
-              <Play className="w-4 h-4" />
-              Watch Video
-            </motion.button>
-          )}
-        </div>
       </header>
 
       {/* ─────────── Main ─────────── */}
@@ -749,7 +610,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
         >
           {/* Headline */}
           <motion.h1
-            className="text-4xl md:text-5xl font-bold text-white leading-tight"
+            className="text-4xl md:text-5xl font-bold text-white leading-tight drop-shadow-2xl"
             variants={item}
           >
             Your Tribe Awaits.
@@ -768,7 +629,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
 
           {/* Sub-headline */}
           <motion.p
-            className="text-lg md:text-xl text-white/90 leading-relaxed"
+            className="text-lg md:text-xl text-white/90 leading-relaxed drop-shadow-lg"
             variants={item}
           >
             {headline()}. Plan spontaneous adventures. Build lasting
@@ -804,7 +665,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
             <EnhancedButton
               onClick={signInGoogle}
               disabled={loading}
-              className="w-full text-lg px-8 py-3 h-auto bg-white/10 border border-white/30 text-white hover:bg-white/20 backdrop-blur-sm transition-all"
+              className="w-full text-lg px-8 py-3 h-auto bg-white/10 border border-white/30 text-white hover:bg-white/20 backdrop-blur-sm transition-all shadow-xl"
               variant="outline"
             >
               <Chrome className="w-5 h-5 mr-2" />
@@ -813,7 +674,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
 
             <EnhancedButton
               onClick={() => setShowForm(true)}
-              className="w-full text-lg px-8 py-3 h-auto bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 text-white"
+              className="w-full text-lg px-8 py-3 h-auto bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 text-white shadow-xl"
             >
               <Mail className="w-5 h-5 mr-2" />
               Sign up with Email
@@ -833,7 +694,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
 
           {/* Trust indicators */}
           <motion.div variants={item}>
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-white/70 drop-shadow">
               {hasCity
                 ? `Join travelers in ${location.city} and nearby areas`
                 : "Join 2,400+ travelers already exploring together"}
@@ -853,7 +714,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
 
       {/* Footer */}
       <footer className="relative z-10 p-4 text-center">
-        <p className="text-white/60 text-sm">
+        <p className="text-white/60 text-sm drop-shadow">
           Safe travels, authentic connections
         </p>
       </footer>

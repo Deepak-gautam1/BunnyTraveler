@@ -36,7 +36,7 @@ const WelcomeModal = ({
 
   const steps = [
     {
-      title: "Welcome to WanderTribe! 🎉",
+      title: "Welcome to SafarSquad! 🎉",
       content: (
         <div className="text-center space-y-4">
           <div className="text-6xl mb-4">✈️</div>
@@ -49,7 +49,7 @@ const WelcomeModal = ({
       ),
     },
     {
-      title: "How WanderTribe Works",
+      title: "How SafarSquad Works",
       content: (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

@@ -19,6 +19,7 @@ import {
   Clock,
   CheckCircle,
   Bookmark,
+  History,
 } from "lucide-react";
 
 interface MyTripsPageProps {
@@ -38,6 +39,7 @@ interface Trip {
   budget_per_person: number | null;
   travel_style: string[] | null;
   status: string;
+  completed_at: string | null;
   creator_id: string;
   profiles: { full_name: string; avatar_url: string } | null;
   trip_participants: { user_id: string; joined_at: string }[];
@@ -61,7 +63,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
   const [createdTrips, setCreatedTrips] = useState<Trip[]>([]);
   const [joinedTrips, setJoinedTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [completedTrips, setCompletedTrips] = useState<Trip[]>([]);
   useEffect(() => {
     if (user) {
       fetchMyTrips();
@@ -74,11 +76,43 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
     if (!user) return;
 
     try {
-      // Fetch created trips
+      // Fetch created trips (active only)
       const { data: created, error: createdError } = await supabase
         .from("trips")
         .select(
           `
+        id,
+        destination,
+        start_city,
+        start_date,
+        end_date,
+        description,
+        created_at,
+        max_participants,
+        current_participants,
+        budget_per_person,
+        travel_style,
+        status,
+        completed_at,
+        creator_id,
+        profiles!trips_creator_id_fkey(full_name, avatar_url),
+        trip_participants(user_id, joined_at)
+      `
+        )
+        .eq("creator_id", user.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (createdError) throw createdError;
+
+      // Fetch joined trips (active only)
+      const { data: joinedData, error: joinedError } = await supabase
+        .from("trip_participants")
+        .select(
+          `
+        trip_id,
+        joined_at,
+        trips!inner(
           id,
           destination,
           start_city,
@@ -91,48 +125,84 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
           budget_per_person,
           travel_style,
           status,
+          completed_at,
           creator_id,
           profiles!trips_creator_id_fkey(full_name, avatar_url),
           trip_participants(user_id, joined_at)
-        `
         )
-        .eq("creator_id", user.id)
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
-
-      if (createdError) throw createdError;
-
-      // Fetch joined trips
-      const { data: joinedData, error: joinedError } = await supabase
-        .from("trip_participants")
-        .select(
-          `
-          trip_id,
-          joined_at,
-          trips!inner(
-            id,
-            destination,
-            start_city,
-            start_date,
-            end_date,
-            description,
-            created_at,
-            max_participants,
-            current_participants,
-            budget_per_person,
-            travel_style,
-            status,
-            creator_id,
-            profiles!trips_creator_id_fkey(full_name, avatar_url),
-            trip_participants(user_id, joined_at)
-          )
-        `
+      `
         )
         .eq("user_id", user.id)
         .eq("trips.status", "active");
 
       if (joinedError) throw joinedError;
 
+      // ✅ FIXED: Fetch completed trips in two separate queries
+
+      // 1. Get completed trips created by user
+      const { data: completedCreated, error: completedCreatedError } =
+        await supabase
+          .from("trips")
+          .select(
+            `
+        id,
+        destination,
+        start_city,
+        start_date,
+        end_date,
+        description,
+        created_at,
+        max_participants,
+        current_participants,
+        budget_per_person,
+        travel_style,
+        status,
+        completed_at,
+        creator_id,
+        profiles!trips_creator_id_fkey(full_name, avatar_url),
+        trip_participants(user_id, joined_at)
+      `
+          )
+          .eq("creator_id", user.id)
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false, nullsLast: true });
+
+      if (completedCreatedError) throw completedCreatedError;
+
+      // 2. Get completed trips joined by user
+      const { data: completedJoinedData, error: completedJoinedError } =
+        await supabase
+          .from("trip_participants")
+          .select(
+            `
+        trip_id,
+        joined_at,
+        trips!inner(
+          id,
+          destination,
+          start_city,
+          start_date,
+          end_date,
+          description,
+          created_at,
+          max_participants,
+          current_participants,
+          budget_per_person,
+          travel_style,
+          status,
+          completed_at,
+          creator_id,
+          profiles!trips_creator_id_fkey(full_name, avatar_url),
+          trip_participants(user_id, joined_at)
+        )
+      `
+          )
+          .eq("user_id", user.id)
+          .eq("trips.status", "completed");
+
+      if (completedJoinedError) throw completedJoinedError;
+
+      // Process active trips
       setCreatedTrips((created as unknown as Trip[]) || []);
 
       const processedJoinedTrips =
@@ -143,6 +213,26 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
           ) || [];
 
       setJoinedTrips(processedJoinedTrips);
+
+      // Process completed trips
+      const completedJoinedTrips =
+        (completedJoinedData as unknown as JoinedTripData[])
+          ?.map((item) => item.trips)
+          .filter(
+            (trip): trip is Trip => trip !== null && trip !== undefined
+          ) || [];
+
+      const allCompletedTrips = [
+        ...((completedCreated as unknown as Trip[]) || []),
+        ...completedJoinedTrips,
+      ];
+
+      // Remove duplicates by trip ID
+      const uniqueCompletedTrips = Array.from(
+        new Map(allCompletedTrips.map((trip) => [trip.id, trip])).values()
+      );
+
+      setCompletedTrips(uniqueCompletedTrips);
     } catch (error) {
       console.error("Error fetching trips:", error);
       toast({
@@ -188,7 +278,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
     const participantCount =
       trip.current_participants || trip.trip_participants?.length || 0;
     const isUpcoming = new Date(trip.start_date) > new Date();
-
+    const isCompleted = trip.status === "completed";
     return (
       <Card className="hover:shadow-md transition-shadow hover-scale">
         <CardHeader className="pb-3">
@@ -205,18 +295,20 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
               ) : (
                 <Badge variant="outline">Joined</Badge>
               )}
-              {isUpcoming ? (
-                <Badge
-                  variant="default"
-                  className="bg-green-100 text-green-800"
-                >
+              {isCompleted ? (
+                <Badge variant="default" className="bg-green-600 text-white">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Completed
+                </Badge>
+              ) : isUpcoming ? (
+                <Badge variant="default" className="bg-blue-100 text-blue-800">
                   <Clock className="w-3 h-3 mr-1" />
                   Upcoming
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-gray-600">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Completed
+                <Badge variant="outline" className="text-orange-600">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Ongoing
                 </Badge>
               )}
             </div>
@@ -328,7 +420,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
       </div>
 
       <Tabs defaultValue="created" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="created" className="flex items-center space-x-2">
             <Plus className="w-4 h-4" />
             <span>Created ({createdTrips.length})</span>
@@ -351,6 +443,10 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
               )}
               )
             </span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center space-x-2">
+            <History className="w-4 h-4" />
+            <span>History ({completedTrips.length})</span>
           </TabsTrigger>
         </TabsList>
 
@@ -406,6 +502,48 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
 
         <TabsContent value="saved" className="mt-6">
           <SavedTripsPage user={user} />
+        </TabsContent>
+
+        {/* ✅ ADD NEW TAB CONTENT */}
+        <TabsContent value="history" className="mt-6">
+          {completedTrips.length === 0 ? (
+            <div className="text-center py-12">
+              <History className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">
+                No completed trips yet
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Your trip history will appear here after trips end
+              </p>
+              <Button asChild>
+                <Link to="/discover">
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Discover Trips
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {completedTrips.length} completed{" "}
+                  {completedTrips.length === 1 ? "trip" : "trips"}
+                </p>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {completedTrips.map((trip) => {
+                  const isCreatedByUser = trip.creator_id === user?.id;
+                  return (
+                    <TripCard
+                      key={trip.id}
+                      trip={trip}
+                      isCreated={isCreatedByUser}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

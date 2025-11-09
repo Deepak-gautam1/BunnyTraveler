@@ -25,18 +25,16 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState("");
 
-  // ✅ EXPANDED: Complete profile form data
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     homeCity: "",
     tagline: "",
-    website: "", // Optional field
+    website: "",
   });
 
   const { toast } = useToast();
 
-  // Form validation
   const validateForm = () => {
     const errors: string[] = [];
 
@@ -60,7 +58,6 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
       errors.push("Tagline must be 50 characters or less");
     }
 
-    // Website is optional, but if provided, validate URL
     if (formData.website && !isValidUrl(formData.website)) {
       errors.push("Please enter a valid website URL");
     }
@@ -92,10 +89,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
 
     setLoading(true);
     try {
-      // Send OTP with complete profile data
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
+          shouldCreateUser: true,
           data: {
             full_name: formData.fullName,
             home_city: formData.homeCity,
@@ -118,10 +115,11 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           description: `We've sent a 6-digit code to ${formData.email}`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Unexpected error:", error);
       toast({
         title: "Sign up failed",
-        description: "An unexpected error occurred",
+        description: error.message || "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -132,7 +130,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
   const handleOTPVerification = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!otp.trim()) {
+    if (!otp.trim() || otp.length !== 6) {
       toast({
         title: "Enter verification code",
         description: "Please enter the 6-digit code from your email",
@@ -152,7 +150,6 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
       if (error) throw error;
 
       if (data.user) {
-        // ✅ UPDATED: Create complete profile with all collected data
         const { error: profileError } = await supabase.from("profiles").upsert({
           id: data.user.id,
           full_name: formData.fullName,
@@ -160,7 +157,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           home_city: formData.homeCity,
           tagline: formData.tagline,
           website: formData.website || null,
-          avatar_url: null, // Will be updated if user connects Google later
+          avatar_url: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -170,11 +167,14 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
         }
 
         toast({
-          title: "Welcome to WanderTribe! 🎉",
-          description: "Your profile has been created successfully",
+          title: "Welcome to SafarSquad! 🎉",
+          description: "Redirecting to your adventure...",
         });
 
-        // User will be automatically redirected by auth state change
+        // ✅ Keep loading state ON during redirect
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 1500);
       }
     } catch (error: any) {
       toast({
@@ -182,9 +182,9 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
         description: "Please check your email and try again",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      setLoading(false); // ✅ Only turn off loading on error
     }
+    // DON'T turn off loading here - keep button disabled during redirect
   };
 
   if (step === "verify") {
@@ -223,7 +223,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                   type="text"
                   placeholder="Enter 6-digit code"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                   maxLength={6}
                   className="text-center text-2xl tracking-widest"
                   required
@@ -231,7 +231,11 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || otp.length !== 6}
+              >
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -278,7 +282,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           </Button>
           <CardTitle className="flex items-center justify-center space-x-2">
             <User className="w-5 h-5 text-accent" />
-            <span>Join WanderTribe</span>
+            <span>Join SafarSquad</span>
           </CardTitle>
         </CardHeader>
         <CardContent>

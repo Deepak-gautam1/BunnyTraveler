@@ -196,7 +196,7 @@ const ProfileHoverCard = ({
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground italic">
-                    New to WanderTribe
+                    New to SafarSquad
                   </p>
                 )}
 

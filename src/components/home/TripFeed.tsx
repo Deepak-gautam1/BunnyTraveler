@@ -75,6 +75,7 @@ type Trip = {
   budget_per_person: number | null;
   travel_style: string[] | null;
   status: string;
+  completed_at?: string | null;
   profiles: Profile | null;
   trip_participants: TripParticipant[];
 };
@@ -338,7 +339,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
   };
 
   const handleSettings = () => {
-  
     toast({
       title: "Settings",
       description: "Settings page coming soon!",
@@ -393,7 +393,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
       });
       return;
     }
-   
   };
 
   const handleTripChat = (tripId: string | number) => {
@@ -401,7 +400,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
       setAuthGuard({ isOpen: true, actionType: "chat" });
       return;
     }
-
   };
 
   const handleLocationSelect = (location: any) => {
@@ -420,6 +418,16 @@ const TripFeed = ({ user }: TripFeedProps) => {
       sortBy: "newest",
     });
   }, [handleFiltersChange]);
+
+  // Add this helper function around line 390
+  const isEndingSoon = (endDate: string) => {
+    const today = new Date();
+    const tripEnd = new Date(endDate);
+    const daysUntilEnd = Math.ceil(
+      (tripEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysUntilEnd <= 3 && daysUntilEnd >= 0;
+  };
 
   // ✅ FIXED: Better hasMore calculation
   const hasMore = trips.length < totalTrips && totalTrips > 0;
@@ -682,7 +690,8 @@ const TripFeed = ({ user }: TripFeedProps) => {
                     max: trip.max_participants,
                   },
                   interestedCount: participantCount,
-                  status: "active",
+                  status: trip.status, // ✅ CHANGE THIS from hardcoded "active" to trip.status
+                  completed_at: trip.completed_at, // ✅ ADD THIS
                   price: trip.budget_per_person
                     ? {
                         amount: trip.budget_per_person,
@@ -696,6 +705,18 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
                 return (
                   <div key={trip.id} className="relative">
+                    {/* Ending Soon Badge */}
+                    {isEndingSoon(trip.end_date) && (
+                      <Badge className="absolute top-4 left-4 z-10 bg-orange-500 text-white">
+                        ⏰ Ending in{" "}
+                        {Math.ceil(
+                          (new Date(trip.end_date).getTime() -
+                            new Date().getTime()) /
+                            (1000 * 60 * 60 * 24)
+                        )}{" "}
+                        days
+                      </Badge>
+                    )}
                     <div className="absolute top-4 right-4 z-10">
                       {/* Keep existing bookmark button commented */}
                       {/* <BookmarkButton
@@ -714,9 +735,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
                       onClick={() => handleTripClick(trip)}
                       onJoinClick={() => handleTripJoin(trip.id)}
                       onChatClick={() => handleTripChat(trip.id)}
-                      
                       onStatusChange={(newStatus) => {
-                        
                         refreshTrips();
                       }}
                     />
