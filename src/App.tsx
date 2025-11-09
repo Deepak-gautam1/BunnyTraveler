@@ -17,7 +17,8 @@ import CommunityPage from "./pages/CommunityPage";
 import MessagesPage from "./pages/MessagesPage";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
-
+import Safety from "./pages/Safety";
+import Contact from "./pages/Contact";
 const queryClient = new QueryClient();
 
 // ✅ NEW: Component to conditionally render navigation
@@ -48,7 +49,8 @@ const AppLayout = ({ user }: { user: User | null }) => {
           <Route path="/community" element={<CommunityPage user={user} />} />
           <Route path="/messages" element={<MessagesPage user={user} />} />
           <Route path="/settings" element={<SettingsPage user={user} />} />
-
+          <Route path="/safety" element={<Safety />} />
+          <Route path="/Contact" element={<Contact />} />
           {/* ✅ STANDALONE: Auth page without navigation */}
           <Route path="/auth" element={<AuthPage />} />
 

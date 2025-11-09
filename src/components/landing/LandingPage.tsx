@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import SignUpForm from "@/components/auth/SignUpForm";
 
-import heroImage from "@/assets/storyCamp.png";
+import heroImage from "@/assets/hero-image.jpg";
 
 import {
   Chrome,
