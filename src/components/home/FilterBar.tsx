@@ -204,8 +204,10 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
           </div>
 
           {/* Sort Options */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sort:</span>
+          <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 overflow-x-auto lg:overflow-visible">
+            <span className="text-sm text-muted-foreground shrink-0">
+              Sort:
+            </span>
             {SORT_OPTIONS.map((option) => (
               <Button
                 key={option.value}
@@ -216,7 +218,7 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
                     sortBy: option.value as FilterOptions["sortBy"],
                   })
                 }
-                className={`h-8 px-3 ${
+                className={`h-8 px-3 whitespace-nowrap ${
                   filters.sortBy === option.value
                     ? "bg-accent hover:bg-accent/90 text-accent-foreground"
                     : ""
