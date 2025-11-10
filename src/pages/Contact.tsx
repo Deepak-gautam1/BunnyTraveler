@@ -15,13 +15,47 @@ export default function Contact() {
         <li>
           Email:{" "}
           <a
-            href="mailto:deepakgautam2647@gmail.com"
+            href="mailto:safarsquad.india@gmail.com"
             className="text-orange-500 underline"
           >
-            deepakgautam2647@gmail.com
+            safarsquad.india@gmail.com
+          </a>
+        </li>
+        <li>
+          Instagram:{" "}
+          <a
+            href="https://www.instagram.com/safar.squad?utm_source=qr&igsh=M3UzcDZncHd3YWtv"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-500 underline"
+          >
+            @safarsquad.in
+          </a>
+        </li>
+        <li>
+          Facebook:{" "}
+          <a
+            href="https://www.facebook.com/share/1EJbGFkhxj/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-500 underline"
+          >
+            SafarSquad
+          </a>
+        </li>
+        <li>
+          Twitter:{" "}
+          <a
+            href="https://x.com/safar_squad?t=uOFezk2oJ0nGDqA30eO-5w&s=08"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-500 underline"
+          >
+            SafarSquad
           </a>
         </li>
       </ul>
+
       <p className="mt-6 text-gray-600">
         We would love to hear from you! Feel free to contact us with any
         questions or feedback.

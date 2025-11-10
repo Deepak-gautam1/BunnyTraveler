@@ -130,21 +130,21 @@ const Footer = () => {
             {/* Social Media */}
             <div className="flex space-x-3">
               <a
-                href="#"
+                href="https://www.instagram.com/safar.squad?utm_source=qr&igsh=M3UzcDZncHd3YWtv"
                 className="w-7 h-7 bg-gradient-to-r from-pink-500 to-orange-500 rounded-md flex items-center justify-center hover:scale-110 transition-transform"
                 aria-label="Instagram"
               >
                 <Instagram className="w-3 h-3 text-white" />
               </a>
               <a
-                href="#"
+                href="https://www.facebook.com/share/1EJbGFkhxj/"
                 className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center hover:scale-110 transition-transform"
                 aria-label="Facebook"
               >
                 <Facebook className="w-3 h-3 text-white" />
               </a>
               <a
-                href="#"
+                href="https://x.com/safar_squad?t=uOFezk2oJ0nGDqA30eO-5w&s=08"
                 className="w-7 h-7 bg-blue-400 rounded-md flex items-center justify-center hover:scale-110 transition-transform"
                 aria-label="Twitter"
               >
@@ -185,18 +185,22 @@ const Footer = () => {
             </span>
           </div>
           <div className="flex items-center space-x-4 text-xs">
-            {/* <a
-              href="/privacy"
-              className="text-gray-400 hover:text-orange-400 transition-colors"
-            >
-              Privacy
-            </a>
+            {
+              <a
+                href="/about-us"
+                className="text-gray-400 hover:text-orange-400 transition-colors"
+              >
+                About Us
+              </a>
+
+              /*
             <a
               href="/terms"
               className="text-gray-400 hover:text-orange-400 transition-colors"
             >
               Terms
-            </a> */}
+            </a> */
+            }
             <Button
               onClick={scrollToTop}
               variant="ghost"

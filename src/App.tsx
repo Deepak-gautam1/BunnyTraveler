@@ -19,6 +19,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
 import Safety from "./pages/Safety";
 import Contact from "./pages/Contact";
+import AboutUs from "./pages/AboutUs";
 const queryClient = new QueryClient();
 
 // ✅ NEW: Component to conditionally render navigation
@@ -51,6 +52,7 @@ const AppLayout = ({ user }: { user: User | null }) => {
           <Route path="/settings" element={<SettingsPage user={user} />} />
           <Route path="/safety" element={<Safety />} />
           <Route path="/Contact" element={<Contact />} />
+          <Route path="/about-us" element={<AboutUs />} />
           {/* ✅ STANDALONE: Auth page without navigation */}
           <Route path="/auth" element={<AuthPage />} />
 
