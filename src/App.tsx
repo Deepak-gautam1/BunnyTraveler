@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
+import { Analytics } from "@vercel/analytics/react"; // ✅ ADD THIS IMPORT
 import AppNavigation from "@/components/navigation/AppNavigation";
 import Index from "@/pages/Index";
 import NotFound from "./pages/NotFound";
@@ -20,9 +21,10 @@ import AuthPage from "./pages/AuthPage";
 import Safety from "./pages/Safety";
 import Contact from "./pages/Contact";
 import AboutUs from "./pages/AboutUs";
+
 const queryClient = new QueryClient();
 
-// ✅ NEW: Component to conditionally render navigation
+// ✅ Component to conditionally render navigation
 const AppLayout = ({ user }: { user: User | null }) => {
   const location = useLocation();
 
@@ -110,6 +112,8 @@ const App = () => {
           {/* ✅ UPDATED: Use AppLayout component with conditional navigation */}
           <AppLayout user={user} />
         </BrowserRouter>
+        {/* ✅ ADD VERCEL ANALYTICS HERE */}
+        <Analytics />
       </TooltipProvider>
     </QueryClientProvider>
   );

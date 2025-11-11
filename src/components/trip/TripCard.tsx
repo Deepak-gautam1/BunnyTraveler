@@ -98,7 +98,7 @@ const TripCard = ({
   const formatBudget = (amount: number) => {
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
     if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
-    return `₹${amount}`;
+    return `₹${amount} `;
   };
 
   // Handle joining a trip
@@ -258,11 +258,19 @@ const TripCard = ({
         {/* Budget Display */}
         {budget_per_person && (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 px-3 py-1 bg-accent/10 rounded-full">
-              <IndianRupee className="w-4 h-4 text-accent" />
-              <span className="text-sm font-medium text-accent">
-                {formatBudget(budget_per_person)} per person
+            <div className="flex flex-col px-4 py-2 bg-accent/10 rounded-lg border border-accent/20">
+              <span className="text-xs text-muted-foreground mb-0.5">
+                Expected Budget
               </span>
+              <div className="flex items-center gap-1">
+                <IndianRupee className="w-4 h-4 text-accent" />
+                <span className="text-base font-semibold text-accent">
+                  {formatBudget(budget_per_person)}
+                </span>
+                <span className="text-xs text-muted-foreground ml-1">
+                  per person
+                </span>
+              </div>
             </div>
           </div>
         )}
