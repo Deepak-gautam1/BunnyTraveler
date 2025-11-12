@@ -692,12 +692,12 @@ const TripFeed = ({ user }: TripFeedProps) => {
                   interestedCount: participantCount,
                   status: trip.status, // ✅ CHANGE THIS from hardcoded "active" to trip.status
                   completed_at: trip.completed_at, // ✅ ADD THIS
-                  price: trip.budget_per_person
-                    ? {
-                        amount: trip.budget_per_person,
-                        currency: "INR",
-                      }
-                    : undefined,
+                  // price: trip.budget_per_person
+                  //   ? {
+                  //       amount: trip.budget_per_person,
+                  //       currency: "INR",
+                  //     }
+                  //   : undefined,
                   isFemaleOnly: false,
                   isInstantJoin: true,
                   postedAt: trip.created_at,
