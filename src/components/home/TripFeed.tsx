@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
+import { useTripCache } from "@/contexts/TripCacheContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,9 +29,9 @@ import NotificationsDropdown from "@/components/notifications/NotificationsDropd
 import { useBookmarks } from "@/hooks/useBookmarks";
 import BookmarkButton from "@/components/trip/BookmarkButton";
 import RecommendationSection from "@/components/home/RecommendationSection";
-
-// ✅ NEW: Import TripStatus type for status management
 import { TripStatus } from "@/hooks/useTripStatus";
+// ✅ CORRECT - Just import, don't call yet
+import { useTripLikes } from "@/hooks/useTripLikes";
 
 import {
   Plus,
@@ -75,6 +76,7 @@ type Trip = {
   budget_per_person: number | null;
   travel_style: string[] | null;
   status: string;
+  interested_count?: number; // ✅ ADD THIS
   completed_at?: string | null;
   profiles: Profile | null;
   trip_participants: TripParticipant[];
@@ -88,6 +90,12 @@ const TripFeed = ({ user }: TripFeedProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { toggleBookmark, isBookmarked } = useBookmarks(user);
+
+  // ✅ CORRECT - Call hook INSIDE the component with the correct parameter
+  const { isLiked, toggleLike } = useTripLikes(user);
+  // ✅ ADD: Get cache functions
+  const { getCachedTrips, setCachedTrips, isCacheValid, clearCache } =
+    useTripCache();
 
   // State management
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -117,11 +125,9 @@ const TripFeed = ({ user }: TripFeedProps) => {
     actionType: "join" as "join" | "create" | "chat",
   });
 
-  // ✅ FIXED: Better pagination constants
-  const TRIPS_PER_PAGE = 5; // Change back to 5 for better UX
-  const INITIAL_TRIPS_COUNT = 5; // First load shows 5 trips
+  const TRIPS_PER_PAGE = 5;
+  const INITIAL_TRIPS_COUNT = 5;
 
-  // ✅ Keep existing applyFiltersToQuery function unchanged
   const applyFiltersToQuery = (query: any, currentFilters: FilterOptions) => {
     if (currentFilters.search) {
       const searchTerm = currentFilters.search.trim();
@@ -171,9 +177,38 @@ const TripFeed = ({ user }: TripFeedProps) => {
     return query;
   };
 
-  // ✅ FIXED: Improved fetchTrips function
+  // ✅ HELPER FUNCTION: Check if filters are default
+  const hasActiveFilters = useCallback(() => {
+    return (
+      filters.search !== "" ||
+      filters.budgetRange[0] > 0 ||
+      filters.budgetRange[1] < 10000 ||
+      filters.startDate !== null ||
+      filters.endDate !== null ||
+      filters.groupSize[0] > 1 ||
+      filters.groupSize[1] < 20 ||
+      filters.travelStyles.length > 0 ||
+      filters.cities.length > 0 ||
+      filters.sortBy !== "newest"
+    );
+  }, [filters]);
+  // ✅ UPDATED fetchTrips WITH CACHING
   const fetchTrips = useCallback(
     async (page: number, append: boolean = false) => {
+      // Check if we can use cache (only for first page, no filters)
+      if (page === 0 && !append && !hasActiveFilters() && isCacheValid()) {
+        const cachedData = getCachedTrips();
+        if (cachedData) {
+          console.log("✅ Using cached trips:", cachedData.trips.length);
+          setTrips(cachedData.trips);
+          setTotalTrips(cachedData.totalTrips);
+          setCurrentPage(cachedData.currentPage);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Start loading
       if (page === 0) {
         setLoading(true);
       } else {
@@ -184,7 +219,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
         const from = page * TRIPS_PER_PAGE;
         const to = from + TRIPS_PER_PAGE - 1;
 
-        // Get total count (only for first page)
+        // Get total count on first page
         if (page === 0) {
           const { count } = await supabase
             .from("trips")
@@ -194,7 +229,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           setTotalTrips(count || 0);
         }
 
-        // Get paginated data
+        // Build query
         let dataQuery = supabase
           .from("trips")
           .select(
@@ -212,6 +247,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
             budget_per_person,
             travel_style,
             status,
+            interested_count,
             profiles!trips_creator_id_fkey(full_name, avatar_url),
             trip_participants(user_id, joined_at)
           `
@@ -247,6 +283,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
         const { data, error } = await dataQuery;
 
         if (error) {
+          console.error("Fetch error:", error);
           toast({
             title: "Error loading trips",
             description: "Failed to load trips. Please try again.",
@@ -261,51 +298,150 @@ const TripFeed = ({ user }: TripFeedProps) => {
           if (append) {
             setTrips((prev) => {
               const combined = [...prev, ...newTrips];
-
               return combined;
             });
           } else {
             setTrips(newTrips);
             setCurrentPage(0);
+
+            // ✅ Cache the first page if no filters
+            if (page === 0 && !hasActiveFilters()) {
+              const totalCount = await supabase
+                .from("trips")
+                .select("*", { count: "exact", head: true })
+                .eq("status", "active");
+
+              setCachedTrips({
+                trips: newTrips,
+                totalTrips: totalCount.count || newTrips.length,
+                currentPage: 0,
+                timestamp: Date.now(),
+                filters: filters,
+              });
+            }
           }
 
           setCurrentPage(page);
         }
       } catch (err) {
+        console.error("Error fetching trips:", err);
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [filters, toast]
+    [
+      filters,
+      toast,
+      getCachedTrips,
+      setCachedTrips,
+      isCacheValid,
+      hasActiveFilters,
+    ]
   );
 
-  // ✅ FIXED: Improved loadMoreTrips function
+  // ✅ UPDATED - handleCardLike function
+
+  const handleCardLike = async (tripId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast({
+        title: "Please sign in",
+        description: "Sign in to show interest in this trip",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get current like status
+    const wasLiked = isLiked(tripId);
+
+    // Toggle the like (ONLY ONCE!)
+    const nowLiked = await toggleLike(tripId);
+
+    // Update UI based on result
+    setTrips((prevTrips) =>
+      prevTrips.map((trip) => {
+        if (trip.id === tripId) {
+          const currentCount = trip.interested_count || 0;
+          let newCount = currentCount;
+
+          // Only update if state actually changed
+          if (wasLiked && !nowLiked) {
+            // Was liked, now unliked - decrease
+            newCount = Math.max(currentCount - 1, 0);
+          } else if (!wasLiked && nowLiked) {
+            // Wasn't liked, now liked - increase
+            newCount = currentCount + 1;
+          }
+
+          return {
+            ...trip,
+            interested_count: newCount,
+          };
+        }
+        return trip;
+      })
+    );
+
+    // ✅ Update cache with new data
+    if (isCacheValid()) {
+      const cachedData = getCachedTrips();
+      if (cachedData) {
+        const updatedTrips = cachedData.trips.map((trip) => {
+          if (trip.id === tripId) {
+            const currentCount = trip.interested_count || 0;
+            return {
+              ...trip,
+              interested_count: nowLiked
+                ? currentCount + 1
+                : Math.max(currentCount - 1, 0),
+            };
+          }
+          return trip;
+        });
+
+        setCachedTrips({
+          ...cachedData,
+          trips: updatedTrips,
+        });
+      }
+    }
+  };
+
   const loadMoreTrips = useCallback(async () => {
     if (trips.length < totalTrips && !loadingMore) {
       await fetchTrips(currentPage + 1, true);
-    } else {
     }
   }, [trips.length, totalTrips, loadingMore, currentPage, fetchTrips]);
 
   const refreshTrips = useCallback(async () => {
+    console.log("🔄 Manual refresh, clearing cache");
+    clearCache();
     setCurrentPage(0);
     setTrips([]);
     await fetchTrips(0, false);
-  }, [fetchTrips]);
-
-  const handleFiltersChange = useCallback((newFilters: FilterOptions) => {
-    setFilters(newFilters);
-    setCurrentPage(0);
-    setTrips([]);
-  }, []);
-
-  // ✅ Keep existing useEffect unchanged
+  }, [fetchTrips, clearCache]);
+  // ✅ UPDATED handleFiltersChange - Clear cache when filters change
+  const handleFiltersChange = useCallback(
+    (newFilters: FilterOptions) => {
+      const filtersChanged =
+        JSON.stringify(filters) !== JSON.stringify(newFilters);
+      if (filtersChanged) {
+        console.log("🔄 Filters changed, clearing cache");
+        clearCache();
+      }
+      setFilters(newFilters);
+      setCurrentPage(0);
+      setTrips([]);
+    },
+    [filters, clearCache]
+  );
   useEffect(() => {
     fetchTrips(0, false);
   }, [fetchTrips]);
 
-  // ✅ Keep all existing event handlers unchanged
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -419,7 +555,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
     });
   }, [handleFiltersChange]);
 
-  // Add this helper function around line 390
   const isEndingSoon = (endDate: string) => {
     const today = new Date();
     const tripEnd = new Date(endDate);
@@ -429,13 +564,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
     return daysUntilEnd <= 3 && daysUntilEnd >= 0;
   };
 
-  // ✅ FIXED: Better hasMore calculation
   const hasMore = trips.length < totalTrips && totalTrips > 0;
 
   return (
     <div className="min-h-screen bg-background">
       <main className="pb-20">
-        {/* Keep existing Welcome Banner unchanged */}
         <div className="px-4 pb-4">
           <div className="gradient-warm rounded-2xl p-6 text-center space-y-2 shadow-soft">
             <h2 className="text-lg font-semibold text-white">
@@ -460,7 +593,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </div>
         </div>
 
-        {/* Keep existing Recommendation Section unchanged */}
         {user && (
           <RecommendationSection
             user={user}
@@ -468,7 +600,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
           />
         )}
 
-        {/* Keep all existing sections unchanged until the trip mapping */}
         <div className="px-4 mb-4">
           <Tabs
             value={activeView}
@@ -487,7 +618,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </Tabs>
         </div>
 
-        {/* Keep existing Map View unchanged */}
         {activeView === "map" && (
           <div className="px-4 mb-6">
             <div className="space-y-4">
@@ -535,7 +665,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 className="rounded-2xl overflow-hidden shadow-soft border"
               />
 
-              {/* ✅ UPDATED: Enhanced Load More UI for Map View */}
               <div className="flex justify-center items-center space-x-3 pt-6">
                 {hasMore && (
                   <Button
@@ -590,7 +719,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </div>
         )}
 
-        {/* Keep existing Filter Bar unchanged */}
         <div className="px-4 mb-6">
           <FilterBar
             onFiltersChange={handleFiltersChange}
@@ -598,12 +726,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
           />
         </div>
 
-        {/* Keep existing Trip Feed header unchanged */}
-        <div className="px-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <h3 className="text-lg font-semibold flex items-center space-x-2">
-                <Mountain className="w-5 h-5 text-accent" />
+        <div className="px-2 md:px-4 space-y-3 md:space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-center justify-between md:justify-start md:space-x-3">
+              <h3 className="text-base md:text-lg font-semibold flex items-center space-x-2">
+                <Mountain className="w-4 h-4 md:w-5 md:h-5 text-accent" />
                 <span>Active Adventures</span>
               </h3>
               <Button
@@ -611,61 +738,67 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 size="sm"
                 onClick={refreshTrips}
                 disabled={loading}
-                className="flex items-center space-x-1"
+                className="flex items-center space-x-1 h-8 md:h-9 px-2 md:px-3"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
                 />
-                <span className="hidden md:inline">Refresh</span>
+                <span className="hidden md:inline text-sm">Refresh</span>
               </Button>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
               <Badge
                 variant="outline"
-                className="text-xs flex items-center gap-1"
+                className="text-xs flex items-center gap-1 px-2 py-1"
               >
                 <MapPin className="w-3 h-3" />
-                <span>{totalTrips} adventures available</span>
+                <span className="hidden sm:inline">
+                  {totalTrips} adventures
+                </span>
+                <span className="sm:hidden">{totalTrips}</span>
               </Badge>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs px-2 py-1">
                 Page {currentPage + 1}
               </Badge>
               {hasMore && (
                 <Badge
                   variant="secondary"
-                  className="text-xs bg-green-100 text-green-800"
+                  className="text-xs bg-green-100 text-green-800 px-2 py-1"
                 >
-                  More available
+                  More Available
                 </Badge>
               )}
             </div>
           </div>
 
-          {/* Keep existing loading/empty states unchanged */}
           {loading && trips.length === 0 ? (
             <div className="text-center py-10">
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-              <p className="mt-4 text-muted-foreground">
+              <p className="mt-4 text-sm md:text-base text-muted-foreground">
                 Loading adventures...
               </p>
             </div>
           ) : trips.length === 0 ? (
-            <div className="text-center py-10">
-              <Filter className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground text-lg mb-2">
+            <div className="text-center py-10 px-4">
+              <Filter className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground text-base md:text-lg mb-2">
                 No trips found
               </p>
               <p className="text-muted-foreground text-sm mb-4">
                 Try adjusting your filters or be the first to create a trip!
               </p>
-              <Button variant="outline" onClick={clearAllFilters}>
+              <Button
+                variant="outline"
+                onClick={clearAllFilters}
+                size="sm"
+                className="text-sm"
+              >
                 Clear All Filters
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* ✅ UPDATED: Enhanced trip mapping with status support */}
+            <div className="space-y-3 md:space-y-4">
               {trips.map((trip, index) => {
                 const participantCount = trip.current_participants || 0;
 
@@ -689,15 +822,9 @@ const TripFeed = ({ user }: TripFeedProps) => {
                     current: participantCount,
                     max: trip.max_participants,
                   },
-                  interestedCount: participantCount,
-                  status: trip.status, // ✅ CHANGE THIS from hardcoded "active" to trip.status
-                  completed_at: trip.completed_at, // ✅ ADD THIS
-                  // price: trip.budget_per_person
-                  //   ? {
-                  //       amount: trip.budget_per_person,
-                  //       currency: "INR",
-                  //     }
-                  //   : undefined,
+                  interestedCount: trip.interested_count || 0, // ✅ USE interested_count
+                  status: trip.status,
+                  completed_at: trip.completed_at,
                   isFemaleOnly: false,
                   isInstantJoin: true,
                   postedAt: trip.created_at,
@@ -705,10 +832,9 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
                 return (
                   <div key={trip.id} className="relative">
-                    {/* Ending Soon Badge */}
                     {isEndingSoon(trip.end_date) && (
-                      <Badge className="absolute top-4 left-4 z-10 bg-orange-500 text-white">
-                        ⏰ Ending in{" "}
+                      <Badge className="absolute top-2 md:top-4 left-2 md:left-4 z-10 bg-orange-500 text-white text-xs px-2 py-1">
+                        ⏰{" "}
                         {Math.ceil(
                           (new Date(trip.end_date).getTime() -
                             new Date().getTime()) /
@@ -717,16 +843,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
                         days
                       </Badge>
                     )}
-                    <div className="absolute top-4 right-4 z-10">
-                      {/* Keep existing bookmark button commented */}
-                      {/* <BookmarkButton
-                      tripId={trip.id}
-                      isBookmarked={isBookmarked(trip.id)}
-                      onToggle={toggleBookmark}
-                      variant="bookmark"
-                      size="md"
-                    /> */}
-                    </div>
 
                     <EnhancedTripCard
                       {...enhancedTrip}
@@ -735,6 +851,8 @@ const TripFeed = ({ user }: TripFeedProps) => {
                       onClick={() => handleTripClick(trip)}
                       onJoinClick={() => handleTripJoin(trip.id)}
                       onChatClick={() => handleTripChat(trip.id)}
+                      isLiked={isLiked(trip.id)}
+                      onLikeClick={(e) => handleCardLike(trip.id, e)}
                       onStatusChange={(newStatus) => {
                         refreshTrips();
                       }}
@@ -745,35 +863,35 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           )}
 
-          {/* ✅ UPDATED: Enhanced Load More Button Section */}
-          <div className="flex justify-center items-center space-x-3 pt-6">
-            {/* Load More Adventures Button */}
+          <div className="flex flex-col md:flex-row justify-center items-center gap-2 md:gap-3 pt-4 md:pt-6">
             {hasMore && (
               <Button
                 onClick={loadMoreTrips}
                 disabled={loadingMore}
                 variant="outline"
                 size="default"
-                className="text-accent border-accent hover:bg-accent hover:text-white transition-all duration-300 min-w-[240px] hover-scale shadow-sm"
+                className="w-full md:w-auto text-accent border-accent hover:bg-accent hover:text-white transition-all duration-300 md:min-w-[240px] hover-scale shadow-sm h-10 md:h-11"
               >
                 {loadingMore ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    <span>Loading Adventures...</span>
+                    <span className="text-sm">Loading...</span>
                   </>
                 ) : (
                   <>
                     <ChevronDown className="w-4 h-4 mr-2" />
-                    <span>Load More Adventures</span>
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {Math.min(TRIPS_PER_PAGE, totalTrips - trips.length)} more
+                    <span className="text-sm md:text-base">Load More</span>
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 text-xs px-1.5 py-0.5"
+                    >
+                      {Math.min(TRIPS_PER_PAGE, totalTrips - trips.length)}
                     </Badge>
                   </>
                 )}
               </Button>
             )}
 
-            {/* Show Less Button */}
             {trips.length > INITIAL_TRIPS_COUNT && (
               <Button
                 onClick={() => {
@@ -783,22 +901,24 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 }}
                 variant="ghost"
                 size="default"
-                className="text-muted-foreground hover:text-accent hover:bg-accent/10 transition-all duration-300"
+                className="w-full md:w-auto text-muted-foreground hover:text-accent hover:bg-accent/10 transition-all duration-300 h-10 md:h-11"
               >
                 <ChevronUp className="w-4 h-4 mr-2" />
-                <span>Show Less</span>
+                <span className="text-sm md:text-base">Show Less</span>
               </Button>
             )}
           </div>
 
-          {/* Progress Indicator */}
           {trips.length > 0 && totalTrips > TRIPS_PER_PAGE && (
-            <div className="flex justify-center pt-4">
+            <div className="flex justify-center pt-3 md:pt-4">
               <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                <span>
+                <span className="hidden sm:inline">
                   Showing {trips.length} of {totalTrips} adventures
                 </span>
-                <div className="w-24 bg-muted rounded-full h-1">
+                <span className="sm:hidden">
+                  {trips.length}/{totalTrips}
+                </span>
+                <div className="w-16 md:w-24 bg-muted rounded-full h-1">
                   <div
                     className="bg-accent h-1 rounded-full transition-all duration-300"
                     style={{ width: `${(trips.length / totalTrips) * 100}%` }}
@@ -809,23 +929,26 @@ const TripFeed = ({ user }: TripFeedProps) => {
           )}
 
           {!hasMore && trips.length > 0 && (
-            <div className="text-center pt-6 pb-4">
-              <div className="inline-flex items-center px-4 py-2 rounded-full bg-muted text-muted-foreground text-sm">
-                <Sparkles className="w-4 h-4 mr-2" />
-                You've seen all {totalTrips} adventures! Check back later for
-                more.
+            <div className="text-center pt-4 md:pt-6 pb-4 px-4">
+              <div className="inline-flex items-center px-3 md:px-4 py-2 rounded-full bg-muted text-muted-foreground text-xs md:text-sm">
+                <Sparkles className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                <span className="hidden sm:inline">
+                  You've seen all {totalTrips} adventures! Check back later for
+                  more.
+                </span>
+                <span className="sm:hidden">
+                  All {totalTrips} adventures shown
+                </span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Keep existing Community Highlights unchanged */}
         <div className="px-4 mt-8">
           <CommunityHighlights />
         </div>
       </main>
 
-      {/* Keep all existing modals and floating action button unchanged */}
       <div className="fixed bottom-6 right-6 z-30">
         <Button
           variant="fab"

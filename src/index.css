@@ -1081,3 +1081,16 @@ video {
     transform: none;
   }
 }
+@media (max-width: 480px) {
+  .filter-container {
+    @apply px-3 py-1;
+  }
+
+  .filter-advanced-container {
+    @apply mx-0 px-2 py-2;
+  }
+
+  .filter-badges-container {
+    @apply gap-1 mt-1;
+  }
+}

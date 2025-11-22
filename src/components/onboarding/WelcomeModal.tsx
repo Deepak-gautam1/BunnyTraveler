@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import {
   Dialog,
@@ -33,6 +33,20 @@ const WelcomeModal = ({
 }: WelcomeModalProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+
+  // ✅ ADD: Check if modal should be shown based on localStorage
+  const [shouldShow, setShouldShow] = useState(false);
+
+  useEffect(() => {
+    // Only show if user hasn't seen it before
+    const hasSeenWelcome = localStorage.getItem("welcomeModalSeen");
+
+    if (!hasSeenWelcome && isOpen) {
+      setShouldShow(true);
+    } else {
+      setShouldShow(false);
+    }
+  }, [isOpen]);
 
   const steps = [
     {
@@ -109,23 +123,36 @@ const WelcomeModal = ({
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Last step - open profile editor
+      // Last step - mark as seen and open profile editor
+      localStorage.setItem("welcomeModalSeen", "true"); // ✅ ADD
       setIsEditProfileOpen(true);
     }
   };
 
   const handleSkip = () => {
+    // ✅ ADD: Mark as seen when skipped
+    localStorage.setItem("welcomeModalSeen", "true");
+    setShouldShow(false);
     onClose();
   };
 
   const handleProfileComplete = () => {
     setIsEditProfileOpen(false);
+    setShouldShow(false); // ✅ ADD
+    onClose();
+  };
+
+  // ✅ ADD: Custom close handler to mark as seen
+  const handleClose = () => {
+    localStorage.setItem("welcomeModalSeen", "true");
+    setShouldShow(false);
     onClose();
   };
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      {/* ✅ CHANGE: Use shouldShow instead of isOpen */}
+      <Dialog open={shouldShow} onOpenChange={handleClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center">

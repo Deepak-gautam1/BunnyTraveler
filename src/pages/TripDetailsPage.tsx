@@ -17,11 +17,11 @@ import JoinRequestsList from "@/components/trip/JoinRequestsList";
 import JoinRequestDialog from "@/components/trip/JoinRequestDialog";
 import { XCircle } from "lucide-react";
 import PhotoGallery from "@/components/trip/PhotoGallery";
-// ✅ NEW: Import post-trip review components
 import { usePostTripNotifications } from "@/hooks/usePostTripNotifications";
 import PostTripReviewModal from "@/components/trip/PostTripReviewModal";
+// ✅ A. ADD THIS IMPORT
+import { useTripLikes } from "@/hooks/useTripLikes";
 
-// AlertDialog imports for delete confirmation
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +33,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// Dropdown menu imports for Edit Trip
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +40,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// Add Dialog imports for share
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 import PrivateChat from "@/components/trip/PrivateChat";
 import TripChat from "@/components/trip/TripChat";
@@ -60,10 +68,11 @@ import {
   Edit3,
   MoreVertical,
   Trash2,
+  IndianRupee,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-// Types
+// ✅ H. UPDATE TYPE - Add interested_count
 type Profile = {
   id: string;
   full_name: string | null;
@@ -88,6 +97,7 @@ type TripDetail = {
   created_at: string;
   creator_id: string;
   status?: string;
+  interested_count?: number; // ✅ ADD THIS
   profiles: Profile | null;
   trip_participants: TripParticipant[];
 };
@@ -104,57 +114,63 @@ const TripDetailsPage = () => {
   const [isPrivateChatOpen, setIsPrivateChatOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // ✅ NEW: Post-trip review states
+  // ✅ B. ADD THESE HOOKS
+  const { isLiked, toggleLike } = useTripLikes(user);
+  const [interestedCount, setInterestedCount] = useState(0);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [userHasReviewed, setUserHasReviewed] = useState(false);
   const { schedulePostTripNotification } = usePostTripNotifications();
 
-  // Delete confirmation dialog state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Check if current user is the trip creator
   const isCreator = user && trip && user.id === trip.creator_id;
 
-  // ✅ NEW: Check if user should be prompted for review
   useEffect(() => {
     const checkForReviewPrompt = async () => {
       if (!user || !trip || !isJoined) return;
 
       try {
-        // Check if user has already reviewed this trip
-        const { data: existingReview } = await supabase
+        // ✅ Updated query with proper error handling
+        const { data: existingReview, error } = await supabase
           .from("trip_reviews")
           .select("id")
           .eq("trip_id", trip.id)
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle(); // ✅ Use maybeSingle() instead of single()
+
+        // ✅ Handle errors gracefully
+        if (error) {
+          console.error("Error checking review:", error);
+          return; // Don't show error to user
+        }
 
         if (existingReview) {
           setUserHasReviewed(true);
           return;
         }
 
-        // Calculate if it's time to show review prompt (2 days after trip end)
+        // Check if trip ended more than 2 days ago
         const tripEndDate = new Date(trip.end_date);
         const twoDaysAfter = new Date(tripEndDate);
         twoDaysAfter.setDate(twoDaysAfter.getDate() + 2);
-
         const now = new Date();
 
-        // Show modal if it's been 2+ days since trip ended and user hasn't reviewed
         if (now >= twoDaysAfter && !userHasReviewed) {
           setShowReviewModal(true);
         }
       } catch (error) {
         console.error("Error checking review status:", error);
+        // Silently fail - don't interrupt user experience
       }
     };
 
     checkForReviewPrompt();
   }, [trip?.end_date, user, isJoined, userHasReviewed]);
 
-  // ✅ Clean refresh function
+  // ✅ D. UPDATE refreshTripData
   const refreshTripData = useCallback(async () => {
     if (!tripId) return;
 
@@ -166,6 +182,7 @@ const TripDetailsPage = () => {
         .select(
           `
           *,
+          interested_count,
           profiles!trips_creator_id_fkey(id, full_name, avatar_url),
           trip_participants(
             joined_at,
@@ -195,17 +212,18 @@ const TripDetailsPage = () => {
           created_at: data.created_at,
           creator_id: data.creator_id,
           status: data.status || "planning",
+          interested_count: data.interested_count || 0, // ✅ ADD THIS
           profiles: data.profiles,
           trip_participants: data.trip_participants || [],
         };
 
         setTrip(tripData);
+        setInterestedCount(data.interested_count || 0); // ✅ ADD THIS
         console.log(
           "✅ Trip refreshed - participants:",
           data.trip_participants?.length || 0
         );
 
-        // ✅ CRITICAL: Use current user state for checking joined status
         if (user && data.trip_participants) {
           const userJoined = data.trip_participants.some(
             (participant: any) => participant.profiles?.id === user.id
@@ -219,25 +237,23 @@ const TripDetailsPage = () => {
     }
   }, [tripId, user]);
 
-  // ✅ FIX 1: SINGLE comprehensive useEffect for initialization (removed duplicate)
+  // ✅ C. UPDATE useEffect - Add interested_count to query
   useEffect(() => {
     console.log("🚀 Initializing trip page...");
 
-    let isMounted = true; // ✅ Add cleanup flag
+    let isMounted = true;
 
     const initializePage = async () => {
       try {
-        // ✅ Step 1: Always fetch user first
         console.log("👤 Fetching user...");
         const {
           data: { user },
         } = await supabase.auth.getUser();
         console.log("👤 User fetched:", user?.id || "No user");
 
-        if (!isMounted) return; // ✅ Check if component still mounted
+        if (!isMounted) return;
         setUser(user);
 
-        // ✅ Step 2: Only proceed with trip loading if we have tripId
         if (!tripId) {
           console.log("❌ No tripId, stopping");
           return;
@@ -247,12 +263,12 @@ const TripDetailsPage = () => {
         if (!isMounted) return;
         setLoading(true);
 
-        // ✅ Step 3: Fetch trip with participants
         const { data, error } = await supabase
           .from("trips")
           .select(
             `
             *,
+            interested_count,
             profiles!trips_creator_id_fkey(id, full_name, avatar_url),
             trip_participants(
               joined_at,
@@ -263,7 +279,7 @@ const TripDetailsPage = () => {
           .eq("id", Number(tripId))
           .single();
 
-        if (!isMounted) return; // ✅ Check before state updates
+        if (!isMounted) return;
 
         if (error) {
           console.error("Trip loading error:", error);
@@ -292,17 +308,18 @@ const TripDetailsPage = () => {
             created_at: data.created_at,
             creator_id: data.creator_id,
             status: data.status || "planning",
+            interested_count: data.interested_count || 0, // ✅ ADD THIS
             profiles: data.profiles,
             trip_participants: data.trip_participants || [],
           };
 
           setTrip(tripData);
+          setInterestedCount(data.interested_count || 0); // ✅ ADD THIS
           console.log(
             "✅ Trip set with participants:",
             data.trip_participants?.length || 0
           );
 
-          // ✅ Check if user is joined (user is guaranteed to be set here)
           if (user && data.trip_participants) {
             const userJoined = data.trip_participants.some(
               (participant: any) => participant.profiles?.id === user.id
@@ -336,9 +353,8 @@ const TripDetailsPage = () => {
       console.log("🧹 Cleanup: Component unmounting");
       isMounted = false;
     };
-  }, [tripId]); // ✅ Only depend on tripId
+  }, [tripId]);
 
-  // ✅ Hook integrations
   const {
     participants,
     stats,
@@ -358,16 +374,11 @@ const TripDetailsPage = () => {
     requestLoading,
     responseLoading,
     sendJoinRequest,
-    approveRequest, // ✅ Uses RPC function
+    approveRequest,
     rejectRequest,
     cancelRequest,
-  } = useJoinRequestManagement(
-    trip?.id || 0,
-    user,
-    refreshTripData // ✅ Pass refresh function for automatic updates
-  );
+  } = useJoinRequestManagement(trip?.id || 0, user, refreshTripData);
 
-  // Trip management functions
   const handleDeleteTrip = async () => {
     if (!user || !trip) return;
 
@@ -377,7 +388,7 @@ const TripDetailsPage = () => {
         .from("trips")
         .delete()
         .eq("id", trip.id)
-        .eq("creator_id", user.id); // Extra security check
+        .eq("creator_id", user.id);
 
       if (error) throw error;
 
@@ -412,7 +423,6 @@ const TripDetailsPage = () => {
     });
   };
 
-  // ✅ NEW: Enhanced handleJoin with notification scheduling
   const handleJoin = async () => {
     if (!user || !trip) {
       toast({
@@ -441,7 +451,6 @@ const TripDetailsPage = () => {
           description: "You have successfully joined the trip.",
         });
 
-        // ✅ NEW: Schedule post-trip review notification
         await schedulePostTripNotification(
           trip.id,
           user.id,
@@ -484,7 +493,6 @@ const TripDetailsPage = () => {
 
       if (error) throw error;
 
-      // Clean up old join requests when user leaves
       await supabase
         .from("trip_join_requests")
         .delete()
@@ -518,50 +526,91 @@ const TripDetailsPage = () => {
     }
   };
 
+  // ✅ E. REPLACE handleLike
+  // In TripDetailsPage.tsx, update handleLike:
+
   const handleLike = async () => {
     if (!user || !trip) {
       toast({
-        title: "Please sign in to like this trip",
+        title: "Please sign in",
+        description: "Sign in to show interest in this trip",
         variant: "destructive",
       });
       return;
     }
 
+    const wasLiked = isLiked(trip.id);
+
+    // Toggle like
+    await toggleLike(trip.id);
+
+    // Optimistically update UI
+    if (wasLiked) {
+      setInterestedCount((prev) => Math.max(prev - 1, 0));
+    } else {
+      setInterestedCount((prev) => prev + 1);
+    }
+
+    // Refresh trip data after 500ms to sync with server
+    setTimeout(() => {
+      refreshTripData();
+    }, 500);
+  };
+
+  // Share functions
+  const handleShare = async () => {
+    setIsShareDialogOpen(true);
+  };
+
+  const shareToWhatsApp = () => {
+    const shareText = `🌍 Check out this amazing trip!\n\n${
+      trip?.destination
+    } from ${trip?.start_city}\n📅 ${formatDateRange(
+      trip!.start_date,
+      trip!.end_date
+    )}\n💰 ₹${
+      trip?.budget_per_person?.toLocaleString() || "Contact for pricing"
+    }\n\n`;
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
+      shareText + shareUrl
+    )}`;
+    window.open(whatsappUrl, "_blank");
+    setIsShareDialogOpen(false);
+  };
+
+  const shareToFacebook = () => {
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+      shareUrl
+    )}`;
+    window.open(facebookUrl, "_blank", "width=600,height=400");
+    setIsShareDialogOpen(false);
+  };
+
+  const shareToTwitter = () => {
+    const shareText = `Check out this trip: ${trip?.destination} from ${trip?.start_city}`;
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      shareText
+    )}&url=${encodeURIComponent(shareUrl)}`;
+    window.open(twitterUrl, "_blank", "width=600,height=400");
+    setIsShareDialogOpen(false);
+  };
+
+  const copyLink = async () => {
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
     try {
-      const { data: existingLike } = await supabase
-        .from("trip_likes")
-        .select("id")
-        .eq("trip_id", trip.id)
-        .eq("user_id", user.id)
-        .single();
-
-      if (existingLike) {
-        await supabase
-          .from("trip_likes")
-          .delete()
-          .eq("trip_id", trip.id)
-          .eq("user_id", user.id);
-
-        toast({
-          title: "Unliked trip",
-          description: "You've removed your like from this trip.",
-        });
-      } else {
-        await supabase.from("trip_likes").insert({
-          trip_id: trip.id,
-          user_id: user.id,
-        });
-
-        toast({
-          title: "Liked trip!",
-          description: "You've liked this trip.",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error handling like:", error);
+      await navigator.clipboard.writeText(shareUrl);
       toast({
-        title: "Error",
-        description: "Failed to update like status",
+        title: "Link copied!",
+        description: "Trip link copied to clipboard",
+      });
+      setIsShareDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
         variant: "destructive",
       });
     }
@@ -578,7 +627,6 @@ const TripDetailsPage = () => {
     setIsPrivateChatOpen(true);
   };
 
-  // ✅ NEW: Handle review submission
   const handleReviewSubmitted = () => {
     setUserHasReviewed(true);
     setShowReviewModal(false);
@@ -607,7 +655,6 @@ const TripDetailsPage = () => {
     )} - ${endDate.toLocaleDateString("en-IN", options)}`;
   };
 
-  // Loading and error states
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-4">
@@ -662,7 +709,6 @@ const TripDetailsPage = () => {
               Back
             </Button>
             <div className="flex items-center space-x-2">
-              {/* Edit/Delete dropdown menu for trip creator */}
               {isCreator && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -686,11 +732,22 @@ const TripDetailsPage = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <Button variant="ghost" size="icon">
+              {/* ✅ F. UPDATE Share Button */}
+              <Button variant="ghost" size="icon" onClick={handleShare}>
                 <Share2 className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleLike}>
-                <Heart className="w-4 h-4" />
+              {/* ✅ F. UPDATE Heart Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLike}
+                className={isLiked(trip.id) ? "text-red-500" : ""}
+              >
+                <Heart
+                  className={`w-4 h-4 ${
+                    isLiked(trip.id) ? "fill-red-500" : ""
+                  }`}
+                />
               </Button>
             </div>
           </div>
@@ -718,6 +775,7 @@ const TripDetailsPage = () => {
                 )}
               </div>
 
+              {/* ✅ G. ADD interested count display */}
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                 <div className="flex items-center">
                   <Calendar className="w-4 h-4 mr-1" />
@@ -726,6 +784,10 @@ const TripDetailsPage = () => {
                 <div className="flex items-center">
                   <Users className="w-4 h-4 mr-1" />
                   {stats.current_participants}/{stats.max_participants} joined
+                </div>
+                <div className="flex items-center">
+                  <Heart className="w-4 h-4 mr-1 text-red-500" />
+                  <span>{interestedCount} interested</span>
                 </div>
               </div>
 
@@ -750,8 +812,8 @@ const TripDetailsPage = () => {
                     variant="outline"
                     className="text-green-600 border-green-600"
                   >
-                    Budget: ₹{trip.budget_per_person.toLocaleString()} per
-                    person
+                    <IndianRupee className="w-3 h-3 mr-1" />
+                    {trip.budget_per_person.toLocaleString()} per person
                   </Badge>
                 </div>
               )}
@@ -835,7 +897,6 @@ const TripDetailsPage = () => {
           </CardContent>
         </Card>
 
-        {/* ✅ Join Request Actions for non-creators */}
         {!isCreator && (
           <JoinRequestActions
             user={user}
@@ -850,7 +911,6 @@ const TripDetailsPage = () => {
           />
         )}
 
-        {/* ✅ FIX 2: Fixed Join Requests List with proper function signatures */}
         {isCreator && (
           <JoinRequestsList
             joinRequests={joinRequests}
@@ -860,7 +920,7 @@ const TripDetailsPage = () => {
             tripCreatorId={trip?.creator_id || ""}
             onApproveRequest={(request, message) =>
               approveRequest(request, message)
-            } // ✅ Include message
+            }
             onRejectRequest={(request, message) =>
               rejectRequest(request, message)
             }
@@ -868,7 +928,6 @@ const TripDetailsPage = () => {
           />
         )}
 
-        {/* Participant Actions for creators */}
         {isCreator && (
           <ParticipantActions
             user={user}
@@ -883,7 +942,6 @@ const TripDetailsPage = () => {
           />
         )}
 
-        {/* ✅ FIX 3: ONLY Enhanced Participants List (removed duplicate original version) */}
         <ParticipantsList
           participants={participants}
           stats={stats}
@@ -898,7 +956,6 @@ const TripDetailsPage = () => {
           className="mb-6"
         />
 
-        {/* ✅ ADD: Trip Photos Section */}
         <Card className="mb-6">
           <CardContent className="p-6">
             <h3 className="font-semibold mb-4">Trip Photos</h3>
@@ -910,7 +967,6 @@ const TripDetailsPage = () => {
           </CardContent>
         </Card>
 
-        {/* ✅ Group Chat with permissions */}
         <TripChat
           tripId={trip.id}
           user={user}
@@ -920,7 +976,6 @@ const TripDetailsPage = () => {
         />
       </main>
 
-      {/* Keep all existing modals */}
       <PrivateChat
         isOpen={isPrivateChatOpen}
         onClose={() => setIsPrivateChatOpen(false)}
@@ -931,7 +986,6 @@ const TripDetailsPage = () => {
         currentUser={user}
       />
 
-      {/* PostTripModal for editing */}
       {trip && (
         <PostTripModal
           open={isEditModalOpen}
@@ -952,7 +1006,6 @@ const TripDetailsPage = () => {
         />
       )}
 
-      {/* ✅ NEW: Post-Trip Review Modal */}
       <PostTripReviewModal
         isOpen={showReviewModal}
         onClose={() => setShowReviewModal(false)}
@@ -964,7 +1017,84 @@ const TripDetailsPage = () => {
         onReviewSubmitted={handleReviewSubmitted}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Share Dialog */}
+      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share This Trip</DialogTitle>
+            <DialogDescription>
+              Share {trip.destination} with your friends
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full justify-start h-12"
+              onClick={shareToWhatsApp}
+            >
+              <svg
+                className="w-5 h-5 mr-3"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+              </svg>
+              WhatsApp
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-12"
+              onClick={shareToFacebook}
+            >
+              <svg
+                className="w-5 h-5 mr-3"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+              Facebook
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-12"
+              onClick={shareToTwitter}
+            >
+              <svg
+                className="w-5 h-5 mr-3"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
+              </svg>
+              Twitter
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or copy link
+                </span>
+              </div>
+            </div>
+
+            <Button
+              variant="secondary"
+              className="w-full justify-start h-12"
+              onClick={copyLink}
+            >
+              <Share2 className="w-5 h-5 mr-3" />
+              Copy Link
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={isDeleteDialogOpen}
@@ -977,7 +1107,6 @@ const TripDetailsPage = () => {
               Delete Trip?
             </AlertDialogTitle>
 
-            {/* ✅ FIX: The <div> is now a sibling to the description, not a child. */}
             <AlertDialogDescription>
               Are you sure you want to delete this trip? This action cannot be
               undone.
@@ -1006,7 +1135,6 @@ const TripDetailsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ✅ Bottom Action Bar with Join Request Dialog */}
       {user && !isCreator && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
           <div className="max-w-2xl mx-auto">
@@ -1060,7 +1188,6 @@ const TripDetailsPage = () => {
         </div>
       )}
 
-      {/* Bottom Action Bar for creators */}
       {user && isCreator && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
           <div className="max-w-2xl mx-auto flex gap-2">
@@ -1068,7 +1195,7 @@ const TripDetailsPage = () => {
               <MessageCircle className="w-4 h-4 mr-2" />
               Group Chat
             </Button>
-            <Button variant="outline" className="flex-1">
+            <Button variant="outline" className="flex-1" onClick={handleShare}>
               <Share2 className="w-4 h-4 mr-2" />
               Share Trip
             </Button>

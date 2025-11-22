@@ -35,9 +35,12 @@ interface Testimonial {
     destination: string;
   };
 }
+import { useNavigate } from "react-router-dom"; // ✅ ADD THIS IMPORT
 
 const CommunityHighlights = () => {
   // State for dynamic testimonials
+  const navigator = useNavigate();
+
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -387,7 +390,11 @@ const CommunityHighlights = () => {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {trendingCommunities.map((community) => (
-              <Card key={community.id} className="cursor-pointer hover-scale">
+              <Card
+                key={community.id}
+                className="cursor-pointer hover-scale hover:shadow-md transition-all"
+                onClick={() => navigator(`/community/${community.slug}`)}
+              >
                 <CardContent className="p-3">
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">

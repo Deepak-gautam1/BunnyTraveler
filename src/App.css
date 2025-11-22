@@ -1,8 +1,23 @@
 #root {
-  max-width: 1280px;
+  width: 100%;
+  max-width: 100vw;
+  /* overflow-x: hidden; */
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+}
+
+/* Responsive padding for mobile */
+@media (max-width: 768px) {
+  #root {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  #root {
+    padding: 0.5rem;
+  }
 }
 
 .logo {
@@ -11,9 +26,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -35,6 +52,19 @@
 
 .card {
   padding: 2em;
+}
+
+/* Responsive card padding */
+@media (max-width: 768px) {
+  .card {
+    padding: 1.5em;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 1em;
+  }
 }
 
 .read-the-docs {

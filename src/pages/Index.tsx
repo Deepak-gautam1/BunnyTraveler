@@ -9,7 +9,7 @@ import TripFeed from "@/components/home/TripFeed";
 import WelcomeModal from "@/components/onboarding/WelcomeModal";
 
 interface IndexProps {
-  user: User | null; // ✅ ADD: Accept user as prop
+  user: User | null;
 }
 
 const Index = ({ user }: IndexProps) => {
@@ -19,7 +19,10 @@ const Index = ({ user }: IndexProps) => {
   const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    // ✅ ADD: Check localStorage first to avoid unnecessary API calls
+    const hasSeenWelcome = localStorage.getItem("welcomeModalSeen");
+
+    if (user && !hasSeenWelcome) {
       checkIfNewUser(user);
     }
   }, [user]);
@@ -54,8 +57,6 @@ const Index = ({ user }: IndexProps) => {
 
   return (
     <>
-      {/* ✅ REMOVED: Header (now handled by AppNavigation) */}
-
       {/* Main Content */}
       <TripFeed user={user} />
 
@@ -64,7 +65,6 @@ const Index = ({ user }: IndexProps) => {
         isOpen={showWelcome}
         onClose={handleProfileComplete}
         user={user}
-        profile={userProfile}
         isNewUser={isNewUser}
       />
     </>

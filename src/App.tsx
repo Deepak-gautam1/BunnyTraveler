@@ -21,7 +21,8 @@ import AuthPage from "./pages/AuthPage";
 import Safety from "./pages/Safety";
 import Contact from "./pages/Contact";
 import AboutUs from "./pages/AboutUs";
-
+import { TripCacheProvider } from "./contexts/TripCacheContext";
+import CommunityMembersPage from "@/pages/CommunityMembersPage";
 const queryClient = new QueryClient();
 
 // ✅ Component to conditionally render navigation
@@ -38,7 +39,11 @@ const AppLayout = ({ user }: { user: User | null }) => {
       {!shouldHideNav && <AppNavigation user={user} />}
 
       {/* ✅ CONDITIONAL: Add proper spacing only when nav is present */}
-      <main className={`min-h-screen ${!shouldHideNav ? "pt-16" : ""}`}>
+      <main
+        className={`min-h-screen max-w-screen overflow-x-hidden ${
+          !shouldHideNav ? "pt-16" : ""
+        }`}
+      >
         <Routes>
           <Route path="/" element={<Index user={user} />} />
           <Route path="/trip/:tripId" element={<TripDetailsPage />} />
@@ -50,6 +55,8 @@ const AppLayout = ({ user }: { user: User | null }) => {
           <Route path="/discover" element={<DiscoverPage user={user} />} />
           <Route path="/my-trips" element={<MyTripsPage user={user} />} />
           <Route path="/community" element={<CommunityPage user={user} />} />
+          <Route path="/community/:slug" element={<CommunityMembersPage />} />
+
           <Route path="/messages" element={<MessagesPage user={user} />} />
           <Route path="/settings" element={<SettingsPage user={user} />} />
           <Route path="/safety" element={<Safety />} />
@@ -108,10 +115,12 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          {/* ✅ UPDATED: Use AppLayout component with conditional navigation */}
-          <AppLayout user={user} />
-        </BrowserRouter>
+        <TripCacheProvider>
+          <BrowserRouter>
+            {/* ✅ UPDATED: Use AppLayout component with conditional navigation */}
+            <AppLayout user={user} />
+          </BrowserRouter>
+        </TripCacheProvider>
         {/* ✅ ADD VERCEL ANALYTICS HERE */}
         <Analytics />
       </TooltipProvider>

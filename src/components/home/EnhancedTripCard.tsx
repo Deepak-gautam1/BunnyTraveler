@@ -28,8 +28,6 @@ import { formatDistanceToNow } from "date-fns";
 import BookmarkButton from "@/components/trip/BookmarkButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-// ✅ RE-ENABLED: Import the trip status hook and types
 import { useTripStatus, TripStatus } from "@/hooks/useTripStatus";
 
 interface EnhancedTripCardProps {
@@ -65,7 +63,7 @@ interface EnhancedTripCardProps {
   postedAt: string;
   onClick?: () => void;
   onChatClick?: () => void;
-  onLikeClick?: () => void;
+  onLikeClick?: (e: React.MouseEvent) => void; // ✅ FIX 1: Accept event parameter
   onBookmarkClick?: () => void;
   onStatusChange?: (newStatus: TripStatus) => void;
 }
@@ -110,6 +108,17 @@ const EnhancedTripCard = ({
     loading: statusLoading,
   } = useTripStatus(currentUser);
 
+  // ✅ FIX 2: Sync interested count when prop changes
+  useEffect(() => {
+    setInterested(interestedCount);
+  }, [interestedCount]);
+
+  // ✅ FIX 3: Sync liked state when prop changes
+  useEffect(() => {
+    setLiked(isLiked);
+  }, [isLiked]);
+
+  // ✅ REPLACE WITH THIS NEW CODE:
   useEffect(() => {
     const fetchInitialData = async () => {
       const {
@@ -118,14 +127,46 @@ const EnhancedTripCard = ({
       setCurrentUser(user);
 
       if (user) {
-        const { data: request } = await supabase
-          .from("trip_participants")
-          .select("status")
-          .eq("trip_id", id)
-          .eq("user_id", user.id)
-          .single();
-        if (request) {
-          setUserRequestStatus(request.status);
+        try {
+          // ✅ Check if user is already a participant
+          const { data: participantData, error: participantError } =
+            await supabase
+              .from("trip_participants")
+              .select("trip_id")
+              .eq("trip_id", id)
+              .eq("user_id", user.id)
+              .maybeSingle(); // ✅ Use maybeSingle to avoid errors
+
+          // ✅ If error, just log it and continue
+          if (participantError && participantError.code !== "PGRST116") {
+            console.log("Participant check error:", participantError.code);
+          }
+
+          if (participantData) {
+            // User is already a participant (approved)
+            setUserRequestStatus("approved");
+            return;
+          }
+
+          // ✅ Check if user has a pending join request
+          const { data: requestData, error: requestError } = await supabase
+            .from("trip_join_requests")
+            .select("status")
+            .eq("trip_id", id)
+            .eq("user_id", user.id)
+            .maybeSingle(); // ✅ Use maybeSingle to avoid errors
+
+          // ✅ If error, just log it and continue
+          if (requestError && requestError.code !== "PGRST116") {
+            console.log("Request check error:", requestError.code);
+          }
+
+          if (requestData) {
+            setUserRequestStatus(requestData.status);
+          }
+        } catch (error) {
+          // ✅ Silently handle errors - don't break the UI
+          console.log("Error fetching user status:", error);
         }
       }
     };
@@ -235,35 +276,59 @@ const EnhancedTripCard = ({
         return;
       }
 
+      // ✅ Check if already a participant - with maybeSingle
+      const { data: existingParticipant, error: participantError } =
+        await supabase
+          .from("trip_participants")
+          .select("trip_id")
+          .eq("trip_id", id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+      if (participantError && participantError.code !== "PGRST116") {
+        console.error("Error checking participant:", participantError);
+      }
+
+      if (existingParticipant) {
+        toast({
+          title: "You're already part of this trip!",
+        });
+        return;
+      }
+
+      // ✅ Check for existing join request - with maybeSingle
       const { data: existingRequest, error: checkError } = await supabase
-        .from("trip_participants")
+        .from("trip_join_requests")
         .select("status")
         .eq("trip_id", id)
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (checkError && checkError.code !== "PGRST116") throw checkError;
+      if (checkError && checkError.code !== "PGRST116") {
+        console.error("Error checking request:", checkError);
+      }
 
       if (existingRequest) {
         const statusMessages = {
           pending:
             "Your join request is pending approval from the trip creator.",
-          approved: "You're already part of this trip!",
+          approved:
+            "Your request was approved! The creator will add you to the trip.",
           rejected:
             "Your previous request was declined. You can submit a new request.",
         };
 
         if (existingRequest.status === "rejected") {
           const { error: updateError } = await supabase
-            .from("trip_participants")
-            .update({ status: "pending", joined_at: new Date().toISOString() })
+            .from("trip_join_requests")
+            .update({ status: "pending", created_at: new Date().toISOString() })
             .eq("trip_id", id)
             .eq("user_id", user.id);
 
           if (updateError) throw updateError;
           setUserRequestStatus("pending");
           toast({
-            title: "Request resubmitted!",
+            title: "Request resubmitted! ✅",
             description:
               "Your join request has been sent to the trip creator for approval.",
           });
@@ -280,47 +345,34 @@ const EnhancedTripCard = ({
         return;
       }
 
-      if (isInstantJoin) {
-        const { error } = await supabase.from("trip_participants").insert({
-          trip_id: id,
-          user_id: user.id,
-          status: "approved",
-          joined_at: new Date().toISOString(),
-        });
-        if (error) throw error;
-        setUserRequestStatus("approved");
-        toast({
-          title: "You're in!",
-          description: "You have successfully joined the trip.",
-        });
-        setInterested((prev) => prev + 1);
-      } else {
-        const { error } = await supabase.from("trip_participants").insert({
-          trip_id: id,
-          user_id: user.id,
-          status: "pending",
-          joined_at: new Date().toISOString(),
-        });
-        if (error) throw error;
-        setUserRequestStatus("pending");
-        toast({
-          title: "Request sent!",
-          description:
-            "Your join request has been sent to the trip creator for approval.",
-        });
+      // Create new join request
+      const { error } = await supabase.from("trip_join_requests").insert({
+        trip_id: id,
+        user_id: user.id,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      });
 
-        await supabase.from("notifications").insert({
-          user_id: creator.id,
-          type: "trip_join_request",
-          title: "New join request",
-          message: `Someone wants to join your trip to ${destination}`,
-          data: {
-            trip_id: id,
-            requester_id: user.id,
-            trip_destination: destination,
-          },
-        });
-      }
+      if (error) throw error;
+
+      setUserRequestStatus("pending");
+      toast({
+        title: "Request sent! 📨",
+        description:
+          "Your join request has been sent to the trip creator for approval.",
+      });
+
+      await supabase.from("notifications").insert({
+        user_id: creator.id,
+        type: "trip_join_request",
+        title: "New join request",
+        message: `Someone wants to join your trip to ${destination}`,
+        data: {
+          trip_id: id,
+          requester_id: user.id,
+          trip_destination: destination,
+        },
+      });
     } catch (error: any) {
       console.error("Join request error:", error);
       toast({
@@ -331,16 +383,19 @@ const EnhancedTripCard = ({
     }
   };
 
+  // ✅ FIX 4: Update handleLike to pass event and don't modify local state
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setLiked(!liked);
-    onLikeClick?.();
+    // Don't toggle local state - let parent handle it
+    onLikeClick?.(e);
   };
+
   const handleBookmark = async (tripId: number) => {
     setBookmarked(!bookmarked);
     onBookmarkClick?.();
     return Promise.resolve();
   };
+
   const handleChat = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChatClick?.();
@@ -358,11 +413,12 @@ const EnhancedTripCard = ({
   const getButtonText = () => {
     if (!currentUser) return "Sign in to Join";
     if (currentUser.id === creator.id) return "Your Trip";
-    if (userRequestStatus === "pending") return "Request Pending";
-    if (userRequestStatus === "approved") return "Joined";
+    if (userRequestStatus === "pending") return "⏳ Pending Approval";
+    if (userRequestStatus === "approved") return "✅ Joined";
     if (userRequestStatus === "rejected") return "Resubmit Request";
-    return isInstantJoin ? "Join Now" : "Request to Join";
+    return "Request to Join"; // ✅ Changed from "Join Now"
   };
+
   const buttonText = getButtonText();
 
   return (
@@ -371,54 +427,6 @@ const EnhancedTripCard = ({
       onClick={onClick}
     >
       <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-        {/* COMMENTED OUT: Status badge display logic */}
-        {/* {currentStatus !== "planning" && (
-          <>
-            {canManageTrip && availableTransitions.length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Badge
-                    variant={statusConfig.variant}
-                    className={`text-xs font-medium cursor-pointer hover:opacity-80 ${statusConfig.className}`}
-                  >
-                    {statusConfig.icon}
-                    <span className="ml-1">{statusConfig.label}</span>
-                    <Settings className="w-3 h-3 ml-1" />
-                  </Badge>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {availableTransitions.map((newStatus) => {
-                    const newStatusConfig = getStatusConfig(newStatus);
-                    return (
-                      <DropdownMenuItem
-                        key={newStatus}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusChange(newStatus);
-                        }}
-                        disabled={statusLoading}
-                      >
-                        {newStatusConfig.icon}
-                        <span className="ml-2">
-                          Mark as {newStatusConfig.label}
-                        </span>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Badge
-                variant={statusConfig.variant}
-                className={`text-xs font-medium ${statusConfig.className}`}
-              >
-                {statusConfig.icon}
-                <span className="ml-1">{statusConfig.label}</span>
-              </Badge>
-            )}
-          </>
-        )} */}
-
         <BookmarkButton
           tripId={id}
           isBookmarked={bookmarked}
@@ -534,6 +542,7 @@ const EnhancedTripCard = ({
             </div>
           </div>
         </div>
+        {/* ✅ FIX 5: This section already displays interested count correctly */}
         <div className="px-4 py-3 bg-muted/30 border-t border-border/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -543,8 +552,13 @@ const EnhancedTripCard = ({
                   {groupSize.current}/{groupSize.max} joined
                 </span>
               </div>
+              {/* ✅ Already showing interested count */}
               <div className="flex items-center space-x-1">
-                <Heart className="w-4 h-4" />
+                <Heart
+                  className={`w-4 h-4 ${
+                    liked ? "text-red-500 fill-red-500" : ""
+                  }`}
+                />
                 <span>{interested} interested</span>
               </div>
             </div>

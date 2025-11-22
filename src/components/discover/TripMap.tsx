@@ -358,12 +358,44 @@ const TripMap = ({
     if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
     return `₹${amount}`;
   };
+  // ✅ ADD THIS COMPONENT
+  const CtrlScrollZoom = () => {
+    const map = useMap();
 
+    useEffect(() => {
+      // Disable default scroll zoom
+      map.scrollWheelZoom.disable();
+
+      const handleWheel = (e: WheelEvent) => {
+        // Only zoom if Ctrl (Windows/Linux) or Cmd (Mac) key is pressed
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const delta = e.deltaY;
+
+          if (delta < 0) {
+            map.zoomIn(0.5); // Zoom in
+          } else {
+            map.zoomOut(0.5); // Zoom out
+          }
+        }
+      };
+
+      const container = map.getContainer();
+      container.addEventListener("wheel", handleWheel, { passive: false });
+
+      return () => {
+        container.removeEventListener("wheel", handleWheel);
+      };
+    }, [map]);
+
+    return null;
+  };
   return (
     <div className={`trip-map-container ${className}`} style={{ height }}>
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
+        scrollWheelZoom={false} // ✅ DISABLE default scroll zoom
         style={{ height: "100%", width: "100%" }}
         className="trip-map"
       >
@@ -371,6 +403,9 @@ const TripMap = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
+
+        {/* ✅ ADD: Ctrl/Cmd + Scroll zoom handler */}
+        <CtrlScrollZoom />
 
         {/* Auto-adjust map bounds */}
         <MapBoundsAdjuster trips={trips} />
