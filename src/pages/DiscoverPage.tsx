@@ -17,16 +17,13 @@ import {
   Loader2,
 } from "lucide-react";
 
-// Import your existing components
 import TripMap from "@/components/discover/TripMap";
 import MapFilters from "@/components/discover/MapFilters";
 import FilterBar, { FilterOptions } from "@/components/home/FilterBar";
 import EnhancedTripCard from "@/components/home/EnhancedTripCard";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import BookmarkButton from "@/components/trip/BookmarkButton";
 
-// Types matching your database schema
 type Profile = {
   full_name: string;
   avatar_url: string;
@@ -63,7 +60,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Hooks
   const {
     location,
     getCurrentLocation,
@@ -72,14 +68,12 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
   } = useGeolocation();
   const { toggleBookmark, isBookmarked } = useBookmarks(user);
 
-  // State management
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [allTrips, setAllTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
-  // Filter states
   const [filters, setFilters] = useState<FilterOptions>({
     search: "",
     budgetRange: [0, 10000],
@@ -91,16 +85,14 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     sortBy: "newest",
   });
 
-  // Map-specific filters
   const [mapFilters, setMapFilters] = useState({
-    searchRadius: 50, // km
+    searchRadius: 50,
     locationFilter: "",
     nearbySearch: false,
   });
 
   const TRIPS_PER_PAGE = 10;
 
-  // Fetch all trips from database
   const fetchAllTrips = async () => {
     setLoading(true);
     try {
@@ -153,11 +145,9 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     }
   };
 
-  // Advanced filtering logic
   const filteredTrips = useMemo(() => {
     let result = [...allTrips];
 
-    // Apply regular filters
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       result = result.filter(
@@ -171,7 +161,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // Budget filter
     if (filters.budgetRange[0] > 0 || filters.budgetRange[1] < 10000) {
       result = result.filter((trip) => {
         if (!trip.budget_per_person) return filters.budgetRange[0] === 0;
@@ -183,14 +172,12 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       });
     }
 
-    // Group size filter
     result = result.filter(
       (trip) =>
         trip.max_participants >= filters.groupSize[0] &&
         trip.max_participants <= filters.groupSize[1]
     );
 
-    // Date filters
     if (filters.startDate) {
       result = result.filter(
         (trip) => new Date(trip.start_date) >= filters.startDate!
@@ -203,7 +190,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // Travel style filter
     if (filters.travelStyles.length > 0) {
       result = result.filter(
         (trip) =>
@@ -214,7 +200,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // City filter
     if (filters.cities.length > 0) {
       result = result.filter((trip) =>
         filters.cities.some((city) =>
@@ -223,7 +208,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // Map-specific location filter
     if (mapFilters.locationFilter) {
       result = result.filter(
         (trip) =>
@@ -236,7 +220,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // Sort results
     result.sort((a, b) => {
       switch (filters.sortBy) {
         case "budget":
@@ -260,25 +243,21 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     return result;
   }, [allTrips, filters, mapFilters]);
 
-  // Paginated display
   const displayedTrips = useMemo(() => {
     return filteredTrips.slice(0, (currentPage + 1) * TRIPS_PER_PAGE);
   }, [filteredTrips, currentPage]);
 
-  // Load more function
   const loadMoreTrips = () => {
     if (displayedTrips.length < filteredTrips.length) {
       setCurrentPage((prev) => prev + 1);
     }
   };
 
-  // Refresh function
   const refreshTrips = async () => {
     setCurrentPage(0);
     await fetchAllTrips();
   };
 
-  // Filter change handlers
   const handleFiltersChange = (newFilters: FilterOptions) => {
     setFilters(newFilters);
     setCurrentPage(0);
@@ -306,7 +285,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     },
   };
 
-  // Trip interaction handlers
   const handleTripSelect = (trip: Trip) => {
     setSelectedTrip(trip);
     navigate(`/trip/${trip.id}`);
@@ -321,26 +299,21 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       });
       return;
     }
-    console.log("Join trip:", tripId);
-    // Implement join functionality
+    navigate(`/trip/${tripId}`);
   };
 
-  // Initial load
   useEffect(() => {
     fetchAllTrips();
   }, []);
 
-  // Handle location updates
   useEffect(() => {
     if (location && mapFilters.nearbySearch) {
-      // Implement nearby search logic here
       console.log("Searching near location:", location);
     }
   }, [location, mapFilters.nearbySearch]);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="p-4">
         <div className="gradient-warm rounded-2xl p-6 text-center space-y-2 shadow-soft">
           <h2 className="text-2xl font-bold text-white">
@@ -357,7 +330,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         </div>
       </div>
 
-      {/* Enhanced View Toggle */}
       <div className="px-4 mb-6">
         <Tabs
           value={viewMode}
@@ -376,7 +348,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         </Tabs>
       </div>
 
-      {/* Results Summary */}
       <div className="px-4 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -414,10 +385,8 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         </div>
       </div>
 
-      {/* Map Discovery View */}
       {viewMode === "map" && (
         <div className="space-y-4">
-          {/* Map Filters */}
           <div className="px-4">
             <MapFilters
               onRadiusChange={handleMapFiltersChange.onRadiusChange}
@@ -427,7 +396,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             />
           </div>
 
-          {/* Interactive Trip Map */}
           <div className="px-4">
             {loading ? (
               <div className="flex items-center justify-center h-96 bg-muted rounded-2xl">
@@ -438,7 +406,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               </div>
             ) : (
               <TripMap
-                trips={filteredTrips} // Show all filtered trips on map
+                trips={filteredTrips}
                 onTripSelect={handleTripSelect}
                 onLocationSelect={(loc) => {
                   console.log("Location selected:", loc);
@@ -452,7 +420,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             )}
           </div>
 
-          {/* Map Legend */}
           <div className="px-4">
             <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground bg-muted/50 p-3 rounded-xl">
               <div className="flex items-center gap-2">
@@ -480,10 +447,8 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         </div>
       )}
 
-      {/* List View */}
       {viewMode === "list" && (
         <div className="space-y-4">
-          {/* Filter Bar */}
           <div className="px-4">
             <FilterBar
               onFiltersChange={handleFiltersChange}
@@ -491,7 +456,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             />
           </div>
 
-          {/* Trip List */}
           <div className="px-4 space-y-4">
             {loading ? (
               <div className="text-center py-10">
@@ -538,7 +502,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                     startCity: trip.start_city,
                     description: trip.description || "No description provided.",
                     creator: {
-                      id: trip.creator_id, // ✅ ADD THIS: Missing creator ID
+                      id: trip.creator_id,
                       name: trip.profiles?.full_name || "A Wanderer",
                       avatar: trip.profiles?.avatar_url || "",
                       rating: 4.8,
@@ -551,13 +515,13 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                       max: trip.max_participants,
                     },
                     interestedCount: participantCount,
-                    status: trip.status, // ✅ ADD THIS: Also add status if EnhancedTripCard expects it
+                    status: trip.status,
                     price: trip.budget_per_person
                       ? {
                           amount: trip.budget_per_person,
                           currency: "INR",
                         }
-                      : undefined, // ✅ IMPROVED: Make price optional when budget is null
+                      : undefined,
                     isFemaleOnly: false,
                     isInstantJoin: true,
                     postedAt: trip.created_at,
@@ -567,27 +531,24 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                     <div key={trip.id} className="relative">
                       <EnhancedTripCard
                         {...enhancedTrip}
-                        isBookmarked={isBookmarked(trip.id)} // ✅ ADD THIS: Bookmark state
-                        onBookmarkClick={() => toggleBookmark(trip.id)} // ✅ ADD THIS: Bookmark handler
+                        isBookmarked={isBookmarked(trip.id)}
+                        onBookmarkClick={() => toggleBookmark(trip.id)}
                         onClick={() => handleTripSelect(trip)}
-                        onJoinClick={() => handleTripJoin(trip.id)}
                         onChatClick={() =>
                           console.log("Chat for trip:", trip.id)
                         }
                         onLikeClick={() => console.log("Like trip:", trip.id)}
                         onStatusChange={(newStatus) => {
-                          // ✅ ADD THIS: Status change handler
                           console.log(
                             `Trip ${trip.id} status changed to ${newStatus}`
                           );
-                          refreshTrips(); // Refresh trips after status change
+                          refreshTrips();
                         }}
                       />
                     </div>
                   );
                 })}
 
-                {/* Load More Button */}
                 {displayedTrips.length < filteredTrips.length && (
                   <div className="flex justify-center pt-6">
                     <Button
@@ -602,7 +563,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                   </div>
                 )}
 
-                {/* End of results */}
                 {displayedTrips.length >= filteredTrips.length &&
                   displayedTrips.length > 0 && (
                     <div className="text-center pt-6 pb-4">
