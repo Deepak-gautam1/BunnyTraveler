@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -63,9 +63,9 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
   const {
     location,
     getCurrentLocation,
-    loading: locationLoading,
     error: locationError,
   } = useGeolocation();
+
   const { toggleBookmark, isBookmarked } = useBookmarks(user);
 
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
@@ -100,19 +100,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         .from("trips")
         .select(
           `
-          id,
-          creator_id,
-          destination,
-          start_city,
-          start_date,
-          end_date,
-          description,
-          created_at,
-          max_participants,
-          current_participants,
-          budget_per_person,
-          travel_style,
-          status,
+          *,
           profiles!trips_creator_id_fkey(full_name, avatar_url),
           trip_participants(user_id, joined_at)
         `
@@ -131,7 +119,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       }
 
       if (data) {
-        setAllTrips(data as Trip[]);
+        setAllTrips(data as any);
       }
     } catch (err) {
       console.error("Unexpected error fetching trips:", err);
@@ -266,7 +254,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
   const handleMapFiltersChange = {
     onRadiusChange: (radius: number) => {
       setMapFilters((prev) => ({ ...prev, searchRadius: radius }));
-      console.log("Search radius changed:", radius);
     },
     onLocationFilter: (locationName: string) => {
       setMapFilters((prev) => ({ ...prev, locationFilter: locationName }));
@@ -285,21 +272,9 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     },
   };
 
-  const handleTripSelect = (trip: Trip) => {
+  const handleTripSelect = (trip: any) => {
     setSelectedTrip(trip);
     navigate(`/trip/${trip.id}`);
-  };
-
-  const handleTripJoin = (tripId: number) => {
-    if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to join trips",
-        variant: "destructive",
-      });
-      return;
-    }
-    navigate(`/trip/${tripId}`);
   };
 
   useEffect(() => {
@@ -392,7 +367,14 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               onRadiusChange={handleMapFiltersChange.onRadiusChange}
               onLocationFilter={handleMapFiltersChange.onLocationFilter}
               onNearbySearch={handleMapFiltersChange.onNearbySearch}
-              currentLocation={location}
+              currentLocation={
+                location?.latitude && location?.longitude
+                  ? {
+                      lat: location.latitude,
+                      lng: location.longitude,
+                    }
+                  : undefined
+              }
             />
           </div>
 
@@ -406,13 +388,12 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               </div>
             ) : (
               <TripMap
-                trips={filteredTrips}
+                trips={filteredTrips as any}
                 onTripSelect={handleTripSelect}
-                onLocationSelect={(loc) => {
-                  console.log("Location selected:", loc);
+                onLocationSelect={(loc: any) => {
                   handleMapFiltersChange.onLocationFilter(loc.address);
                 }}
-                selectedTrip={selectedTrip}
+                selectedTrip={selectedTrip as any}
                 user={user}
                 height="70vh"
                 className="rounded-2xl overflow-hidden shadow-soft border"
@@ -494,46 +475,46 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                 {displayedTrips.map((trip) => {
                   const participantCount = trip.current_participants || 0;
 
-                  const enhancedTrip = {
-                    id: trip.id,
-                    destination: trip.destination,
-                    startDate: trip.start_date,
-                    endDate: trip.end_date,
-                    startCity: trip.start_city,
-                    description: trip.description || "No description provided.",
-                    creator: {
-                      id: trip.creator_id,
-                      name: trip.profiles?.full_name || "A Wanderer",
-                      avatar: trip.profiles?.avatar_url || "",
-                      rating: 4.8,
-                      verificationBadges: ["verified"],
-                      isHost: true,
-                    },
-                    vibe: trip.travel_style || ["Adventure"],
-                    groupSize: {
-                      current: participantCount,
-                      max: trip.max_participants,
-                    },
-                    interestedCount: participantCount,
-                    status: trip.status,
-                    price: trip.budget_per_person
-                      ? {
-                          amount: trip.budget_per_person,
-                          currency: "INR",
-                        }
-                      : undefined,
-                    isFemaleOnly: false,
-                    isInstantJoin: true,
-                    postedAt: trip.created_at,
-                  };
-
                   return (
                     <div key={trip.id} className="relative">
                       <EnhancedTripCard
-                        {...enhancedTrip}
+                        id={trip.id}
+                        destination={trip.destination}
+                        startDate={trip.start_date}
+                        endDate={trip.end_date}
+                        startCity={trip.start_city}
+                        description={
+                          trip.description || "No description provided."
+                        }
+                        creator={{
+                          id: trip.creator_id,
+                          name: trip.profiles?.full_name || "A Wanderer",
+                          avatar: trip.profiles?.avatar_url || "",
+                          rating: 4.8,
+                          verificationBadges: ["verified"],
+                          isHost: true,
+                        }}
+                        vibe={trip.travel_style || ["Adventure"]}
+                        groupSize={{
+                          current: participantCount,
+                          max: trip.max_participants,
+                        }}
+                        interestedCount={participantCount}
+                        status={trip.status as any}
+                        price={
+                          trip.budget_per_person
+                            ? {
+                                amount: trip.budget_per_person,
+                                currency: "INR",
+                              }
+                            : undefined
+                        }
+                        isFemaleOnly={false}
+                        isInstantJoin={true}
+                        postedAt={trip.created_at}
                         isBookmarked={isBookmarked(trip.id)}
                         onBookmarkClick={() => toggleBookmark(trip.id)}
-                        onClick={() => handleTripSelect(trip)}
+                        onClick={() => navigate(`/trip/${trip.id}`)}
                         onChatClick={() =>
                           console.log("Chat for trip:", trip.id)
                         }
