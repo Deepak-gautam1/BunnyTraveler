@@ -250,6 +250,7 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                 startCity: trip.start_city,
                 description: trip.description || "No description provided.",
                 creator: {
+                  id: "unknown", // Add this too if missing
                   name: trip.profiles?.full_name || "A Wanderer",
                   avatar: trip.profiles?.avatar_url || "",
                   rating: 4.8,
@@ -262,6 +263,7 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                   max: trip.max_participants,
                 },
                 interestedCount: trip.current_participants,
+                status: "active", // ✅ ADD THIS - Required prop
                 price: {
                   amount: trip.budget_per_person || 0,
                   currency: "INR",
@@ -270,9 +272,8 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                 isInstantJoin: true,
                 postedAt: trip.start_date,
                 bookmarkedAt: bookmark.bookmarked_at,
-                // ✅ NEW: Pass bookmark state to avoid external wrapper
                 isBookmarked: true,
-                isLiked: false, // Default like state
+                isLiked: false,
               };
 
               return (
@@ -294,10 +295,13 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                   <EnhancedTripCard
                     {...enhancedTrip}
                     onClick={() => handleTripClick(trip.id)}
-                    onJoinClick={() => console.log("Join trip:", trip.id)}
-                    onChatClick={() => console.log("Chat for trip:", trip.id)}
-                    onLikeClick={() => console.log("Like trip:", trip.id)}
-                    onBookmarkClick={() => toggleBookmark(trip.id)} // ✅ NEW: Handle bookmark toggle
+                    onChatClick={() => {
+                      console.log("Chat for trip:", trip.id);
+                    }}
+                    onLikeClick={() => {
+                      console.log("Like trip:", trip.id);
+                    }}
+                    onBookmarkClick={() => toggleBookmark(trip.id)}
                   />
                 </div>
               );
