@@ -99,7 +99,7 @@ const TripDetailsPage = () => {
         `
         )
         .eq("id", tripIdNumber)
-        .single();
+        .maybeSingle();
 
       console.log("Supabase response:", { data, error });
 

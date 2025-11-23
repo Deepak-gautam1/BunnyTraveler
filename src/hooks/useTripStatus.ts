@@ -23,7 +23,7 @@ export const useTripStatus = (user: User | null) => {
         .from("trips")
         .select("status, creator_id")
         .eq("id", tripId)
-        .single();
+        .maybeSingle();
 
       if (fetchError || !trip)
         throw new Error("Trip not found or fetch failed.");
@@ -65,7 +65,7 @@ export const useTripStatus = (user: User | null) => {
       .from("trips")
       .select("status, start_date, end_date")
       .eq("id", tripId)
-      .single();
+      .maybeSingle();
     if (!trip) return;
     const now = new Date();
     const start = new Date(trip.start_date);

@@ -333,7 +333,7 @@ const TripChat = ({
           content: newMessage.trim(),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (messageError) throw messageError;
 

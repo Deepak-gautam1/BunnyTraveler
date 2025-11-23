@@ -87,7 +87,7 @@ export const useMessages = (user: User | null) => {
             .from("profiles")
             .select("full_name, avatar_url")
             .eq("id", partnerId)
-            .single();
+            .maybeSingle();
 
           // Count unread messages
           const { count: unreadCount } = await supabase
@@ -231,7 +231,7 @@ export const useMessages = (user: User | null) => {
           content: messageContent,
         })
         .select("*")
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
