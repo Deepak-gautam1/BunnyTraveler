@@ -76,7 +76,7 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
         .from("trips")
         .select("max_participants")
         .eq("id", tripId)
-        .single();
+        .maybeSingle();
 
       if (tripError) throw tripError;
 
@@ -221,7 +221,7 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
         .from("trips")
         .select("creator_id")
         .eq("id", tripId)
-        .single();
+        .maybeSingle();
 
       if (tripError || !tripData || tripData.creator_id !== user.id) {
         toast({
