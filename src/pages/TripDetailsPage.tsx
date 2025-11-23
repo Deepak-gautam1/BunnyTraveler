@@ -191,7 +191,7 @@ const TripDetailsPage = () => {
         `
         )
         .eq("id", Number(tripId))
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Refresh error:", error);
@@ -277,7 +277,7 @@ const TripDetailsPage = () => {
           `
           )
           .eq("id", Number(tripId))
-          .single();
+          .maybeSingle();
 
         if (!isMounted) return;
 
