@@ -27,6 +27,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { format } from "date-fns";
+import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
 
 export interface FilterOptions {
   search: string;
@@ -82,27 +83,68 @@ const SORT_OPTIONS = [
 ];
 
 const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
-  const [filters, setFilters] = useState<FilterOptions>({
-    search: "",
-    budgetRange: [0, 10000],
-    startDate: null,
-    endDate: null,
-    groupSize: [1, 20],
-    travelStyles: [],
-    cities: [],
-    sortBy: "newest",
+  // ✅ 1. LOAD saved filters from cookies on mount
+  const [filters, setFilters] = useState<FilterOptions>(() => {
+    const savedFilters = getCookie<FilterOptions>(COOKIE_KEYS.SEARCH_FILTERS);
+
+    if (savedFilters) {
+      // Convert date strings back to Date objects
+      return {
+        ...savedFilters,
+        startDate: savedFilters.startDate
+          ? new Date(savedFilters.startDate)
+          : null,
+        endDate: savedFilters.endDate ? new Date(savedFilters.endDate) : null,
+      };
+    }
+
+    // Default filters if no cookie
+    return {
+      search: "",
+      budgetRange: [0, 10000],
+      startDate: null,
+      endDate: null,
+      groupSize: [1, 20],
+      travelStyles: [],
+      cities: [],
+      sortBy: "newest",
+    };
   });
 
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  // ✅ 2. LOAD saved UI states from cookies
+  const [showAdvanced, setShowAdvanced] = useState(() => {
+    return getCookie(COOKIE_KEYS.SHOW_ADVANCED_FILTERS) || false;
+  });
+
   const [showAllTravelStyles, setShowAllTravelStyles] = useState(false);
   const [showAllCities, setShowAllCities] = useState(false);
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
+  // ✅ 3. SAVE filters to cookies whenever they change
+  // ✅ 3. SAVE filters to cookies whenever they change
   useEffect(() => {
     onFiltersChange(filters);
-    updateActiveFiltersCount();
-  }, [filters]);
 
+    // Update active filter count
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.budgetRange[0] > 0 || filters.budgetRange[1] < 10000) count++;
+    if (filters.startDate || filters.endDate) count++;
+    if (filters.groupSize[0] > 1 || filters.groupSize[1] < 20) count++;
+    if (filters.travelStyles.length > 0) count++;
+    if (filters.cities.length > 0) count++;
+    setActiveFiltersCount(count);
+
+    // Save to cookies (expires in 7 days)
+    setCookie(COOKIE_KEYS.SEARCH_FILTERS, filters, 7);
+  }, [filters, onFiltersChange]);
+
+  // ✅ 4. SAVE "Show Advanced" state
+  useEffect(() => {
+    setCookie(COOKIE_KEYS.SHOW_ADVANCED_FILTERS, showAdvanced, 30);
+  }, [showAdvanced]);
+
+  // Rest of your code stays the same...
   const updateActiveFiltersCount = () => {
     let count = 0;
     if (filters.search) count++;
@@ -119,16 +161,22 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
   };
 
   const clearAllFilters = () => {
-    setFilters({
+    const defaultFilters = {
+      // ✅ Add 'const' here
       search: "",
-      budgetRange: [0, 10000],
+      budgetRange: [0, 10000] as [number, number], // ✅ Add type assertion
       startDate: null,
       endDate: null,
-      groupSize: [1, 20],
+      groupSize: [1, 20] as [number, number], // ✅ Add type assertion
       travelStyles: [],
       cities: [],
-      sortBy: "newest",
-    });
+      sortBy: "newest" as const, // ✅ Add 'as const'
+    };
+
+    setFilters(defaultFilters);
+
+    // ✅ Clear cookies when clearing filters
+    setCookie(COOKIE_KEYS.SEARCH_FILTERS, defaultFilters, 7);
   };
 
   const toggleTravelStyle = (styleId: string) => {

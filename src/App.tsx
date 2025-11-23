@@ -6,8 +6,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Analytics } from "@vercel/analytics/react"; // ✅ ADD THIS IMPORT
+import { Analytics } from "@vercel/analytics/react";
 import AppNavigation from "@/components/navigation/AppNavigation";
+import CookieConsent from "@/components/cookies/CookieConsent";
+import ConsentModal from "@/components/consent/ConsentModal"; // ✅ 1. Import ConsentModal
 import Index from "@/pages/Index";
 import NotFound from "./pages/NotFound";
 import TripDetailsPage from "./pages/TripDetailsPage";
@@ -23,22 +25,18 @@ import Contact from "./pages/Contact";
 import AboutUs from "./pages/AboutUs";
 import { TripCacheProvider } from "./contexts/TripCacheContext";
 import CommunityMembersPage from "@/pages/CommunityMembersPage";
+import TermsConditions from "./pages/TermsConditions";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 const queryClient = new QueryClient();
 
-// ✅ Component to conditionally render navigation
 const AppLayout = ({ user }: { user: User | null }) => {
   const location = useLocation();
-
-  // ✅ Routes that should NOT have navigation
   const noNavRoutes = ["/auth", "/landing", "/signup", "/login"];
   const shouldHideNav = noNavRoutes.includes(location.pathname);
 
   return (
     <>
-      {/* ✅ CONDITIONAL: Only show navigation for main app routes */}
       {!shouldHideNav && <AppNavigation user={user} />}
-
-      {/* ✅ CONDITIONAL: Add proper spacing only when nav is present */}
       <main
         className={`min-h-screen max-w-screen overflow-x-hidden ${
           !shouldHideNav ? "pt-16" : ""
@@ -56,15 +54,14 @@ const AppLayout = ({ user }: { user: User | null }) => {
           <Route path="/my-trips" element={<MyTripsPage user={user} />} />
           <Route path="/community" element={<CommunityPage user={user} />} />
           <Route path="/community/:slug" element={<CommunityMembersPage />} />
-
           <Route path="/messages" element={<MessagesPage user={user} />} />
           <Route path="/settings" element={<SettingsPage user={user} />} />
           <Route path="/safety" element={<Safety />} />
-          <Route path="/Contact" element={<Contact />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/about-us" element={<AboutUs />} />
-          {/* ✅ STANDALONE: Auth page without navigation */}
           <Route path="/auth" element={<AuthPage />} />
-
+          <Route path="/terms" element={<TermsConditions />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -75,9 +72,9 @@ const AppLayout = ({ user }: { user: User | null }) => {
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requireConsentModal, setRequireConsentModal] = useState(false); // ✅ 2. Modal state
 
   useEffect(() => {
-    // Get initial session
     const getSession = async () => {
       const {
         data: { session },
@@ -88,7 +85,6 @@ const App = () => {
 
     getSession();
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -98,6 +94,22 @@ const App = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // ✅ 3. Check for consent after login
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from("profiles")
+        .select("terms_accepted_at, privacy_accepted_at")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => {
+          if (!data?.terms_accepted_at || !data?.privacy_accepted_at) {
+            setRequireConsentModal(true);
+          }
+        });
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -117,11 +129,17 @@ const App = () => {
         <Sonner />
         <TripCacheProvider>
           <BrowserRouter>
-            {/* ✅ UPDATED: Use AppLayout component with conditional navigation */}
+            {/* ✅ 4. Show ConsentModal over everything if required */}
+            {requireConsentModal && user && (
+              <ConsentModal
+                userId={user.id}
+                onConsentGiven={() => setRequireConsentModal(false)}
+              />
+            )}
             <AppLayout user={user} />
+            <CookieConsent />
           </BrowserRouter>
         </TripCacheProvider>
-        {/* ✅ ADD VERCEL ANALYTICS HERE */}
         <Analytics />
       </TooltipProvider>
     </QueryClientProvider>

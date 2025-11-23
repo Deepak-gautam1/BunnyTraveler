@@ -19,6 +19,8 @@ import { XCircle } from "lucide-react";
 import PhotoGallery from "@/components/trip/PhotoGallery";
 import { usePostTripNotifications } from "@/hooks/usePostTripNotifications";
 import PostTripReviewModal from "@/components/trip/PostTripReviewModal";
+import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
+
 // ✅ A. ADD THIS IMPORT
 import { useTripLikes } from "@/hooks/useTripLikes";
 
@@ -127,7 +129,18 @@ const TripDetailsPage = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const isCreator = user && trip && user.id === trip.creator_id;
-
+  // ✅ ADD: Track recently viewed trips
+  useEffect(() => {
+    if (trip && user) {
+      const recentTrips =
+        getCookie<number[]>(COOKIE_KEYS.RECENTLY_VIEWED_TRIPS) || [];
+      const updatedTrips = [
+        trip.id,
+        ...recentTrips.filter((id) => id !== trip.id),
+      ].slice(0, 10);
+      setCookie(COOKIE_KEYS.RECENTLY_VIEWED_TRIPS, updatedTrips, 30);
+    }
+  }, [trip?.id, user]);
   useEffect(() => {
     const checkForReviewPrompt = async () => {
       if (!user || !trip || !isJoined) return;

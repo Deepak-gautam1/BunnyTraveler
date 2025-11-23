@@ -23,6 +23,7 @@ import FilterBar, { FilterOptions } from "@/components/home/FilterBar";
 import EnhancedTripCard from "@/components/home/EnhancedTripCard";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
 
 type Profile = {
   full_name: string;
@@ -68,7 +69,9 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
 
   const { toggleBookmark, isBookmarked } = useBookmarks(user);
 
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [viewMode, setViewMode] = useState<"list" | "map">(() => {
+    return getCookie(COOKIE_KEYS.VIEW_MODE) || "list";
+  });
   const [allTrips, setAllTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
@@ -85,14 +88,28 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     sortBy: "newest",
   });
 
-  const [mapFilters, setMapFilters] = useState({
-    searchRadius: 50,
-    locationFilter: "",
-    nearbySearch: false,
+  const [mapFilters, setMapFilters] = useState(() => {
+    const saved = getCookie(COOKIE_KEYS.MAP_FILTERS);
+    return (
+      saved || {
+        searchRadius: 50,
+        locationFilter: "",
+        nearbySearch: false,
+      }
+    );
   });
 
   const TRIPS_PER_PAGE = 10;
 
+  // ✅ Save view mode to cookies
+  useEffect(() => {
+    setCookie(COOKIE_KEYS.VIEW_MODE, viewMode, 30);
+  }, [viewMode]);
+
+  // ✅ Save map filters to cookies
+  useEffect(() => {
+    setCookie(COOKIE_KEYS.MAP_FILTERS, mapFilters, 7);
+  }, [mapFilters]);
   const fetchAllTrips = async () => {
     setLoading(true);
     try {

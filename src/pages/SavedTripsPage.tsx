@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import BookmarkButton from "@/components/trip/BookmarkButton";
 import EnhancedTripCard from "@/components/home/EnhancedTripCard";
+import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
+
 import {
   Heart,
   Search,
@@ -33,11 +35,26 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
     useBookmarks(user);
 
   const [searchTerm, setSearchTerm] = useState("");
+  // ✅ Load sort preference from cookies
   const [sortBy, setSortBy] = useState<
     "newest" | "oldest" | "date" | "destination"
-  >("newest");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  >(() => {
+    return getCookie(COOKIE_KEYS.BOOKMARKS_SORT) || "newest";
+  });
 
+  // ✅ Load view mode from cookies
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    return getCookie(COOKIE_KEYS.BOOKMARKS_VIEW) || "list";
+  });
+  // ✅ Save sort preference when it changes
+  useEffect(() => {
+    setCookie(COOKIE_KEYS.BOOKMARKS_SORT, sortBy, 30);
+  }, [sortBy]);
+
+  // ✅ Save view mode when it changes
+  useEffect(() => {
+    setCookie(COOKIE_KEYS.BOOKMARKS_VIEW, viewMode, 30);
+  }, [viewMode]);
   // Filter and sort bookmarks
   const filteredBookmarks = bookmarks
     .filter((bookmark) => {

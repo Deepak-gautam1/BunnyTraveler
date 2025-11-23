@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { Link, useLocation } from "react-router-dom";
 import PostTripModal from "@/components/trip/PostTripModal"; // ✅ ADD THIS IMPORT
+import { setCookie, COOKIE_KEYS } from "@/lib/cookies"; // ✅ ADD THIS
+
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -32,12 +34,10 @@ import {
   MapPin,
   Calendar,
   Users,
-  Compass,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
-import { Tent } from "lucide-react";
 
 interface AppNavigationProps {
   user: User | null;
@@ -48,6 +48,15 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false); // ✅ ADD THIS STATE
   const { unreadCount } = useUnreadMessages(user);
+
+  // ✅ Save current page to cookies for "continue where you left off"
+  useEffect(() => {
+    // Don't save auth page or 404 pages
+    if (location.pathname !== "/auth" && location.pathname !== "/404") {
+      setCookie(COOKIE_KEYS.LAST_PAGE, location.pathname, 7);
+    }
+  }, [location.pathname]);
+
   const handleSignOut = async () => {
     setIsLoading(true);
     try {
@@ -76,14 +85,20 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <Tent className="h-5 w-5" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent">
+          <Link to="/" className="flex items-center space-x-2 cursor-pointer">
+            {/* --- Use PNG or SVG logo here --- */}
+            <img
+              src="/SafarSquadLogo.svg"
+              alt="SafarSquad Logo"
+              className="h-16 min-w-[120px] w-auto object-contain select-none"
+              draggable={false}
+              style={{ maxHeight: 64 }}
+            />
+            <span className="text-xl font-bold bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent select-none">
               SafarSquad
             </span>
           </Link>
+
           {/* Main Navigation */}
           <NavigationMenu className="hidden md:flex">
             <NavigationMenuList>

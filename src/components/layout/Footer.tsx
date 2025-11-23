@@ -60,57 +60,63 @@ const Footer = () => {
           </div>
 
           {/* Quick Links */}
-          <div className="space-y-2 md:space-y-3">
-            <h4 className="text-sm md:text-base font-semibold text-white">
-              Quick Links
-            </h4>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 md:gap-x-4 md:gap-y-2">
-              <button
-                type="button"
-                className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm text-left bg-transparent border-none cursor-pointer"
-                onClick={() => {
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  window.history.pushState({}, "", "/");
-                }}
-              >
-                Browse Trips
-              </button>
-              <a
-                href="/community"
-                className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
-              >
-                Communities
-              </a>
-
-              <button
-                type="button"
-                className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm text-left bg-transparent border-none cursor-pointer"
-                onClick={() => setShowPostTrip(true)}
-              >
-                Create Trip
-              </button>
-              <a
-                href="/Safety"
-                className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
-              >
-                Safety
-              </a>
-
-              <a
-                href="/contact"
-                className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
-              >
-                Contact
-              </a>
-              <a
-                href="https://forms.gle/XajfXmSAiTLjYtLy7"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
-              >
-                Feedback
-              </a>
-            </div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 md:gap-x-4 md:gap-y-2">
+            <button
+              type="button"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm text-left bg-transparent border-none cursor-pointer"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                window.history.pushState({}, "", "/");
+              }}
+            >
+              Browse Trips
+            </button>
+            <a
+              href="/community"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
+            >
+              Communities
+            </a>
+            <button
+              type="button"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm text-left bg-transparent border-none cursor-pointer"
+              onClick={() => setShowPostTrip(true)}
+            >
+              Create Trip
+            </button>
+            <a
+              href="/Safety"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
+            >
+              Safety
+            </a>
+            <a
+              href="/contact"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
+            >
+              Contact
+            </a>
+            <a
+              href="https://forms.gle/XajfXmSAiTLjYtLy7"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
+            >
+              Feedback
+            </a>
+            {/* --- NEW LINKS BELOW --- */}
+            <a
+              href="/terms"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
+            >
+              Terms & Conditions
+            </a>
+            <a
+              href="/privacy"
+              className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
+            >
+              Privacy Policy
+            </a>
           </div>
 
           {/* Connect & Social */}

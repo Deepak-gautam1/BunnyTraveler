@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox"; // ✅ ADD THIS
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Link as RouterLink } from "react-router-dom"; // ✅ RENAME THIS
 import {
   Loader2,
   Mail,
@@ -13,7 +15,7 @@ import {
   Sparkles,
   MapPin,
   Tag,
-  Link,
+  Link as LinkIcon, // ✅ RENAME THIS
 } from "lucide-react";
 
 interface SignUpFormProps {
@@ -24,6 +26,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
   const [step, setStep] = useState<"form" | "verify">("form");
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false); // ✅ ADD THIS
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -77,6 +80,15 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Check terms/validation as usual
+    if (!agreedToTerms) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept the Terms and Conditions to continue",
+        variant: "destructive",
+      });
+      return;
+    }
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       toast({
@@ -130,6 +142,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
   const handleOTPVerification = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Check for a valid, 6-digit OTP entry
     if (!otp.trim() || otp.length !== 6) {
       toast({
         title: "Enter verification code",
@@ -141,6 +154,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
 
     setLoading(true);
     try {
+      // Attempt OTP verification with Supabase
       const { data, error } = await supabase.auth.verifyOtp({
         email: formData.email,
         token: otp,
@@ -150,6 +164,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
       if (error) throw error;
 
       if (data.user) {
+        // Only now: Create (upsert) the user profile with their correct ID and consent timestamps
         const { error: profileError } = await supabase.from("profiles").upsert({
           id: data.user.id,
           full_name: formData.fullName,
@@ -160,10 +175,19 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           avatar_url: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          terms_accepted_at: new Date().toISOString(),
+          privacy_accepted_at: new Date().toISOString(),
         });
 
         if (profileError) {
           console.error("Error creating profile:", profileError);
+          toast({
+            title: "Profile creation failed",
+            description: "Please contact support",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
         }
 
         toast({
@@ -171,7 +195,6 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           description: "Redirecting to your adventure...",
         });
 
-        // ✅ Keep loading state ON during redirect
         setTimeout(() => {
           window.location.href = "/";
         }, 1500);
@@ -182,9 +205,8 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
         description: "Please check your email and try again",
         variant: "destructive",
       });
-      setLoading(false); // ✅ Only turn off loading on error
+      setLoading(false);
     }
-    // DON'T turn off loading here - keep button disabled during redirect
   };
 
   if (step === "verify") {
@@ -384,7 +406,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
             {/* Website (Optional) */}
             <div className="space-y-2">
               <Label htmlFor="website" className="flex items-center">
-                <Link className="w-4 h-4 mr-2" />
+                <LinkIcon className="w-4 h-4 mr-2" /> {/* ✅ FIXED */}
                 Website/Social (Optional)
               </Label>
               <Input
@@ -402,8 +424,49 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
               </p>
             </div>
 
+            {/* ✅ MOVED INSIDE CardContent - Terms Checkbox */}
+            <div className="flex items-start space-x-2 pt-2">
+              <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) =>
+                  setAgreedToTerms(checked as boolean)
+                }
+                className="mt-1"
+              />
+              <label
+                htmlFor="terms"
+                className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
+              >
+                I agree to the{" "}
+                <RouterLink
+                  to="/terms"
+                  target="_blank"
+                  className="text-accent underline hover:text-accent/80"
+                >
+                  Terms and Conditions
+                </RouterLink>{" "}
+                and{" "}
+                <RouterLink
+                  to="/privacy"
+                  target="_blank"
+                  className="text-accent underline hover:text-accent/80"
+                >
+                  Privacy Policy
+                </RouterLink>
+                . I understand that SafarSquad is not responsible for any
+                incidents, accidents, or issues during trips, and I travel at my
+                own risk.
+              </label>
+            </div>
+
+            {/* Submit Button */}
             <div className="pt-2">
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || !agreedToTerms} // ✅ DISABLE IF NOT AGREED
+              >
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -417,11 +480,6 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 )}
               </Button>
             </div>
-
-            <p className="text-xs text-center text-muted-foreground">
-              By signing up, you agree to connect with fellow travelers and
-              explore amazing destinations together.
-            </p>
           </form>
         </CardContent>
       </Card>
