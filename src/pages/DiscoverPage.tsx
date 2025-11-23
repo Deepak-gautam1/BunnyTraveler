@@ -515,10 +515,12 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                         isBookmarked={isBookmarked(trip.id)}
                         onBookmarkClick={() => toggleBookmark(trip.id)}
                         onClick={() => navigate(`/trip/${trip.id}`)}
-                        onChatClick={() =>
-                          console.log("Chat for trip:", trip.id)
-                        }
-                        onLikeClick={() => console.log("Like trip:", trip.id)}
+                        onChatClick={() => {
+                          console.log("Chat for trip:", trip.id);
+                        }}
+                        onLikeClick={() => {
+                          console.log("Like trip:", trip.id);
+                        }}
                         onStatusChange={(newStatus) => {
                           console.log(
                             `Trip ${trip.id} status changed to ${newStatus}`
