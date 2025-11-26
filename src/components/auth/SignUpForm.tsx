@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox"; // ✅ ADD THIS
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Link as RouterLink } from "react-router-dom"; // ✅ RENAME THIS
+import { Link as RouterLink } from "react-router-dom";
 import {
   Loader2,
   Mail,
@@ -15,7 +15,12 @@ import {
   Sparkles,
   MapPin,
   Tag,
-  Link as LinkIcon, // ✅ RENAME THIS
+  Link as LinkIcon,
+  Lock,
+  Eye,
+  EyeOff,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 
 interface SignUpFormProps {
@@ -23,47 +28,62 @@ interface SignUpFormProps {
 }
 
 const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
-  const [step, setStep] = useState<"form" | "verify">("form");
+  // Step 1: Choose mode (signin or signup)
+  // Step 2: Show form
+  // Step 3: OTP verification (only for signup)
+  const [step, setStep] = useState<
+    | "choose"
+    | "signin"
+    | "signup"
+    | "forgot"
+    | "verify"
+    | "verify-reset"
+    | "update-password"
+  >("choose");
+
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState("");
-  const [agreedToTerms, setAgreedToTerms] = useState(false); // ✅ ADD THIS
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
+    password: "",
     homeCity: "",
     tagline: "",
     website: "",
   });
-
+  useEffect(() => {
+    setFormData({
+      fullName: "",
+      email: "",
+      password: "",
+      homeCity: "",
+      tagline: "",
+      website: "",
+    });
+    setOtp("");
+    setAgreedToTerms(false);
+    setShowPassword(false);
+  }, []);
   const { toast } = useToast();
 
   const validateForm = () => {
     const errors: string[] = [];
 
-    if (!formData.fullName.trim()) {
-      errors.push("Full name is required");
-    }
-
-    if (!formData.email.trim()) {
-      errors.push("Email is required");
-    }
-
-    if (!formData.homeCity.trim()) {
-      errors.push("Home city is required");
-    }
-
-    if (!formData.tagline.trim()) {
-      errors.push("Tagline is required");
-    }
-
-    if (formData.tagline.length > 50) {
+    if (!formData.fullName.trim()) errors.push("Full name is required");
+    if (!formData.homeCity.trim()) errors.push("Home city is required");
+    if (!formData.tagline.trim()) errors.push("Tagline is required");
+    if (formData.tagline.length > 50)
       errors.push("Tagline must be 50 characters or less");
-    }
-
-    if (formData.website && !isValidUrl(formData.website)) {
+    if (formData.website && !isValidUrl(formData.website))
       errors.push("Please enter a valid website URL");
-    }
+
+    if (!formData.email.trim()) errors.push("Email is required");
+    if (!formData.password.trim()) errors.push("Password is required");
+    if (formData.password.length < 8)
+      errors.push("Password must be at least 8 characters");
 
     return errors;
   };
@@ -77,10 +97,63 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     }
   };
 
+  // ============= SIGN IN =============
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.email || !formData.password) {
+      toast({
+        title: "Missing information",
+        description: "Please enter both email and password",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          toast({
+            title: "Invalid credentials",
+            description: "Please check your email and password",
+            variant: "destructive",
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast({
+        title: "Welcome back! 👋",
+        description: "Redirecting to your adventure...",
+      });
+
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============= SIGN UP =============
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check terms/validation as usual
     if (!agreedToTerms) {
       toast({
         title: "Terms Required",
@@ -101,34 +174,32 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     }
 
     setLoading(true);
+
     try {
-      // ✅ CHECK IF USER ALREADY EXISTS
-      const { data: existingUser, error: checkError } = await supabase
+      // Check if user already exists
+      const { data: existingUser } = await supabase
         .from("profiles")
         .select("email")
         .eq("email", formData.email)
-        .single();
+        .maybeSingle();
 
       if (existingUser) {
-        // User already exists
         toast({
-          title: "Welcome back! 👋",
-          description:
-            "You're already registered. Redirecting you to sign in...",
+          title: "Account exists",
+          description: "Please sign in instead",
+          variant: "destructive",
         });
-
-        setTimeout(() => {
-          window.location.href = "/"; // or "/" for home
-        }, 2000);
+        setStep("signin");
         setLoading(false);
         return;
       }
 
-      // ✅ IF USER DOESN'T EXIST, PROCEED WITH OTP SIGNUP
-      const { error } = await supabase.auth.signInWithOtp({
+      // Sign up with password
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
+        password: formData.password,
         options: {
-          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: formData.fullName,
             home_city: formData.homeCity,
@@ -138,13 +209,9 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
         },
       });
 
-      if (error) {
-        toast({
-          title: "Sign up failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
+      if (error) throw error;
+
+      if (data.user) {
         setStep("verify");
         toast({
           title: "Check your email! 📧",
@@ -163,10 +230,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     }
   };
 
+  // ============= OTP VERIFICATION =============
   const handleOTPVerification = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check for a valid, 6-digit OTP entry
     if (!otp.trim() || otp.length !== 6) {
       toast({
         title: "Enter verification code",
@@ -177,8 +244,8 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     }
 
     setLoading(true);
+
     try {
-      // Attempt OTP verification with Supabase
       const { data, error } = await supabase.auth.verifyOtp({
         email: formData.email,
         token: otp,
@@ -188,7 +255,6 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
       if (error) throw error;
 
       if (data.user) {
-        // Only now: Create (upsert) the user profile with their correct ID and consent timestamps
         const { error: profileError } = await supabase.from("profiles").upsert({
           id: data.user.id,
           full_name: formData.fullName,
@@ -233,6 +299,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     }
   };
 
+  // ============= OTP VERIFICATION SCREEN =============
   if (step === "verify") {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -240,7 +307,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           <CardHeader className="text-center">
             <Button
               variant="ghost"
-              onClick={() => setStep("form")}
+              onClick={() => setStep("signup")}
               className="absolute top-4 left-4 p-2"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -315,13 +382,329 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     );
   }
 
+  // ============= CHOOSE: SIGN IN OR SIGN UP =============
+  if (step === "choose") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Button
+              variant="ghost"
+              onClick={onBackToLanding}
+              className="absolute top-4 left-4 p-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <CardTitle className="flex items-center justify-center space-x-2">
+              <Mail className="w-5 h-5 text-accent" />
+              <span>Email Authentication</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-center text-muted-foreground">
+              Choose an option to continue
+            </p>
+
+            {/* Sign In Button */}
+            <Button
+              variant="outline"
+              className={`w-full h-16 flex flex-col items-start justify-center
+    border-2
+    ${
+      step === "signin"
+        ? "border-orange-500 bg-orange-50/80 shadow-none"
+        : "border-gray-55 bg-white"
+    }
+    hover:bg-orange-50/60
+  `}
+              onClick={() => setStep("signin")}
+            >
+              <div className={`flex items-center gap-2 w-full`}>
+                <LogIn className="w-5 h-5 text-orange-600" />
+                <div className="text-left flex-1">
+                  <p
+                    className={`font-semibold ${
+                      step === "signin" ? "text-orange-800" : "text-gray-900"
+                    }`}
+                  >
+                    Already have an account?
+                  </p>
+                  <p
+                    className={`text-xs ${
+                      step === "signin" ? "text-orange-700" : "text-gray-500"
+                    }`}
+                  >
+                    Sign in with your email and password
+                  </p>
+                </div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className={`w-full h-16 flex flex-col items-start justify-center
+    border-2
+    ${
+      step === "signup"
+        ? "border-orange-500 bg-orange-50/80 shadow-none"
+        : "border-gray-55 bg-white"
+    }
+    hover:bg-orange-50/60
+  `}
+              onClick={() => setStep("signup")}
+            >
+              <div className={`flex items-center gap-2 w-full`}>
+                <UserPlus className="w-5 h-5 text-orange-600" />
+                <div className="text-left flex-1">
+                  <p
+                    className={`font-semibold ${
+                      step === "signup" ? "text-orange-800" : "text-gray-900"
+                    }`}
+                  >
+                    New to SafarSquad?
+                  </p>
+                  <p
+                    className={`text-xs ${
+                      step === "signup" ? "text-orange-700" : "text-gray-500"
+                    }`}
+                  >
+                    Create your travel profile
+                  </p>
+                </div>
+              </div>
+            </Button>
+
+            <div className="pt-4 border-t">
+              <Button
+                variant="ghost"
+                onClick={onBackToLanding}
+                className="w-full"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Home
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ============= SIGN IN FORM =============
+  if (step === "signin") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Button
+              variant="ghost"
+              onClick={() => setStep("choose")}
+              className="absolute top-4 left-4 p-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <CardTitle className="flex items-center justify-center space-x-2">
+              <LogIn className="w-5 h-5 text-accent" />
+              <span>Welcome Back</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">
+                  <Lock className="w-4 h-4 inline mr-2" />
+                  Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                    required
+                    disabled={loading}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="text-accent text-sm font-medium hover:underline"
+                  onClick={() => setStep("forgot")}
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4 mr-2" />
+                    Sign In
+                  </>
+                )}
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Don't have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setStep("signup")}
+                  className="text-accent font-medium hover:underline"
+                >
+                  Sign up
+                </button>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "forgot") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Button
+              variant="ghost"
+              onClick={() => setStep("signin")}
+              className="absolute top-4 left-4 p-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <CardTitle className="flex items-center justify-center space-x-2">
+              <Mail className="w-5 h-5 text-accent" />
+              <span>Forgot Password</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-8">
+              <div>
+                <Label htmlFor="forgot-email">
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  Enter your email to reset password
+                </Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  required
+                  disabled={loading}
+                />
+              </div>
+              <Button
+                disabled={loading}
+                className="w-full"
+                onClick={async () => {
+                  if (!formData.email) {
+                    toast({
+                      title: "Email required",
+                      description: "Please enter your email address",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setLoading(true);
+                  try {
+                    const { error } = await supabase.auth.resetPasswordForEmail(
+                      formData.email,
+                      { redirectTo: window.location.origin + "/reset" }
+                    );
+                    if (error) throw error;
+                    toast({
+                      title: "Reset Email Sent",
+                      description:
+                        "We've sent a password reset link to your email.",
+                    });
+                    setStep("signin");
+                  } catch (err: any) {
+                    toast({
+                      title: "Error",
+                      description: err.message,
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                {loading ? "Sending..." : "Send reset link"}
+              </Button>
+              <button
+                type="button"
+                className="text-accent text-sm font-medium hover:underline"
+                onClick={() => setStep("signin")}
+              >
+                ← Back to Sign In
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ============= SIGN UP FORM =============
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <Button
             variant="ghost"
-            onClick={onBackToLanding}
+            onClick={() => setStep("choose")}
             className="absolute top-4 left-4 p-2"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -345,7 +728,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 placeholder="Enter your full name"
                 value={formData.fullName}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, fullName: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    fullName: e.target.value,
+                  }))
                 }
                 required
                 disabled={loading}
@@ -371,6 +757,51 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
               />
             </div>
 
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password" className="flex items-center">
+                <Lock className="w-4 h-4 mr-2" />
+                Password *
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="At least 8 characters"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                  required
+                  disabled={loading}
+                  minLength={8}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">
+                  Minimum 8 characters
+                </p>
+              </div>
+            </div>
+
             {/* Home City */}
             <div className="space-y-2">
               <Label htmlFor="homeCity" className="flex items-center">
@@ -383,7 +814,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 placeholder="Mumbai, Delhi, Bangalore, etc."
                 value={formData.homeCity}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, homeCity: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    homeCity: e.target.value,
+                  }))
                 }
                 required
                 disabled={loading}
@@ -405,7 +839,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 placeholder="Adventure seeker, Digital nomad, etc."
                 value={formData.tagline}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, tagline: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    tagline: e.target.value,
+                  }))
                 }
                 maxLength={50}
                 required
@@ -430,7 +867,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
             {/* Website (Optional) */}
             <div className="space-y-2">
               <Label htmlFor="website" className="flex items-center">
-                <LinkIcon className="w-4 h-4 mr-2" /> {/* ✅ FIXED */}
+                <LinkIcon className="w-4 h-4 mr-2" />
                 Website/Social (Optional)
               </Label>
               <Input
@@ -439,7 +876,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 placeholder="https://instagram.com/yourhandle"
                 value={formData.website}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, website: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    website: e.target.value,
+                  }))
                 }
                 disabled={loading}
               />
@@ -448,7 +888,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
               </p>
             </div>
 
-            {/* ✅ MOVED INSIDE CardContent - Terms Checkbox */}
+            {/* Terms Checkbox */}
             <div className="flex items-start space-x-2 pt-2">
               <Checkbox
                 id="terms"
@@ -489,7 +929,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loading || !agreedToTerms} // ✅ DISABLE IF NOT AGREED
+                disabled={loading || !agreedToTerms}
               >
                 {loading ? (
                   <>
@@ -504,6 +944,17 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 )}
               </Button>
             </div>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={() => setStep("signin")}
+                className="text-accent font-medium hover:underline"
+              >
+                Sign in
+              </button>
+            </p>
           </form>
         </CardContent>
       </Card>

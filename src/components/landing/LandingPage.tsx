@@ -169,7 +169,7 @@ const EnhancedButton = ({
 
   return (
     <motion.div
-      className="relative overflow-hidden rounded-md"
+      className="relative overflow-hidden rounded-md w-full"
       whileHover={{ scale: disabled ? 1 : 1.02 }}
       whileTap={{ scale: disabled ? 1 : 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -179,7 +179,7 @@ const EnhancedButton = ({
           addRipple(e);
           onClick?.(e);
         }}
-        className={`relative ${className}`}
+        className={`relative w-full ${className}`}
         variant={variant as any}
         disabled={disabled}
         {...props}
@@ -661,7 +661,10 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
           </motion.div>
 
           {/* CTA buttons */}
-          <motion.div className="pt-4 space-y-3" variants={item}>
+          <motion.div
+            className="pt-4 flex flex-col space-y-3 w-full max-w-xs mx-auto"
+            variants={item}
+          >
             <EnhancedButton
               onClick={signInGoogle}
               disabled={loading}
@@ -677,7 +680,7 @@ const LandingPage = ({ onSkipForNow }: LandingPageProps) => {
               className="w-full text-lg px-8 py-3 h-auto bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 text-white shadow-xl"
             >
               <Mail className="w-5 h-5 mr-2" />
-              Sign up with Email
+              Continue with Email
             </EnhancedButton>
 
             {onSkipForNow && (
