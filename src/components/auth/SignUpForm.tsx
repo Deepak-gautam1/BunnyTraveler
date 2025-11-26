@@ -89,6 +89,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
       });
       return;
     }
+
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       toast({
@@ -101,6 +102,29 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
 
     setLoading(true);
     try {
+      // ✅ CHECK IF USER ALREADY EXISTS
+      const { data: existingUser, error: checkError } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("email", formData.email)
+        .single();
+
+      if (existingUser) {
+        // User already exists
+        toast({
+          title: "Welcome back! 👋",
+          description:
+            "You're already registered. Redirecting you to sign in...",
+        });
+
+        setTimeout(() => {
+          window.location.href = "/"; // or "/" for home
+        }, 2000);
+        setLoading(false);
+        return;
+      }
+
+      // ✅ IF USER DOESN'T EXIST, PROCEED WITH OTP SIGNUP
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {

@@ -27,6 +27,7 @@ import { TripCacheProvider } from "./contexts/TripCacheContext";
 import CommunityMembersPage from "@/pages/CommunityMembersPage";
 import TermsConditions from "./pages/TermsConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import MyRewardsPage from "./pages/RewardsPage";
 const queryClient = new QueryClient();
 
 const AppLayout = ({ user }: { user: User | null }) => {
@@ -62,6 +63,7 @@ const AppLayout = ({ user }: { user: User | null }) => {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/terms" element={<TermsConditions />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/rewards" element={<MyRewardsPage user={user} />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

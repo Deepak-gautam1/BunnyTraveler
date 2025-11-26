@@ -20,6 +20,7 @@ import PhotoGallery from "@/components/trip/PhotoGallery";
 import { usePostTripNotifications } from "@/hooks/usePostTripNotifications";
 import PostTripReviewModal from "@/components/trip/PostTripReviewModal";
 import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
+import { Copy, Gift } from "lucide-react";
 
 // ✅ A. ADD THIS IMPORT
 import { useTripLikes } from "@/hooks/useTripLikes";
@@ -100,6 +101,10 @@ type TripDetail = {
   creator_id: string;
   status?: string;
   interested_count?: number; // ✅ ADD THIS
+  coupon_awarded?: boolean; // ADD THIS
+  coupon_awarded_at?: string | null; // ADD THIS
+  referral_code?: string | null; // ADD THIS
+  current_participants?: number; // ADD THIS
   profiles: Profile | null;
   trip_participants: TripParticipant[];
 };
@@ -195,7 +200,9 @@ const TripDetailsPage = () => {
         .select(
           `
           *,
-          interested_count,
+          interested_count,  coupon_awarded,
+          coupon_awarded_at,
+          referral_code,
           profiles!trips_creator_id_fkey(id, full_name, avatar_url),
           trip_participants(
             joined_at,
@@ -225,6 +232,11 @@ const TripDetailsPage = () => {
           created_at: data.created_at,
           creator_id: data.creator_id,
           status: data.status || "planning",
+
+          // ✅ ADD THESE LINES
+          referral_code: data.referral_code,
+          coupon_awarded: data.coupon_awarded,
+          current_participants: data.current_participants, // Important for the progress bar
           interested_count: data.interested_count || 0, // ✅ ADD THIS
           profiles: data.profiles,
           trip_participants: data.trip_participants || [],
@@ -322,6 +334,10 @@ const TripDetailsPage = () => {
             creator_id: data.creator_id,
             status: data.status || "planning",
             interested_count: data.interested_count || 0, // ✅ ADD THIS
+            // ✅ ADD THESE LINES
+            referral_code: data.referral_code,
+            coupon_awarded: data.coupon_awarded,
+            current_participants: data.current_participants,
             profiles: data.profiles,
             trip_participants: data.trip_participants || [],
           };
@@ -583,8 +599,14 @@ const TripDetailsPage = () => {
       trip!.end_date
     )}\n💰 ₹${
       trip?.budget_per_person?.toLocaleString() || "Contact for pricing"
+    }${
+      trip?.referral_code ? `\n🎁 Referral Code: ${trip.referral_code}` : ""
     }\n\n`;
-    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
+
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}${
+      trip?.referral_code ? `?ref=${trip.referral_code}` : ""
+    }`;
+
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
       shareText + shareUrl
     )}`;
@@ -593,7 +615,9 @@ const TripDetailsPage = () => {
   };
 
   const shareToFacebook = () => {
-    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}${
+      trip?.referral_code ? `?ref=${trip.referral_code}` : ""
+    }`;
     const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
       shareUrl
     )}`;
@@ -602,8 +626,14 @@ const TripDetailsPage = () => {
   };
 
   const shareToTwitter = () => {
-    const shareText = `Check out this trip: ${trip?.destination} from ${trip?.start_city}`;
-    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
+    const shareText = `🌍 Check out this trip: ${trip?.destination} from ${
+      trip?.start_city
+    }${trip?.referral_code ? ` | Code: ${trip.referral_code}` : ""}`;
+
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}${
+      trip?.referral_code ? `?ref=${trip.referral_code}` : ""
+    }`;
+
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       shareText
     )}&url=${encodeURIComponent(shareUrl)}`;
@@ -612,12 +642,21 @@ const TripDetailsPage = () => {
   };
 
   const copyLink = async () => {
-    const shareUrl = `${window.location.origin}/trip/${trip?.id}`;
+    const shareUrl = `${window.location.origin}/trip/${trip?.id}${
+      trip?.referral_code ? `?ref=${trip.referral_code}` : ""
+    }`;
+
+    const shareText = trip?.referral_code
+      ? `🌍 ${trip.destination} from ${trip.start_city}\n🎁 Referral Code: ${trip.referral_code}\n${shareUrl}`
+      : shareUrl;
+
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(shareText);
       toast({
         title: "Link copied!",
-        description: "Trip link copied to clipboard",
+        description: trip?.referral_code
+          ? "Trip link with referral code copied to clipboard"
+          : "Trip link copied to clipboard",
       });
       setIsShareDialogOpen(false);
     } catch (error) {
@@ -909,6 +948,98 @@ const TripDetailsPage = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* ✅ Referral Code Card - Only visible to trip creator */}
+        {isCreator && trip.referral_code && (
+          <Card className="mb-6 bg-gradient-to-r from-accent/10 to-accent/5 border-accent/30">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Gift className="w-5 h-5 text-accent" />
+                    <h3 className="font-semibold text-lg">
+                      Your Trip Referral Code
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Share this code with friends to invite them! Get 3+
+                    confirmed attendees to earn a reward coupon.
+                  </p>
+
+                  {/* Referral Code Display */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <code className="text-2xl font-mono font-bold bg-background px-4 py-2 rounded-lg border-2 border-dashed border-accent">
+                      {trip.referral_code}
+                    </code>
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(trip.referral_code);
+                          toast({
+                            title: "Copied!",
+                            description: "Referral code copied to clipboard",
+                          });
+                        }}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const shareText = `Join my trip to ${trip.destination}! 🌍\n\nUse referral code: ${trip.referral_code}\n\n${window.location.href}`;
+
+                          if (navigator.share) {
+                            navigator.share({
+                              title: `Trip to ${trip.destination}`,
+                              text: shareText,
+                            });
+                          } else {
+                            navigator.clipboard.writeText(shareText);
+                            toast({
+                              title: "Copied!",
+                              description: "Share link copied to clipboard",
+                            });
+                          }
+                        }}
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share Trip
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Progress towards coupon */}
+                  {trip.current_participants < 3 && (
+                    <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        <strong>
+                          {3 - trip.current_participants} more participant
+                          {3 - trip.current_participants > 1 ? "s" : ""}
+                        </strong>{" "}
+                        needed to earn your reward coupon! 🎁
+                      </p>
+                    </div>
+                  )}
+
+                  {trip.coupon_awarded && (
+                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg flex items-center gap-2">
+                      <Gift className="w-5 h-5 text-green-600" />
+                      <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                        🎉 Congratulations! You've earned a reward coupon. Check
+                        your Settings → My Rewards!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {!isCreator && (
           <JoinRequestActions

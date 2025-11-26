@@ -15,19 +15,21 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
   updated_at: string;
+  // deleted_at is no longer needed in the interface for the UI
 }
 
 export const useNotifications = (user: User | null) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast(); // ✅ ADDED: Toast for user feedback
+  const { toast } = useToast();
 
   const fetchNotifications = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
+      // ✅ No need to filter .is("deleted_at", null) because deleted rows are gone
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
@@ -40,7 +42,6 @@ export const useNotifications = (user: User | null) => {
       setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
     } catch (error) {
       console.error("Error fetching notifications:", error);
-      // ✅ ENHANCED: Better error handling
       toast({
         title: "Error",
         description: "Failed to load notifications",
@@ -89,7 +90,6 @@ export const useNotifications = (user: User | null) => {
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
 
-      // ✅ ENHANCED: Success feedback
       toast({
         title: "Success",
         description: "All notifications marked as read",
@@ -104,31 +104,29 @@ export const useNotifications = (user: User | null) => {
     }
   };
 
-  // ✅ ENHANCED: Better deleteNotification with toast feedback
+  // ✅ PERMANENT DELETE (Hard Delete)
   const deleteNotification = async (notificationId: string) => {
     try {
       const { error } = await supabase
         .from("notifications")
-        .delete()
+        .delete() // Hard delete: removes row from DB
         .eq("id", notificationId);
 
       if (error) throw error;
 
-      // ✅ IMPROVED: Update state immediately for better UX
+      // Update UI immediately
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       setUnreadCount((prev) => {
         const notification = notifications.find((n) => n.id === notificationId);
         return notification && !notification.is_read ? prev - 1 : prev;
       });
 
-      // ✅ ENHANCED: Success feedback
       toast({
         title: "Notification deleted",
-        description: "The notification has been removed",
+        description: "The notification has been permanently removed",
       });
     } catch (error) {
       console.error("Error deleting notification:", error);
-      // ✅ ENHANCED: Better error messaging
       toast({
         title: "Error",
         description: "Could not remove notification. Please try again.",
@@ -137,13 +135,14 @@ export const useNotifications = (user: User | null) => {
     }
   };
 
+  // ✅ PERMANENT DELETE ALL (Hard Delete)
   const deleteAllNotifications = async () => {
     if (!user) return;
 
     try {
       const { error } = await supabase
         .from("notifications")
-        .delete()
+        .delete() // Hard delete: removes all rows for user
         .eq("user_id", user.id);
 
       if (error) throw error;
@@ -151,7 +150,6 @@ export const useNotifications = (user: User | null) => {
       setNotifications([]);
       setUnreadCount(0);
 
-      // ✅ ENHANCED: Success feedback
       toast({
         title: "All notifications deleted",
         description: "Your notification history has been cleared",
@@ -166,7 +164,6 @@ export const useNotifications = (user: User | null) => {
     }
   };
 
-  // Set up real-time subscription
   useEffect(() => {
     if (!user) return;
 
@@ -200,7 +197,7 @@ export const useNotifications = (user: User | null) => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification, // ✅ Enhanced with toast feedback
-    deleteAllNotifications, // ✅ Enhanced with toast feedback
+    deleteNotification,
+    deleteAllNotifications,
   };
 };
