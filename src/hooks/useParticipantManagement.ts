@@ -21,6 +21,7 @@ export interface ParticipantStats {
   max_participants: number;
   spots_remaining: number;
   is_full: boolean;
+  referral_participants: number; // ADD THIS
 }
 
 export const useParticipantManagement = (tripId: number, user: User | null) => {
@@ -33,6 +34,7 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
     max_participants: 8,
     spots_remaining: 8,
     is_full: false,
+    referral_participants: 0, // ✅ ADD THIS
   });
 
   const { toast } = useToast();
@@ -56,6 +58,7 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
           trip_id,
           user_id,
           joined_at,
+          referral_code_used,
           profiles!trip_participants_user_id_fkey(
             id,
             full_name,
@@ -74,7 +77,7 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
       // Fetch trip max_participants to calculate stats
       const { data: tripData, error: tripError } = await supabase
         .from("trips")
-        .select("max_participants")
+        .select("max_participants,creator_id,referral_code")
         .eq("id", tripId)
         .maybeSingle();
 
@@ -83,11 +86,20 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
       const currentCount = data?.length || 0;
       const maxCount = tripData?.max_participants || 8;
 
+      // COUNT ONLY PARTICIPANTS WHO USED THE REFERRAL CODE (excluding creator)
+      const referralCount =
+        data?.filter(
+          (p) =>
+            p.user_id !== tripData?.creator_id &&
+            p.referral_code_used === tripData?.referral_code
+        ).length || 0;
+
       setStats({
         current_participants: currentCount,
         max_participants: maxCount,
         spots_remaining: Math.max(0, maxCount - currentCount),
         is_full: currentCount >= maxCount,
+        referral_participants: referralCount, // ADD THIS
       });
     } catch (error: any) {
       console.error("Error fetching participants:", error);

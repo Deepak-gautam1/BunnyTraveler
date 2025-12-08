@@ -5,8 +5,8 @@ import { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 
 export interface JoinRequest {
-  id: number; // ✅ FIXED: Use number instead of string | number
-  trip_id: number; // ✅ FIXED: Use number instead of string | number
+  id: number;
+  trip_id: number;
   user_id: string;
   status: "pending" | "approved" | "rejected";
   message: string | null;
@@ -14,6 +14,7 @@ export interface JoinRequest {
   responded_at: string | null;
   responded_by: string | null;
   response_message: string | null;
+  referral_code: string | null;
   profiles: {
     id: string;
     full_name: string | null;
@@ -33,13 +34,12 @@ export const useJoinRequestManagement = (
   const [responseLoading, setResponseLoading] = useState(false);
   const { toast } = useToast();
 
-  // ✅ FIXED: Simplified and working fetch function
+  // Fetch join requests
   const fetchJoinRequests = useCallback(async () => {
     if (!tripId || !user) return;
 
     setLoading(true);
     try {
-      // ✅ FIXED: Proper query with profiles relationship
       const { data, error } = await supabase
         .from("trip_join_requests")
         .select(
@@ -59,7 +59,6 @@ export const useJoinRequestManagement = (
 
       setJoinRequests(data || []);
 
-      // Find current user's request if exists
       const currentUserRequest = data?.find((req) => req.user_id === user.id);
       setUserRequest(currentUserRequest || null);
     } catch (error: any) {
@@ -74,9 +73,9 @@ export const useJoinRequestManagement = (
     }
   }, [tripId, user, toast]);
 
-  // Send join request
+  // ✅ FIXED: Accept referral code parameter from modal
   const sendJoinRequest = useCallback(
-    async (message?: string) => {
+    async (message?: string, referralCode?: string) => {
       if (!user || !tripId) {
         toast({
           title: "Authentication required",
@@ -88,12 +87,30 @@ export const useJoinRequestManagement = (
 
       setRequestLoading(true);
       try {
-        const { error } = await supabase.from("trip_join_requests").insert({
+        // ✅ DEBUG: Check what we received
+        console.log("📍 sendJoinRequest - RECEIVED PARAMS:", {
+          message: message,
+          referralCode: referralCode,
+          referralCodeType: typeof referralCode,
+          referralCodeIsUndefined: referralCode === undefined,
+          referralCodeIsNull: referralCode === null,
+          referralCodeIsEmpty: referralCode === "",
+        });
+
+        const dataToInsert = {
           trip_id: tripId,
           user_id: user.id,
           message: message || null,
-          status: "pending",
-        });
+          status: "pending" as const,
+          referral_code: referralCode || null, // ✅ This should store the code
+        };
+
+        console.log("📍 Data being inserted:", dataToInsert);
+
+        const { data: insertedData, error } = await supabase
+          .from("trip_join_requests")
+          .insert(dataToInsert)
+          .select(); // ✅ Get back what was inserted
 
         if (error) {
           if (error.code === "23505") {
@@ -105,6 +122,8 @@ export const useJoinRequestManagement = (
           }
           throw error;
         }
+
+        console.log("✅ Successfully inserted request:", insertedData);
 
         toast({
           title: "Request sent! 📩",
@@ -128,12 +147,11 @@ export const useJoinRequestManagement = (
     [user, tripId, toast, fetchJoinRequests]
   );
 
-  // ✅ FIXED: Correct approval function signature matching Gemini's working version
+  // ✅ Approve request with referral code validation
   const approveRequest = useCallback(
     async (request: JoinRequest, message?: string) => {
       if (!user || responseLoading) return false;
 
-      // ✅ FIXED: Proper validation for all required fields
       if (!request || !request.id || !request.trip_id || !request.user_id) {
         console.error("Invalid request data: Missing required fields", request);
         toast({
@@ -155,22 +173,78 @@ export const useJoinRequestManagement = (
 
       setResponseLoading(true);
       try {
-        console.log("🔄 Approving request via RPC:", {
+        // ✅ Get the referral code from the request
+        const { data: requestData, error: requestError } = await supabase
+          .from("trip_join_requests")
+          .select("referral_code")
+          .eq("id", request.id)
+          .single();
+
+        if (requestError) {
+          console.error("Error fetching request data:", requestError);
+          throw requestError;
+        }
+
+        // ✅ Get trip's referral code for validation
+        const { data: tripData, error: tripError } = await supabase
+          .from("trips")
+          .select("referral_code")
+          .eq("id", request.trip_id)
+          .single();
+
+        if (tripError) {
+          console.error("Error fetching trip data:", tripError);
+          throw tripError;
+        }
+
+        const requestReferralCode = requestData?.referral_code;
+        const tripReferralCode = tripData?.referral_code;
+
+        // ✅ Only store referral code if it matches the trip's code
+        const isValidReferral =
+          requestReferralCode &&
+          tripReferralCode &&
+          requestReferralCode === tripReferralCode;
+
+        const finalReferralCode = isValidReferral ? requestReferralCode : null;
+
+        console.log("🔄 Approving request with validation:", {
           requestId: request.id,
-          tripId: request.trip_id,
-          userId: request.user_id,
+          requestReferralCode: requestReferralCode || "NULL",
+          tripReferralCode: tripReferralCode,
+          isValid: isValidReferral,
+          willStoreInParticipants: finalReferralCode || "NULL",
         });
 
-        // ✅ Use RPC function for atomic approval
-        const { error } = await supabase.rpc("approve_join_request", {
-          request_id_param: request.id,
-          trip_id_param: request.trip_id,
-          user_id_param: request.user_id,
-        });
+        // Update request status
+        const { error: updateError } = await supabase
+          .from("trip_join_requests")
+          .update({
+            status: "approved",
+            responded_at: new Date().toISOString(),
+            responded_by: user.id,
+            response_message: message || null,
+          })
+          .eq("id", request.id)
+          .eq("status", "pending");
 
-        if (error) {
-          console.error("RPC Error:", error);
-          throw error;
+        if (updateError) {
+          console.error("Error updating request status:", updateError);
+          throw updateError;
+        }
+
+        // ✅ Add participant with validated referral code (NULL if invalid/not provided)
+        const { error: participantError } = await supabase
+          .from("trip_participants")
+          .insert({
+            trip_id: request.trip_id,
+            user_id: request.user_id,
+            referral_code_used: finalReferralCode, // ✅ Only store if valid
+          });
+
+        if (participantError && participantError.code !== "23505") {
+          console.error("Error adding participant:", participantError);
+          throw participantError;
         }
 
         toast({
@@ -180,7 +254,6 @@ export const useJoinRequestManagement = (
           } has been added to the trip.`,
         });
 
-        // Refresh both requests and trip data
         await fetchJoinRequests();
 
         if (onTripDataRefresh) {
@@ -214,14 +287,13 @@ export const useJoinRequestManagement = (
     [user, responseLoading, onTripDataRefresh, toast, fetchJoinRequests]
   );
 
-  // ✅ FIXED: Correct reject function signature
+  // Reject request
   const rejectRequest = useCallback(
     async (request: JoinRequest, responseMessage?: string) => {
       if (!user || responseLoading) return false;
 
       setResponseLoading(true);
       try {
-        // ✅ Enhanced validation
         if (!request?.id) {
           throw new Error("Invalid request: Missing request ID");
         }
@@ -239,7 +311,7 @@ export const useJoinRequestManagement = (
             response_message: responseMessage || null,
           })
           .eq("id", request.id)
-          .eq("status", "pending"); // Only update if still pending
+          .eq("status", "pending");
 
         if (error) throw error;
 
@@ -337,7 +409,7 @@ export const useJoinRequestManagement = (
     requestLoading,
     responseLoading,
     sendJoinRequest,
-    approveRequest, // ✅ Now correctly matches the expected signature
+    approveRequest,
     rejectRequest,
     cancelRequest,
     refetchRequests: fetchJoinRequests,

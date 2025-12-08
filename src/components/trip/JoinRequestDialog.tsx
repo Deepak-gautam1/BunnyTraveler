@@ -84,10 +84,23 @@ const JoinRequestDialog = ({
   }, [referralCode]);
 
   const handleSendRequest = async () => {
+    const trimmedMessage = requestMessage.trim();
+    const trimmedCode = referralCode.trim();
+
+    // ✅ DEBUG: Log what we're about to send
+    console.log("🎯 Modal handleSendRequest called:", {
+      rawReferralCode: referralCode,
+      trimmedCode: trimmedCode,
+      codeLength: trimmedCode.length,
+      willSendCode: trimmedCode || undefined,
+      willSendMessage: trimmedMessage || undefined,
+    });
+
     const success = await onSendRequest(
-      requestMessage.trim() || undefined,
-      referralCode.trim() || undefined
+      trimmedMessage || undefined,
+      trimmedCode || undefined // ✅ Make sure this sends the actual value
     );
+
     if (success) {
       setRequestMessage("");
       setReferralCode("");

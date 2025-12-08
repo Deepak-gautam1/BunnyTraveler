@@ -28,7 +28,7 @@ import CommunityMembersPage from "@/pages/CommunityMembersPage";
 import TermsConditions from "./pages/TermsConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MyRewardsPage from "./pages/RewardsPage";
-import ResetPassword from "./pages/ResetPassword";
+import ResetPassword from "./pages/ResetPassword"; 
 const queryClient = new QueryClient();
 
 const AppLayout = ({ user }: { user: User | null }) => {

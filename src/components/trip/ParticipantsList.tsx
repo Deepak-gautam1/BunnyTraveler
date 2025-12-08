@@ -28,7 +28,6 @@ import {
   MoreVertical,
   UserMinus,
   MessageCircle,
-  Shield,
   UserCheck,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -66,21 +65,33 @@ const ParticipantsList = ({
 
   const isCreator = currentUser?.id === tripCreatorId;
 
+  // ✅ FIXED: Delay dialog opening to let dropdown close
   const handleRemoveClick = (participant: TripParticipant) => {
     setSelectedParticipant(participant);
-    setRemoveDialogOpen(true);
+
+    // Delay opening dialog to avoid focus conflict
+    setTimeout(() => {
+      setRemoveDialogOpen(true);
+    }, 100);
   };
 
+  // ✅ FIXED: Proper async handling
   const handleConfirmRemove = async () => {
     if (!selectedParticipant) return;
 
     setRemoving(true);
-    const success = await onRemoveParticipant(selectedParticipant.user_id);
-    setRemoving(false);
 
-    if (success) {
-      setRemoveDialogOpen(false);
-      setSelectedParticipant(null);
+    try {
+      const success = await onRemoveParticipant(selectedParticipant.user_id);
+
+      if (success) {
+        setRemoveDialogOpen(false);
+        setSelectedParticipant(null);
+      }
+    } catch (error) {
+      console.error("Error removing participant:", error);
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -214,7 +225,14 @@ const ParticipantsList = ({
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+
+                        {/* ✅ FIXED: Add proper focus handling */}
+                        <DropdownMenuContent
+                          align="end"
+                          onCloseAutoFocus={(e) => {
+                            e.preventDefault(); // Prevent focus trap
+                          }}
+                        >
                           {onChatWithParticipant && (
                             <DropdownMenuItem
                               onClick={() =>
@@ -225,8 +243,13 @@ const ParticipantsList = ({
                               Send Message
                             </DropdownMenuItem>
                           )}
+
+                          {/* ✅ FIXED: Use onSelect instead of onClick */}
                           <DropdownMenuItem
-                            onClick={() => handleRemoveClick(participant)}
+                            onSelect={(e) => {
+                              e.preventDefault(); // Prevent default menu close
+                              handleRemoveClick(participant);
+                            }}
                             className="text-red-600 focus:text-red-600"
                           >
                             <UserMinus className="w-4 h-4 mr-2" />
@@ -273,9 +296,13 @@ const ParticipantsList = ({
         </CardContent>
       </Card>
 
-      {/* Remove Participant Confirmation Dialog */}
+      {/* ✅ FIXED: Remove Participant Confirmation Dialog */}
       <AlertDialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            e.preventDefault(); // Prevent focus issues when closing
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <UserMinus className="w-5 h-5 text-red-500" />
@@ -296,7 +323,14 @@ const ParticipantsList = ({
               disabled={removing}
               className="bg-red-600 hover:bg-red-700"
             >
-              {removing ? "Removing..." : "Remove Participant"}
+              {removing ? (
+                <>
+                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Participant"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

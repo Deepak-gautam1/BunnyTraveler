@@ -134,6 +134,19 @@ const TripDetailsPage = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const isCreator = user && trip && user.id === trip.creator_id;
+
+  // In TripDetailsPage.tsx - add this near the top of the component
+  useEffect(() => {
+    // ✅ Capture referral code from URL and store it
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get("ref");
+
+    if (refCode && tripId) {
+      localStorage.setItem(`trip_${tripId}_referral`, refCode);
+      console.log("✅ Stored referral code:", refCode, "for trip:", tripId);
+    }
+  }, [tripId]);
+
   // ✅ ADD: Track recently viewed trips
   useEffect(() => {
     if (trip && user) {
@@ -1013,24 +1026,58 @@ const TripDetailsPage = () => {
                     </div>
                   </div>
 
-                  {/* Progress towards coupon */}
-                  {trip.current_participants < 3 && (
-                    <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
-                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                        <strong>
-                          {3 - trip.current_participants} more participant
-                          {3 - trip.current_participants > 1 ? "s" : ""}
-                        </strong>{" "}
-                        needed to earn your reward coupon! 🎁
-                      </p>
-                    </div>
+                  {/* Progress towards coupon - ONLY COUNT REFERRAL-BASED PARTICIPANTS */}
+                  {!trip.coupon_awarded && (
+                    <>
+                      {stats.referral_participants < 3 ? (
+                        // Show progress when less than 3 referral participants
+                        <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            <strong>
+                              {3 - stats.referral_participants} more participant
+                              {3 - stats.referral_participants !== 1 ? "s" : ""}
+                            </strong>{" "}
+                            needed to join using your referral code to earn a
+                            reward coupon!
+                          </p>
+                          {/* <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
+                            💡 Share your referral code:{" "}
+                            <strong>{trip.referral_code}</strong>
+                          </p> */}
+                        </div>
+                      ) : (
+                        // Show unlocked message when 3+ joined via referral code
+                        <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg border-2 border-green-300 dark:border-green-700 animate-in fade-in duration-500">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/40 rounded-full">
+                              <Gift className="w-6 h-6 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-green-900 dark:text-green-100 mb-1">
+                                🎉 Coupon Unlocked!
+                              </p>
+                              <p className="text-sm text-green-800 dark:text-green-200">
+                                Amazing!{" "}
+                                <strong>
+                                  {stats.referral_participants} participants
+                                </strong>{" "}
+                                joined using your referral code. Your reward
+                                coupon will be automatically awarded after the
+                                trip completes.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
+                  {/* Coupon already awarded */}
                   {trip.coupon_awarded && (
                     <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg flex items-center gap-2">
                       <Gift className="w-5 h-5 text-green-600" />
                       <p className="text-sm text-green-800 dark:text-green-200 font-medium">
-                        🎉 Congratulations! You've earned a reward coupon. Check
+                        Congratulations! You've earned a reward coupon. Check
                         your Settings → My Rewards!
                       </p>
                     </div>
