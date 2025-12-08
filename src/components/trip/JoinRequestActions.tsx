@@ -1,8 +1,10 @@
 // src/components/trip/JoinRequestActions.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -24,6 +26,7 @@ import {
 } from "lucide-react";
 import { ParticipantStats } from "@/hooks/useParticipantManagement";
 import { JoinRequest } from "@/hooks/useJoinRequestManagement";
+import { supabase } from "@/integrations/supabase/client";
 
 interface JoinRequestActionsProps {
   user: User | null;
@@ -32,7 +35,7 @@ interface JoinRequestActionsProps {
   userRequest: JoinRequest | null;
   requestLoading: boolean;
   tripStatus: string;
-  onSendRequest: (message?: string) => Promise<boolean>;
+  onSendRequest: (message?: string, referralCode?: string) => Promise<boolean>;
   onCancelRequest: () => Promise<boolean>;
   className?: string;
 }
@@ -49,7 +52,57 @@ const JoinRequestActions = ({
   className = "",
 }: JoinRequestActionsProps) => {
   const [requestMessage, setRequestMessage] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // ✅ ADD: Referral code validation
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
+  const [codeValidation, setCodeValidation] = useState<{
+    isValid: boolean;
+    message: string;
+  } | null>(null);
+
+  // ✅ ADD: Validate referral code
+  useEffect(() => {
+    const validateCode = async () => {
+      if (!referralCode || referralCode.length < 6) {
+        setCodeValidation(null);
+        return;
+      }
+
+      setIsValidatingCode(true);
+
+      try {
+        const { data } = await supabase
+          .from("trips")
+          .select("id, destination")
+          .eq("referral_code", referralCode.toUpperCase())
+          .single();
+
+        if (data) {
+          setCodeValidation({
+            isValid: true,
+            message: `✓ Valid code for trip to ${data.destination}`,
+          });
+        } else {
+          setCodeValidation({
+            isValid: false,
+            message: "Invalid referral code",
+          });
+        }
+      } catch (error) {
+        setCodeValidation({
+          isValid: false,
+          message: "Invalid referral code",
+        });
+      } finally {
+        setIsValidatingCode(false);
+      }
+    };
+
+    const debounce = setTimeout(validateCode, 500);
+    return () => clearTimeout(debounce);
+  }, [referralCode]);
 
   const isJoinable = tripStatus !== "completed" && tripStatus !== "cancelled";
 
@@ -190,9 +243,14 @@ const JoinRequestActions = ({
 
   // User can send a join request
   const handleSendRequest = async () => {
-    const success = await onSendRequest(requestMessage.trim() || undefined);
+    const success = await onSendRequest(
+      requestMessage.trim() || undefined,
+      referralCode.trim() || undefined
+    );
     if (success) {
       setRequestMessage("");
+      setReferralCode("");
+      setCodeValidation(null);
       setDialogOpen(false);
     }
   };
@@ -226,18 +284,69 @@ const JoinRequestActions = ({
               join this adventure.
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
-            <Textarea
-              value={requestMessage}
-              onChange={(e) => setRequestMessage(e.target.value)}
-              placeholder="Hi! I'd love to join your trip because..."
-              className="min-h-[100px]"
-              maxLength={500}
-            />
-            <p className="text-xs text-muted-foreground">
-              {requestMessage.length}/500 characters
-            </p>
+            {/* ✅ ADD: Referral Code Field */}
+            <div className="space-y-2">
+              <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+              <div className="relative">
+                <Input
+                  id="referralCode"
+                  value={referralCode}
+                  onChange={(e) =>
+                    setReferralCode(e.target.value.toUpperCase())
+                  }
+                  placeholder="TRIP-XXXXX"
+                  maxLength={11}
+                  className={
+                    codeValidation?.isValid
+                      ? "border-green-500"
+                      : codeValidation?.isValid === false
+                      ? "border-red-500"
+                      : ""
+                  }
+                />
+                {isValidatingCode && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin" />
+                )}
+                {!isValidatingCode && codeValidation?.isValid && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                )}
+                {!isValidatingCode && codeValidation?.isValid === false && (
+                  <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                )}
+              </div>
+              {codeValidation && (
+                <p
+                  className={`text-xs ${
+                    codeValidation.isValid ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {codeValidation.message}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Got a code from a friend? Enter it here!
+              </p>
+            </div>
+
+            {/* Message Field */}
+            <div className="space-y-2">
+              <Label htmlFor="message">Message (Optional)</Label>
+              <Textarea
+                id="message"
+                value={requestMessage}
+                onChange={(e) => setRequestMessage(e.target.value)}
+                placeholder="Hi! I'd love to join your trip because..."
+                className="min-h-[100px]"
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {requestMessage.length}/500 characters
+              </p>
+            </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel

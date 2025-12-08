@@ -1,5 +1,4 @@
 // src/pages/AuthPage.tsx - CLEANED VERSION
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import LandingPage from "@/components/landing/LandingPage";
 

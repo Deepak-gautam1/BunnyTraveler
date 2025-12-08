@@ -27,11 +27,13 @@ import { TripCacheProvider } from "./contexts/TripCacheContext";
 import CommunityMembersPage from "@/pages/CommunityMembersPage";
 import TermsConditions from "./pages/TermsConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import MyRewardsPage from "./pages/RewardsPage";
+import ResetPassword from "./pages/ResetPassword";
 const queryClient = new QueryClient();
 
 const AppLayout = ({ user }: { user: User | null }) => {
   const location = useLocation();
-  const noNavRoutes = ["/auth", "/landing", "/signup", "/login"];
+  const noNavRoutes = ["/auth", "/landing", "/signup", "/login", "/reset"];
   const shouldHideNav = noNavRoutes.includes(location.pathname);
 
   return (
@@ -62,6 +64,9 @@ const AppLayout = ({ user }: { user: User | null }) => {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/terms" element={<TermsConditions />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/rewards" element={<MyRewardsPage user={user} />} />
+          <Route path="/reset" element={<ResetPassword />} />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

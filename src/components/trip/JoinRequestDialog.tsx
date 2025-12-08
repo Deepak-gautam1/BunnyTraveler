@@ -1,7 +1,9 @@
 // src/components/trip/JoinRequestDialog.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -12,12 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { UserPlus, Mail, Loader2 } from "lucide-react";
+import { UserPlus, Mail, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface JoinRequestDialogProps {
   user: User | null;
   tripDestination: string;
-  onSendRequest: (message?: string) => Promise<boolean>;
+  onSendRequest: (message?: string, referralCode?: string) => Promise<boolean>;
   requestLoading: boolean;
 }
 
@@ -28,12 +31,67 @@ const JoinRequestDialog = ({
   requestLoading,
 }: JoinRequestDialogProps) => {
   const [requestMessage, setRequestMessage] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // ✅ ADD: Referral code validation states
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
+  const [codeValidation, setCodeValidation] = useState<{
+    isValid: boolean;
+    message: string;
+  } | null>(null);
+
+  // ✅ ADD: Validate referral code as user types
+  useEffect(() => {
+    const validateCode = async () => {
+      if (!referralCode || referralCode.length < 6) {
+        setCodeValidation(null);
+        return;
+      }
+
+      setIsValidatingCode(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("trips")
+          .select("id, destination, creator_id")
+          .eq("referral_code", referralCode.toUpperCase())
+          .single();
+
+        if (data) {
+          setCodeValidation({
+            isValid: true,
+            message: `✓ Valid code for trip to ${data.destination}`,
+          });
+        } else {
+          setCodeValidation({
+            isValid: false,
+            message: "Invalid referral code",
+          });
+        }
+      } catch (error) {
+        setCodeValidation({
+          isValid: false,
+          message: "Invalid referral code",
+        });
+      } finally {
+        setIsValidatingCode(false);
+      }
+    };
+
+    const debounce = setTimeout(validateCode, 500);
+    return () => clearTimeout(debounce);
+  }, [referralCode]);
+
   const handleSendRequest = async () => {
-    const success = await onSendRequest(requestMessage.trim() || undefined);
+    const success = await onSendRequest(
+      requestMessage.trim() || undefined,
+      referralCode.trim() || undefined
+    );
     if (success) {
       setRequestMessage("");
+      setReferralCode("");
+      setCodeValidation(null);
       setDialogOpen(false);
     }
   };
@@ -69,10 +127,53 @@ const JoinRequestDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* ✅ ADD: Referral Code Field */}
           <div className="space-y-2">
-            <label htmlFor="message" className="text-sm font-medium">
+            <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+            <div className="relative">
+              <Input
+                id="referralCode"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                placeholder="TRIP-XXXXX"
+                maxLength={11}
+                className={
+                  codeValidation?.isValid
+                    ? "border-green-500 pr-10"
+                    : codeValidation?.isValid === false
+                    ? "border-red-500 pr-10"
+                    : "pr-10"
+                }
+              />
+              {isValidatingCode && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+              )}
+              {!isValidatingCode && codeValidation?.isValid && (
+                <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+              )}
+              {!isValidatingCode && codeValidation?.isValid === false && (
+                <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+              )}
+            </div>
+            {codeValidation && (
+              <p
+                className={`text-xs ${
+                  codeValidation.isValid ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {codeValidation.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Got a referral code from a friend? Enter it here!
+            </p>
+          </div>
+
+          {/* Message Field */}
+          <div className="space-y-2">
+            <Label htmlFor="message">
               Why would you like to join this trip? (Optional)
-            </label>
+            </Label>
             <Textarea
               id="message"
               value={requestMessage}
