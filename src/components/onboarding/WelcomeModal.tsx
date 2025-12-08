@@ -15,6 +15,10 @@ import {
   Heart,
   ArrowRight,
   User as UserIcon,
+  Gift,
+  Share2,
+  CheckCircle,
+  Sparkles,
 } from "lucide-react";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 
@@ -34,19 +38,14 @@ const WelcomeModal = ({
   const [currentStep, setCurrentStep] = useState(0);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  // ✅ ADD: Check if modal should be shown based on localStorage
-  const [shouldShow, setShouldShow] = useState(false);
-
+  // ✅ SIMPLIFIED: Just use isOpen directly
   useEffect(() => {
-    // Only show if user hasn't seen it before
-    const hasSeenWelcome = localStorage.getItem("welcomeModalSeen");
-
-    if (!hasSeenWelcome && isOpen) {
-      setShouldShow(true);
-    } else {
-      setShouldShow(false);
-    }
-  }, [isOpen]);
+    console.log("🎉 WelcomeModal state:", {
+      isOpen,
+      currentStep,
+      hasSeenBefore: localStorage.getItem("welcomeModalSeen"),
+    });
+  }, [isOpen, currentStep]);
 
   const steps = [
     {
@@ -59,6 +58,11 @@ const WelcomeModal = ({
             Connect with fellow travelers, join exciting trips, and create
             unforgettable memories together!
           </p>
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 p-4 rounded-lg border border-blue-200">
+            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              ✨ New: Earn rewards by inviting friends!
+            </p>
+          </div>
         </div>
       ),
     },
@@ -67,34 +71,95 @@ const WelcomeModal = ({
       content: (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Card className="p-4 text-center">
+            <Card className="p-4 text-center hover:shadow-md transition-shadow">
               <Plane className="w-8 h-8 mx-auto mb-2 text-blue-600" />
               <h4 className="font-medium">Discover Trips</h4>
               <p className="text-xs text-muted-foreground">
                 Browse amazing destinations
               </p>
             </Card>
-            <Card className="p-4 text-center">
+            <Card className="p-4 text-center hover:shadow-md transition-shadow">
               <Users className="w-8 h-8 mx-auto mb-2 text-green-600" />
               <h4 className="font-medium">Join Groups</h4>
               <p className="text-xs text-muted-foreground">
                 Connect with travelers
               </p>
             </Card>
-            <Card className="p-4 text-center">
+            <Card className="p-4 text-center hover:shadow-md transition-shadow">
               <MessageCircle className="w-8 h-8 mx-auto mb-2 text-purple-600" />
               <h4 className="font-medium">Chat & Plan</h4>
               <p className="text-xs text-muted-foreground">
                 Coordinate your journey
               </p>
             </Card>
-            <Card className="p-4 text-center">
+            <Card className="p-4 text-center hover:shadow-md transition-shadow">
               <Heart className="w-8 h-8 mx-auto mb-2 text-red-600" />
               <h4 className="font-medium">Create Memories</h4>
               <p className="text-xs text-muted-foreground">
                 Share your experiences
               </p>
             </Card>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "🎁 Earn Rewards by Referring Friends!",
+      content: (
+        <div className="space-y-4">
+          <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 p-6 rounded-lg border-2 border-orange-200">
+            <Gift className="w-12 h-12 mx-auto mb-3 text-orange-600" />
+            <h3 className="text-lg font-bold text-center mb-2">
+              Referral Rewards Program
+            </h3>
+            <p className="text-sm text-center text-muted-foreground mb-4">
+              Share your trip with friends and earn exclusive rewards!
+            </p>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg">
+                <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
+                  <Share2 className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">1. Share Your Code</p>
+                  <p className="text-xs text-muted-foreground">
+                    Get a unique referral code for each trip you create
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg">
+                <div className="bg-green-100 dark:bg-green-900 p-2 rounded-full">
+                  <Users className="w-4 h-4 text-green-600 dark:text-green-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">2. Friends Join</p>
+                  <p className="text-xs text-muted-foreground">
+                    They enter your code when requesting to join
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg">
+                <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-full">
+                  <Gift className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">3. Earn Rewards</p>
+                  <p className="text-xs text-muted-foreground">
+                    Get 3+ referrals to unlock exclusive coupons!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white p-3 rounded-lg text-center">
+              <Sparkles className="w-5 h-5 inline-block mr-2" />
+              <span className="font-semibold">
+                Rewards update in real-time!
+              </span>
+            </div>
           </div>
         </div>
       ),
@@ -109,10 +174,19 @@ const WelcomeModal = ({
             Add your bio, location, and interests to help other travelers
             connect with you.
           </p>
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-700">
-              ✨ Complete profiles get 3x more trip invitations!
-            </p>
+          <div className="space-y-2">
+            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+              <CheckCircle className="w-5 h-5 inline-block mr-2 text-blue-600" />
+              <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                Complete profiles get 3x more trip invitations!
+              </span>
+            </div>
+            <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg">
+              <Gift className="w-5 h-5 inline-block mr-2 text-orange-600" />
+              <span className="text-sm text-orange-700 dark:text-orange-300 font-medium">
+                Share trips to unlock referral rewards!
+              </span>
+            </div>
           </div>
         </div>
       ),
@@ -123,52 +197,54 @@ const WelcomeModal = ({
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Last step - mark as seen and open profile editor
-      localStorage.setItem("welcomeModalSeen", "true"); // ✅ ADD
+      localStorage.setItem("welcomeModalSeen", "true");
       setIsEditProfileOpen(true);
     }
   };
 
   const handleSkip = () => {
-    // ✅ ADD: Mark as seen when skipped
+    console.log("⏭️ User skipped welcome modal");
     localStorage.setItem("welcomeModalSeen", "true");
-    setShouldShow(false);
+    setCurrentStep(0); // Reset for next time
     onClose();
   };
 
   const handleProfileComplete = () => {
+    console.log("✅ Profile editing complete");
     setIsEditProfileOpen(false);
-    setShouldShow(false); // ✅ ADD
+    setCurrentStep(0);
     onClose();
   };
 
-  // ✅ ADD: Custom close handler to mark as seen
-  const handleClose = () => {
-    localStorage.setItem("welcomeModalSeen", "true");
-    setShouldShow(false);
-    onClose();
+  const handleClose = (open: boolean) => {
+    if (!open) {
+      console.log("❌ Modal closed manually");
+      localStorage.setItem("welcomeModalSeen", "true");
+      setCurrentStep(0);
+      onClose();
+    }
   };
 
   return (
     <>
-      {/* ✅ CHANGE: Use shouldShow instead of isOpen */}
-      <Dialog open={shouldShow} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md">
+      {/* ✅ FIXED: Use isOpen directly, not shouldShow */}
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-center">
               {steps[currentStep].title}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="py-6">{steps[currentStep].content}</div>
+          <div className="py-4">{steps[currentStep].content}</div>
 
           {/* Progress Dots */}
           <div className="flex justify-center space-x-2 mb-4">
             {steps.map((_, index) => (
               <div
                 key={index}
-                className={`w-2 h-2 rounded-full ${
-                  index === currentStep ? "bg-blue-600" : "bg-gray-300"
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  index === currentStep ? "w-8 bg-blue-600" : "w-2 bg-gray-300"
                 }`}
               />
             ))}
@@ -179,7 +255,10 @@ const WelcomeModal = ({
             <Button variant="outline" onClick={handleSkip} className="flex-1">
               {currentStep === steps.length - 1 ? "Skip for Now" : "Skip"}
             </Button>
-            <Button onClick={handleNext} className="flex-1">
+            <Button
+              onClick={handleNext}
+              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            >
               {currentStep === steps.length - 1 ? (
                 <>
                   <UserIcon className="w-4 h-4 mr-2" />
