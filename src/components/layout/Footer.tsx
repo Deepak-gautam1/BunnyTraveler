@@ -10,18 +10,29 @@ import {
   Users,
   Globe,
   ArrowUp,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PostTripModal from "@/components/trip/PostTripModal";
+import { useFooterStats } from "@/hooks/useFooterStats";
 
 const currentYear = new Date().getFullYear();
 
 const Footer = () => {
   const [showPostTrip, setShowPostTrip] = useState(false);
+  const stats = useFooterStats();
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Helper function to format large numbers
+  const formatNumber = (num: number) => {
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}K+`;
+    }
+    return `${num}+`;
   };
 
   return (
@@ -54,7 +65,11 @@ const Footer = () => {
                 className="text-xs border-blue-400 text-blue-400 px-1.5 py-0.5"
               >
                 <Users className="w-2.5 h-2.5 md:w-3 md:h-3 mr-1" />
-                2400+
+                {stats.loading ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  formatNumber(stats.totalTravelers)
+                )}
               </Badge>
             </div>
           </div>
@@ -104,7 +119,6 @@ const Footer = () => {
             >
               Feedback
             </a>
-            {/* --- NEW LINKS BELOW --- */}
             <a
               href="/terms"
               className="text-gray-300 hover:text-orange-400 transition-colors text-xs md:text-sm"
@@ -124,7 +138,6 @@ const Footer = () => {
             <h4 className="text-sm md:text-base font-semibold text-white">
               Connect
             </h4>
-            {/* Contact Info */}
             <div className="space-y-1.5 md:space-y-2">
               <div className="flex items-center space-x-2 text-xs md:text-sm text-gray-300">
                 <Mail className="w-3 h-3 text-orange-400 flex-shrink-0" />
@@ -135,7 +148,6 @@ const Footer = () => {
                 <span>New Delhi, India</span>
               </div>
             </div>
-            {/* Social Media */}
             <div className="flex space-x-2 md:space-x-3">
               <a
                 href="https://www.instagram.com/safar.squad?utm_source=qr&igsh=M3UzcDZncHd3YWtv"
@@ -162,11 +174,15 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Stats Row */}
+        {/* Stats Row - Now with Real-Time Data */}
         <div className="grid grid-cols-4 gap-2 md:gap-4 py-3 md:py-4 border-t border-gray-700 border-b">
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-orange-400">
-              2.4K+
+              {stats.loading ? (
+                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mx-auto" />
+              ) : (
+                formatNumber(stats.totalTravelers)
+              )}
             </div>
             <div className="text-[10px] md:text-xs text-gray-400">
               Travelers
@@ -174,7 +190,11 @@ const Footer = () => {
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-green-400">
-              150+
+              {stats.loading ? (
+                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mx-auto" />
+              ) : (
+                formatNumber(stats.uniqueDestinations)
+              )}
             </div>
             <div className="text-[10px] md:text-xs text-gray-400">
               Destinations
@@ -182,13 +202,21 @@ const Footer = () => {
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-blue-400">
-              500+
+              {stats.loading ? (
+                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mx-auto" />
+              ) : (
+                formatNumber(stats.totalTrips)
+              )}
             </div>
             <div className="text-[10px] md:text-xs text-gray-400">Trips</div>
           </div>
           <div className="text-center">
             <div className="text-sm md:text-lg font-bold text-purple-400">
-              4.8★
+              {stats.loading ? (
+                <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mx-auto" />
+              ) : (
+                `${stats.averageRating}★`
+              )}
             </div>
             <div className="text-[10px] md:text-xs text-gray-400">Rating</div>
           </div>
@@ -223,7 +251,6 @@ const Footer = () => {
           </div>
         </div>
       </div>
-      {/* Trip Creation Modal */}
       <PostTripModal
         open={showPostTrip}
         onClose={() => setShowPostTrip(false)}
