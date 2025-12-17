@@ -1,15 +1,12 @@
+// src/lib/cookies.ts
 import Cookies from "js-cookie";
 
-// Cookie names
 export const COOKIE_KEYS = {
   // Search & Filters
   SEARCH_FILTERS: "safar_search_filters",
   SHOW_ADVANCED_FILTERS: "safar_show_advanced",
-
-  // ✅ ADD THESE TWO LINES
   VIEW_MODE: "safar_view_mode",
   MAP_FILTERS: "safar_map_filters",
-
   SORT_PREFERENCE: "safar_sort_preference",
   RECENT_SEARCHES: "safar_recent_searches",
 
@@ -32,13 +29,16 @@ export const COOKIE_KEYS = {
   PROFILE_TAB: "safar_profile_tab",
   WELCOME_DISMISSED: "safar_welcome_dismissed",
 
+  // ✅ Image Caching
+  IMAGES_CACHED: "safar_images_cached",
+  LAST_IMAGE_CHECK: "safar_last_image_check",
+
   // System
   CONSENT: "safar_cookie_consent",
   FIRST_VISIT: "safar_first_visit",
   NOTIFICATIONS: "safar_notifications",
 } as const;
 
-// Rest of your helper functions stay the same
 export const setCookie = (key: string, value: any, days = 30) => {
   Cookies.set(key, JSON.stringify(value), { expires: days });
 };

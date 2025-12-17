@@ -31,7 +31,7 @@ interface TripData {
   description: string | null;
   max_group_size: number;
   budget_per_person?: number;
-  travel_style?: string[];
+  travel_style?: string[]; // ✅ BACK TO travel_style
 }
 
 interface PostTripModalProps {
@@ -43,19 +43,107 @@ interface PostTripModalProps {
   mode?: "create" | "edit";
 }
 
-const availableTravelStyles = [
-  { id: "adventure", label: "Adventure", emoji: "🏔️" },
-  { id: "cultural", label: "Cultural", emoji: "🏛️" },
-  { id: "relaxation", label: "Relaxation", emoji: "🌴" },
-  { id: "foodie", label: "Foodie", emoji: "🍜" },
-  { id: "nightlife", label: "Nightlife", emoji: "🌃" },
-  { id: "budget", label: "Budget", emoji: "💰" },
-  { id: "luxury", label: "Luxury", emoji: "✨" },
-  { id: "solo-friendly", label: "Solo Friendly", emoji: "🎒" },
-  { id: "photography", label: "Photography", emoji: "📸" },
-  { id: "spiritual", label: "Spiritual", emoji: "🕉️" },
-  { id: "backpacking", label: "Backpacking", emoji: "🏃‍♂️" },
-  { id: "wellness", label: "Wellness", emoji: "🧘‍♀️" },
+// ✅ Complete interests with emojis (categories stay the same)
+const availableInterests = [
+  {
+    category: "Travel Styles",
+    tags: [
+      { name: "City Exploration", emoji: "🏙️" },
+      { name: "Backpacking", emoji: "🎒" },
+      { name: "Road Trips", emoji: "🚗" },
+      { name: "Photography Tours", emoji: "📷" },
+      { name: "Cruise Travel", emoji: "🚢" },
+      { name: "Train Journeys", emoji: "🚆" },
+      { name: "Desert Exploration", emoji: "🌵" },
+      { name: "Solo Travel", emoji: "🧳" },
+      { name: "Luxury Travel", emoji: "👑" },
+      { name: "Budget Travel", emoji: "💸" },
+      { name: "Slow Travel", emoji: "🐢" },
+      { name: "Digital Nomad", emoji: "💻" },
+    ],
+  },
+  {
+    category: "Adventure",
+    tags: [
+      { name: "Mountain Hiking", emoji: "🏔️" },
+      { name: "Adventure Sports", emoji: "🏅" },
+      { name: "Rock Climbing", emoji: "🧗" },
+      { name: "River Rafting", emoji: "🛶" },
+      { name: "Jungle Trekking", emoji: "🌴" },
+      { name: "Bungee Jumping", emoji: "⚡" },
+      { name: "Skydiving", emoji: "🪂" },
+      { name: "Mountain Biking", emoji: "🚵" },
+      { name: "Canyoning", emoji: "🌊" },
+    ],
+  },
+  {
+    category: "Water Activities",
+    tags: [
+      { name: "Beach Relaxation", emoji: "🏖️" },
+      { name: "Scuba Diving", emoji: "🤿" },
+      { name: "Kayaking", emoji: "🛶" },
+      { name: "Surfing", emoji: "🏄" },
+      { name: "Snorkeling", emoji: "🐠" },
+      { name: "Deep Sea Fishing", emoji: "🎣" },
+      { name: "Sailing", emoji: "⛵" },
+      { name: "Jet Skiing", emoji: "🌊" },
+      { name: "Windsurfing", emoji: "🏄‍♂️" },
+      { name: "Paddleboarding", emoji: "🛶" },
+      { name: "Whale Watching", emoji: "🐋" },
+      { name: "Underwater Photography", emoji: "📷" },
+    ],
+  },
+  {
+    category: "Nature & Wildlife",
+    tags: [
+      { name: "Wildlife Safari", emoji: "🦁" },
+      { name: "Nature Conservation", emoji: "🌱" },
+      { name: "Bird Watching", emoji: "🐦" },
+      { name: "Wildlife Photography", emoji: "📸" },
+      { name: "Stargazing", emoji: "✨" },
+      { name: "Ecotourism", emoji: "🌿" },
+      { name: "Cave Exploring", emoji: "🕳️" },
+      { name: "Butterfly Watching", emoji: "🦋" },
+      { name: "Camping", emoji: "⛺" },
+      { name: "Botanical Gardens", emoji: "🌺" },
+      { name: "National Parks", emoji: "🏞️" },
+      { name: "Volcano Tours", emoji: "🌋" },
+    ],
+  },
+  {
+    category: "Culture & Arts",
+    tags: [
+      { name: "Cultural Immersion", emoji: "🌍" },
+      { name: "Historical Tours", emoji: "🏺" },
+      { name: "Museum Tours", emoji: "🏛️" },
+      { name: "Architecture Tours", emoji: "🏛️" },
+      { name: "Local Handicrafts", emoji: "🧵" },
+      { name: "Temple Visits", emoji: "⛩️" },
+      { name: "Festival Hopping", emoji: "🎊" },
+      { name: "Art Galleries", emoji: "🖼️" },
+      { name: "Traditional Dance", emoji: "💃" },
+      { name: "Local Music", emoji: "🎵" },
+      { name: "Cooking Classes", emoji: "👨‍🍳" },
+      { name: "Language Learning", emoji: "🗣️" },
+      { name: "Religious Sites", emoji: "🙏" },
+    ],
+  },
+  {
+    category: "Food & Lifestyle",
+    tags: [
+      { name: "Culinary Exploration", emoji: "🍽️" },
+      { name: "Street Food Tasting", emoji: "🥘" },
+      { name: "Wine Tasting", emoji: "🍷" },
+      { name: "Spa & Wellness", emoji: "💆" },
+      { name: "Yoga Retreats", emoji: "🧘" },
+      { name: "Nightlife Exploration", emoji: "🌃" },
+      { name: "Food Markets", emoji: "🛒" },
+      { name: "Cooking Classes", emoji: "👨‍🍳" },
+      { name: "Farm Visits", emoji: "🚜" },
+      { name: "Food Photography", emoji: "📸" },
+      { name: "Restaurant Hopping", emoji: "🍴" },
+    ],
+  },
 ];
 
 const PostTripModal = ({
@@ -79,9 +167,10 @@ const PostTripModal = ({
         description: tripData.description || "",
         max_participants: tripData.max_group_size,
         budget_per_person: tripData.budget_per_person || 0,
-        travel_style: tripData.travel_style || [],
+        travel_style: tripData.travel_style || [], // ✅ BACK TO travel_style
       };
     }
+
     return {
       destination: "",
       start_city: "",
@@ -90,7 +179,7 @@ const PostTripModal = ({
       description: "",
       max_participants: 8,
       budget_per_person: 0,
-      travel_style: [] as string[],
+      travel_style: [] as string[], // ✅ BACK TO travel_style
     };
   };
 
@@ -109,16 +198,34 @@ const PostTripModal = ({
     }));
   };
 
-  const handleStyleToggle = (styleId: string) => {
+  // ✅ Handle interest selection with 5 limit (variable name stays same internally)
+  const handleInterestToggle = (interest: string) => {
     setFormData((prev) => {
-      const styles = prev.travel_style.includes(styleId)
-        ? prev.travel_style.filter((s) => s !== styleId)
-        : [...prev.travel_style, styleId];
-      return { ...prev, travel_style: styles };
+      const currentInterests = prev.travel_style || []; // ✅ CHANGED
+
+      if (currentInterests.includes(interest)) {
+        return {
+          ...prev,
+          travel_style: currentInterests.filter((i) => i !== interest), // ✅ CHANGED
+        };
+      }
+
+      if (currentInterests.length >= 5) {
+        toast({
+          title: "Maximum reached",
+          description: "You can select up to 5 interests only",
+          variant: "destructive",
+        });
+        return prev;
+      }
+
+      return {
+        ...prev,
+        travel_style: [...currentInterests, interest], // ✅ CHANGED
+      };
     });
   };
 
-  // ✅ FIXED: Reverted handleSubmit function to simple "active" status
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -127,9 +234,9 @@ const PostTripModal = ({
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       if (!user) throw new Error("You must be logged in to manage trips.");
 
-      // Validate dates
       const startDate = new Date(formData.start_date);
       const endDate = new Date(formData.end_date);
       const today = new Date();
@@ -144,32 +251,26 @@ const PostTripModal = ({
       }
 
       if (mode === "edit" && tripData) {
-        // ✅ UPDATE TRIP - Fixed variable name
         const updateData = {
           destination: formData.destination.trim(),
           start_city: formData.start_city.trim(),
           start_date: formData.start_date,
           end_date: formData.end_date,
           description: formData.description.trim() || null,
-          max_group_size: formData.max_participants, // ✅ FIXED: Use correct field name
+          max_group_size: formData.max_participants,
           budget_per_person:
             formData.budget_per_person > 0 ? formData.budget_per_person : null,
           travel_style:
-            formData.travel_style.length > 0 ? formData.travel_style : null,
+            formData.travel_style.length > 0 ? formData.travel_style : null, // ✅ CHANGED
           updated_at: new Date().toISOString(),
         };
-
-        console.log("Updating trip with data:", updateData);
 
         const { error } = await supabase
           .from("trips")
           .update(updateData)
           .eq("id", tripData.id);
 
-        if (error) {
-          console.error("Supabase update error:", error);
-          throw error;
-        }
+        if (error) throw error;
 
         toast({
           title: "🎉 Trip Updated!",
@@ -178,7 +279,6 @@ const PostTripModal = ({
 
         onTripUpdated?.();
       } else {
-        // ✅ REVERTED: CREATE NEW TRIP - Back to simple "active" status
         const newTrip = {
           creator_id: user.id,
           destination: formData.destination.trim(),
@@ -190,28 +290,25 @@ const PostTripModal = ({
           budget_per_person:
             formData.budget_per_person > 0 ? formData.budget_per_person : null,
           travel_style:
-            formData.travel_style.length > 0 ? formData.travel_style : null,
-          status: "active", // ✅ REVERTED: Back to simple active status
+            formData.travel_style.length > 0 ? formData.travel_style : null, // ✅ CHANGED
+          status: "active",
           current_participants: 1,
         };
 
-        console.log("Creating trip with data:", newTrip);
-
-        const { data, error } = await supabase.from("trips").insert([newTrip])
-          .select(`
+        const { data, error } = await supabase
+          .from("trips")
+          .insert([newTrip])
+          .select(
+            `
             *,
             profiles:creator_id (
               full_name,
               avatar_url
             )
-          `);
+          `
+          );
 
-        if (error) {
-          console.error("Supabase create error:", error);
-          throw error;
-        }
-
-        console.log("Trip created successfully:", data);
+        if (error) throw error;
 
         toast({
           title: "🎉 Trip Created!",
@@ -221,7 +318,6 @@ const PostTripModal = ({
         onTripCreated?.();
       }
 
-      // Reset form only for create mode
       if (mode === "create") {
         setFormData({
           destination: "",
@@ -231,16 +327,12 @@ const PostTripModal = ({
           description: "",
           max_participants: 8,
           budget_per_person: 0,
-          travel_style: [],
+          travel_style: [], // ✅ CHANGED
         });
       }
 
       onClose();
     } catch (error: any) {
-      console.error(
-        `Error ${mode === "edit" ? "updating" : "creating"} trip:`,
-        error
-      );
       toast({
         title: `Failed to ${mode === "edit" ? "update" : "create"} trip`,
         description: error.message || "Please try again later",
@@ -356,6 +448,7 @@ const PostTripModal = ({
                 required
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="end_date" className="text-sm font-medium">
                 End Date *
@@ -388,9 +481,7 @@ const PostTripModal = ({
               type="number"
               placeholder="e.g., 5000"
               value={
-                formData.budget_per_person === 0
-                  ? ""
-                  : formData.budget_per_person
+                formData.budget_per_person > 0 ? formData.budget_per_person : ""
               }
               onChange={(e) =>
                 handleInputChange(
@@ -416,7 +507,7 @@ const PostTripModal = ({
               className="text-sm font-medium flex items-center gap-2"
             >
               <Users className="w-4 h-4 text-accent" />
-              Max Group Size
+              Max Group Size *
             </Label>
             <Input
               id="max_participants"
@@ -435,32 +526,63 @@ const PostTripModal = ({
             />
           </div>
 
-          {/* Travel Style */}
+          {/* ✅ Interests with Emojis */}
           <div className="space-y-3">
             <Label className="text-sm font-medium flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-accent" />
-              Travel Style (optional)
+              Select up to 5 Interests (optional)
             </Label>
-            <div className="flex flex-wrap gap-2">
-              {availableTravelStyles.map((style) => (
-                <Badge
-                  key={style.id}
-                  variant={
-                    formData.travel_style.includes(style.id)
-                      ? "default"
-                      : "outline"
-                  }
-                  onClick={() => handleStyleToggle(style.id)}
-                  className={`cursor-pointer transition-all hover:scale-105 ${
-                    formData.travel_style.includes(style.id)
-                      ? "bg-accent hover:bg-accent/90 text-accent-foreground"
-                      : "hover:bg-accent/10 border-accent/20"
-                  }`}
-                >
-                  <span className="mr-1">{style.emoji}</span>
-                  {style.label}
-                </Badge>
+
+            <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
+              {availableInterests.map(({ category, tags }) => (
+                <div key={category} className="space-y-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1">
+                    {category}
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <Badge
+                        key={tag.name}
+                        variant={
+                          formData.travel_style?.includes(tag.name) // ✅ CHANGED
+                            ? "default"
+                            : "outline"
+                        }
+                        onClick={() => handleInterestToggle(tag.name)}
+                        className={`cursor-pointer transition-all hover:scale-105 text-sm ${
+                          formData.travel_style?.includes(tag.name) // ✅ CHANGED
+                            ? "bg-accent hover:bg-accent/90 text-accent-foreground shadow-md"
+                            : "hover:bg-accent/10 border-accent/20"
+                        }`}
+                      >
+                        <span className="mr-1.5">{tag.emoji}</span>
+                        {tag.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                {formData.travel_style?.length || 0}/5 interests selected{" "}
+                {/* ✅ CHANGED */}
+              </p>
+              {formData.travel_style &&
+                formData.travel_style.length > 0 && ( // ✅ CHANGED
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, travel_style: [] }))
+                    } // ✅ CHANGED
+                    className="h-7 text-xs"
+                  >
+                    Clear all
+                  </Button>
+                )}
             </div>
           </div>
 
@@ -503,14 +625,14 @@ const PostTripModal = ({
                 </span>
               )}
             </Button>
-          </div>
 
-          {!isFormValid && (
-            <p className="text-xs text-muted-foreground text-center">
-              Please fill in all required fields (*) to{" "}
-              {mode === "edit" ? "update" : "create"} your trip
-            </p>
-          )}
+            {!isFormValid && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Please fill in all required fields (*) to{" "}
+                {mode === "edit" ? "update" : "create"} your trip
+              </p>
+            )}
+          </div>
         </form>
       </DialogContent>
     </Dialog>

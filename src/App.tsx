@@ -9,7 +9,7 @@ import { User } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
 import AppNavigation from "@/components/navigation/AppNavigation";
 import CookieConsent from "@/components/cookies/CookieConsent";
-import ConsentModal from "@/components/consent/ConsentModal"; // ✅ 1. Import ConsentModal
+import ConsentModal from "@/components/consent/ConsentModal";
 import Index from "@/pages/Index";
 import NotFound from "./pages/NotFound";
 import TripDetailsPage from "./pages/TripDetailsPage";
@@ -28,7 +28,12 @@ import CommunityMembersPage from "@/pages/CommunityMembersPage";
 import TermsConditions from "./pages/TermsConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MyRewardsPage from "./pages/RewardsPage";
-import ResetPassword from "./pages/ResetPassword"; 
+import ResetPassword from "./pages/ResetPassword";
+
+// ✅ Import image caching utilities
+import { imageCacheManager } from "@/lib/imageCache";
+import { getDestinationImage } from "@/lib/images";
+
 const queryClient = new QueryClient();
 
 const AppLayout = ({ user }: { user: User | null }) => {
@@ -77,8 +82,9 @@ const AppLayout = ({ user }: { user: User | null }) => {
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [requireConsentModal, setRequireConsentModal] = useState(false); // ✅ 2. Modal state
+  const [requireConsentModal, setRequireConsentModal] = useState(false);
 
+  // 1️⃣ Get user session
   useEffect(() => {
     const getSession = async () => {
       const {
@@ -100,7 +106,63 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ✅ 3. Check for consent after login
+  // 2️⃣ ✅ Preload destination images in background (after app loads)
+  useEffect(() => {
+    const preloadDestinationImages = async () => {
+      // Wait 2 seconds after app loads to not block initial render
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const destinations = [
+        "manali",
+        "goa",
+        "rishikesh",
+        "jaipur",
+        "shimla",
+        "udaipur",
+        "kerala",
+        "leh-ladakh",
+        "varanasi",
+        "darjeeling",
+        "ooty",
+        "andaman",
+        "agra",
+        "amristar",
+        "mysore",
+        "pondicherry",
+        "coorg",
+        "nainital",
+        "ranthambore",
+        "kasol",
+      ];
+
+      const imageData = destinations.map((name) => ({
+        name,
+        url: getDestinationImage(name),
+      }));
+
+      try {
+        // Check if already cached
+        const stats = imageCacheManager.getCacheStats();
+        if (stats.count === 20) {
+          console.log("✅ Images already cached, skipping preload");
+          return;
+        }
+
+        console.log("🎯 Starting background image preload...");
+        await imageCacheManager.preloadImages(imageData);
+        console.log("✅ Background image preload complete!");
+      } catch (error) {
+        console.warn("⚠️ Background preload failed:", error);
+      }
+    };
+
+    // Only preload if not loading and app is ready
+    if (!loading) {
+      preloadDestinationImages();
+    }
+  }, [loading]); // Run after loading completes
+
+  // 3️⃣ Check for consent after login
   useEffect(() => {
     if (user) {
       supabase
@@ -134,7 +196,7 @@ const App = () => {
         <Sonner />
         <TripCacheProvider>
           <BrowserRouter>
-            {/* ✅ 4. Show ConsentModal over everything if required */}
+            {/* Show ConsentModal over everything if required */}
             {requireConsentModal && user && (
               <ConsentModal
                 userId={user.id}

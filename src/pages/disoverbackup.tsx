@@ -30,9 +30,17 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
 import { POPULAR_CITIES } from "@/lib/constants";
+// --- Types (Kept same) ---
+type Profile = {
+  full_name: string;
+  avatar_url: string;
+};
 
-type Profile = { full_name: string; avatar_url: string };
-type TripParticipant = { user_id: string; joined_at: string };
+type TripParticipant = {
+  user_id: string;
+  joined_at: string;
+};
+
 type Trip = {
   id: number;
   creator_id: string;
@@ -54,60 +62,6 @@ type Trip = {
 interface DiscoverPageProps {
   user: User | null;
 }
-
-const TripCardWrapper = ({
-  trip,
-  navigate,
-  toggleBookmark,
-  isBookmarked,
-  refreshTrips,
-}: any) => {
-  const tripPrice = trip.budget_per_person
-    ? { amount: trip.budget_per_person, currency: "INR" }
-    : undefined;
-
-  const tripCreator = {
-    id: trip.creator_id,
-    name: trip.profiles?.full_name || "A Wanderer",
-    avatar: trip.profiles?.avatar_url || "",
-    rating: 4.8,
-    verificationBadges: ["verified"],
-    isHost: true,
-  };
-
-  const tripGroupSize = {
-    current: trip.current_participants || 0,
-    max: trip.max_participants,
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <EnhancedTripCard
-        id={trip.id}
-        destination={trip.destination}
-        startDate={trip.start_date}
-        endDate={trip.end_date}
-        startCity={trip.start_city}
-        description={trip.description || "No description provided."}
-        creator={tripCreator}
-        vibe={trip.travel_style || ["Adventure"]}
-        groupSize={tripGroupSize}
-        interestedCount={trip.current_participants || 0}
-        status={trip.status}
-        price={tripPrice}
-        isFemaleOnly={false}
-        isInstantJoin={true}
-        postedAt={trip.created_at}
-        isBookmarked={isBookmarked(trip.id)}
-        onBookmarkClick={() => toggleBookmark(trip.id)}
-        onClick={() => navigate(`/trip/${trip.id}`)}
-        onChatClick={() => {}}
-        onLikeClick={() => {}}
-        onStatusChange={() => refreshTrips()}
-      />
-    </motion.div>
-  );
-};
 
 const DiscoverPage = ({ user }: DiscoverPageProps) => {
   const navigate = useNavigate();
@@ -169,10 +123,10 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         .from("trips")
         .select(
           `
-            *,
-            profiles!trips_creator_id_fkey(full_name, avatar_url),
-            trip_participants(user_id, joined_at)
-          `
+          *,
+          profiles!trips_creator_id_fkey(full_name, avatar_url),
+          trip_participants(user_id, joined_at)
+        `
         )
         .eq("status", "active")
         .order("created_at", { ascending: false });
@@ -419,9 +373,9 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     console.log("👀 Displayed trips:", displayedTrips.length);
   }, [filters, allTrips, filteredTrips, displayedTrips]);
   // --- RENDER ---
-
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 pb-20">
+      {/* 1. Modern Hero Section */}
       {/* 1. Modern Hero Section - LIGHTER GRADIENT */}
       <div className="relative bg-gradient-to-br from-orange-50 via-orange-100 to-pink-50 pt-16 pb-32 px-4 shadow-sm overflow-hidden">
         {/* Abstract Background Shapes - More Subtle */}
@@ -578,7 +532,52 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         </Card>
       </div>
 
+      {/* 3. Main Content Area */}
       <div id="trips-section" className="max-w-7xl mx-auto px-4 mt-8">
+        {/* ✅ Active Filter Badge - Show when filtering by destination */}
+        {filters.search && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6"
+          >
+            {/* <Card className="p-4 bg-gradient-to-r from-orange-50 to-pink-50 border-orange-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Showing trips to</p>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {filters.search}
+                    </h3>
+                  </div>
+                  <Badge className="bg-orange-500 text-white">
+                    {filteredTrips.length}{" "}
+                    {filteredTrips.length === 1 ? "trip" : "trips"}
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFilters((prev) => ({ ...prev, search: "" }));
+                    toast({
+                      title: "Filters cleared",
+                      description: "Showing all destinations",
+                    });
+                  }}
+                  className="hover:bg-orange-100 text-gray-600"
+                >
+                  Clear Filter
+                </Button>
+              </div>
+            </Card> */}
+          </motion.div>
+        )}
+
         <AnimatePresence mode="wait">
           {viewMode === "map" ? (
             <motion.div
@@ -589,6 +588,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
+              {/* Map Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 space-y-4">
                   <MapFilters
@@ -601,21 +601,22 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                         : undefined
                     }
                   />
+                  {/* Map Legend */}
                   <Card className="p-4">
                     <h3 className="font-semibold text-sm mb-3">
                       Travel Styles
                     </h3>
                     <div className="space-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full" />
+                        <div className="w-3 h-3 bg-red-500 rounded-full" />{" "}
                         Adventure
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full" />
+                        <div className="w-3 h-3 bg-green-500 rounded-full" />{" "}
                         Relaxation
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                        <div className="w-3 h-3 bg-blue-500 rounded-full" />{" "}
                         Cultural
                       </div>
                     </div>
@@ -651,6 +652,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               transition={{ duration: 0.3 }}
             >
               {loading ? (
+                // Skeleton Loader Grid
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div
@@ -660,6 +662,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                   ))}
                 </div>
               ) : filteredTrips.length === 0 ? (
+                // Empty State
                 <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-300">
                   <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mb-4">
                     <Search className="w-10 h-10 text-orange-400" />
@@ -668,7 +671,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                     No adventures found
                   </h3>
                   <p className="text-gray-500 mt-2 max-w-md text-center">
-                    We could not find any trips matching your criteria. Try
+                    We couldn't find any trips matching your criteria. Try
                     adjusting your filters or searching for a different
                     destination.
                   </p>
@@ -692,22 +695,63 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                   </Button>
                 </div>
               ) : (
+                // ✅ Trips Grid
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {displayedTrips.map((trip) => {
-                    return (
-                      <TripCardWrapper
-                        key={trip.id}
-                        trip={trip}
-                        navigate={navigate}
-                        toggleBookmark={toggleBookmark}
-                        isBookmarked={isBookmarked}
-                        refreshTrips={refreshTrips}
+                  {displayedTrips.map((trip, index) => (
+                    <motion.div
+                      key={trip.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <EnhancedTripCard
+                        id={trip.id}
+                        destination={trip.destination}
+                        startDate={trip.start_date}
+                        endDate={trip.end_date}
+                        startCity={trip.start_city}
+                        description={
+                          trip.description || "No description provided."
+                        }
+                        creator={{
+                          id: trip.creator_id,
+                          name: trip.profiles?.full_name || "A Wanderer",
+                          avatar: trip.profiles?.avatar_url || "",
+                          rating: 4.8,
+                          verificationBadges: ["verified"],
+                          isHost: true,
+                        }}
+                        vibe={trip.travel_style || ["Adventure"]}
+                        groupSize={{
+                          current: trip.current_participants || 0,
+                          max: trip.max_participants,
+                        }}
+                        interestedCount={trip.current_participants || 0}
+                        status={trip.status as any}
+                        price={
+                          trip.budget_per_person
+                            ? {
+                                amount: trip.budget_per_person,
+                                currency: "INR",
+                              }
+                            : undefined
+                        }
+                        isFemaleOnly={false}
+                        isInstantJoin={true}
+                        postedAt={trip.created_at}
+                        isBookmarked={isBookmarked(trip.id)}
+                        onBookmarkClick={() => toggleBookmark(trip.id)}
+                        onClick={() => navigate(`/trip/${trip.id}`)}
+                        onChatClick={() => console.log("Chat", trip.id)}
+                        onLikeClick={() => console.log("Like", trip.id)}
+                        onStatusChange={() => refreshTrips()}
                       />
-                    );
-                  })}
+                    </motion.div>
+                  ))}
                 </div>
               )}
 
+              {/* Load More Section */}
               <div className="mt-10 flex justify-center">
                 {displayedTrips.length < filteredTrips.length ? (
                   <Button
@@ -721,7 +765,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                   displayedTrips.length > 0 && (
                     <div className="inline-flex items-center px-6 py-3 rounded-full bg-orange-50 text-orange-700 text-sm font-medium">
                       <Sparkles className="w-4 h-4 mr-2" />
-                      You have reached the end of the list!
+                      You've reached the end of the list!
                     </div>
                   )
                 )}

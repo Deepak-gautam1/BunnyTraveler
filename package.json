@@ -48,7 +48,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
-    "framer-motion": "^12.23.12",
+    "framer-motion": "^12.23.26",
     "input-otp": "^1.4.2",
     "js-cookie": "^3.0.5",
     "leaflet": "^1.9.4",

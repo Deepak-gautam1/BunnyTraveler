@@ -1,5 +1,5 @@
 // src/components/discover/FilterBar.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Calendar } from "@/components/ui/calendar";
+import { POPULAR_CITIES } from "@/lib/constants";
 import {
   Popover,
   PopoverContent,
@@ -43,36 +44,448 @@ export interface FilterOptions {
 interface FilterBarProps {
   onFiltersChange: (filters: FilterOptions) => void;
   totalResults?: number;
+  currentFilters?: FilterOptions;
 }
 
+// ✅ UPDATED: Complete travel styles from all 6 categories with emojis
 const TRAVEL_STYLES = [
-  { id: "adventure", label: "Adventure", emoji: "🏔️" },
-  { id: "cultural", label: "Cultural", emoji: "🏛️" },
-  { id: "relaxation", label: "Relaxation", emoji: "🌴" },
-  { id: "foodie", label: "Foodie", emoji: "🍜" },
-  { id: "nightlife", label: "Nightlife", emoji: "🌃" },
-  { id: "budget", label: "Budget", emoji: "💰" },
-  { id: "luxury", label: "Luxury", emoji: "✨" },
-  { id: "solo-friendly", label: "Solo Friendly", emoji: "🎒" },
-  { id: "photography", label: "Photography", emoji: "📸" },
-  { id: "spiritual", label: "Spiritual", emoji: "🕉️" },
-  { id: "backpacking", label: "Backpacking", emoji: "🏃‍♂️" },
-  { id: "wellness", label: "Wellness", emoji: "🧘‍♀️" },
+  // Travel Styles Category
+  {
+    id: "City Exploration",
+    label: "City Exploration",
+    emoji: "🏙️",
+    category: "Travel Styles",
+  },
+  {
+    id: "Backpacking",
+    label: "Backpacking",
+    emoji: "🎒",
+    category: "Travel Styles",
+  },
+  {
+    id: "Road Trips",
+    label: "Road Trips",
+    emoji: "🚗",
+    category: "Travel Styles",
+  },
+  {
+    id: "Photography Tours",
+    label: "Photography Tours",
+    emoji: "📷",
+    category: "Travel Styles",
+  },
+  {
+    id: "Cruise Travel",
+    label: "Cruise Travel",
+    emoji: "🚢",
+    category: "Travel Styles",
+  },
+  {
+    id: "Train Journeys",
+    label: "Train Journeys",
+    emoji: "🚆",
+    category: "Travel Styles",
+  },
+  {
+    id: "Desert Exploration",
+    label: "Desert Exploration",
+    emoji: "🌵",
+    category: "Travel Styles",
+  },
+  {
+    id: "Solo Travel",
+    label: "Solo Travel",
+    emoji: "🧳",
+    category: "Travel Styles",
+  },
+  {
+    id: "Luxury Travel",
+    label: "Luxury Travel",
+    emoji: "👑",
+    category: "Travel Styles",
+  },
+  {
+    id: "Budget Travel",
+    label: "Budget Travel",
+    emoji: "💸",
+    category: "Travel Styles",
+  },
+  {
+    id: "Slow Travel",
+    label: "Slow Travel",
+    emoji: "🐢",
+    category: "Travel Styles",
+  },
+  {
+    id: "Digital Nomad",
+    label: "Digital Nomad",
+    emoji: "💻",
+    category: "Travel Styles",
+  },
+
+  // Adventure Category
+  {
+    id: "Mountain Hiking",
+    label: "Mountain Hiking",
+    emoji: "🏔️",
+    category: "Adventure",
+  },
+  {
+    id: "Adventure Sports",
+    label: "Adventure Sports",
+    emoji: "🏅",
+    category: "Adventure",
+  },
+  {
+    id: "Rock Climbing",
+    label: "Rock Climbing",
+    emoji: "🧗",
+    category: "Adventure",
+  },
+  {
+    id: "River Rafting",
+    label: "River Rafting",
+    emoji: "🛶",
+    category: "Adventure",
+  },
+  {
+    id: "Jungle Trekking",
+    label: "Jungle Trekking",
+    emoji: "🌴",
+    category: "Adventure",
+  },
+  {
+    id: "Bungee Jumping",
+    label: "Bungee Jumping",
+    emoji: "⚡",
+    category: "Adventure",
+  },
+  { id: "Skydiving", label: "Skydiving", emoji: "🪂", category: "Adventure" },
+  {
+    id: "Mountain Biking",
+    label: "Mountain Biking",
+    emoji: "🚵",
+    category: "Adventure",
+  },
+  { id: "Canyoning", label: "Canyoning", emoji: "🌊", category: "Adventure" },
+
+  // Water Activities Category
+  {
+    id: "Beach Relaxation",
+    label: "Beach Relaxation",
+    emoji: "🏖️",
+    category: "Water Activities",
+  },
+  {
+    id: "Scuba Diving",
+    label: "Scuba Diving",
+    emoji: "🤿",
+    category: "Water Activities",
+  },
+  {
+    id: "Kayaking",
+    label: "Kayaking",
+    emoji: "🛶",
+    category: "Water Activities",
+  },
+  {
+    id: "Surfing",
+    label: "Surfing",
+    emoji: "🏄",
+    category: "Water Activities",
+  },
+  {
+    id: "Snorkeling",
+    label: "Snorkeling",
+    emoji: "🐠",
+    category: "Water Activities",
+  },
+  {
+    id: "Deep Sea Fishing",
+    label: "Deep Sea Fishing",
+    emoji: "🎣",
+    category: "Water Activities",
+  },
+  {
+    id: "Sailing",
+    label: "Sailing",
+    emoji: "⛵",
+    category: "Water Activities",
+  },
+  {
+    id: "Jet Skiing",
+    label: "Jet Skiing",
+    emoji: "🌊",
+    category: "Water Activities",
+  },
+  {
+    id: "Windsurfing",
+    label: "Windsurfing",
+    emoji: "🏄‍♂️",
+    category: "Water Activities",
+  },
+  {
+    id: "Paddleboarding",
+    label: "Paddleboarding",
+    emoji: "🛶",
+    category: "Water Activities",
+  },
+  {
+    id: "Whale Watching",
+    label: "Whale Watching",
+    emoji: "🐋",
+    category: "Water Activities",
+  },
+  {
+    id: "Underwater Photography",
+    label: "Underwater Photography",
+    emoji: "📷",
+    category: "Water Activities",
+  },
+
+  // Nature & Wildlife Category
+  {
+    id: "Wildlife Safari",
+    label: "Wildlife Safari",
+    emoji: "🦁",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Nature Conservation",
+    label: "Nature Conservation",
+    emoji: "🌱",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Bird Watching",
+    label: "Bird Watching",
+    emoji: "🐦",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Wildlife Photography",
+    label: "Wildlife Photography",
+    emoji: "📸",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Stargazing",
+    label: "Stargazing",
+    emoji: "✨",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Ecotourism",
+    label: "Ecotourism",
+    emoji: "🌿",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Cave Exploring",
+    label: "Cave Exploring",
+    emoji: "🕳️",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Butterfly Watching",
+    label: "Butterfly Watching",
+    emoji: "🦋",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Camping",
+    label: "Camping",
+    emoji: "⛺",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Botanical Gardens",
+    label: "Botanical Gardens",
+    emoji: "🌺",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "National Parks",
+    label: "National Parks",
+    emoji: "🏞️",
+    category: "Nature & Wildlife",
+  },
+  {
+    id: "Volcano Tours",
+    label: "Volcano Tours",
+    emoji: "🌋",
+    category: "Nature & Wildlife",
+  },
+
+  // Culture & Arts Category
+  {
+    id: "Cultural Immersion",
+    label: "Cultural Immersion",
+    emoji: "🌍",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Historical Tours",
+    label: "Historical Tours",
+    emoji: "🏺",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Museum Tours",
+    label: "Museum Tours",
+    emoji: "🏛️",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Architecture Tours",
+    label: "Architecture Tours",
+    emoji: "🏛️",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Local Handicrafts",
+    label: "Local Handicrafts",
+    emoji: "🧵",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Temple Visits",
+    label: "Temple Visits",
+    emoji: "⛩️",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Festival Hopping",
+    label: "Festival Hopping",
+    emoji: "🎊",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Art Galleries",
+    label: "Art Galleries",
+    emoji: "🖼️",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Traditional Dance",
+    label: "Traditional Dance",
+    emoji: "💃",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Local Music",
+    label: "Local Music",
+    emoji: "🎵",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Language Learning",
+    label: "Language Learning",
+    emoji: "🗣️",
+    category: "Culture & Arts",
+  },
+  {
+    id: "Religious Sites",
+    label: "Religious Sites",
+    emoji: "🙏",
+    category: "Culture & Arts",
+  },
+
+  // Food & Lifestyle Category
+  {
+    id: "Culinary Exploration",
+    label: "Culinary Exploration",
+    emoji: "🍽️",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Street Food Tasting",
+    label: "Street Food Tasting",
+    emoji: "🥘",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Wine Tasting",
+    label: "Wine Tasting",
+    emoji: "🍷",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Spa & Wellness",
+    label: "Spa & Wellness",
+    emoji: "💆",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Yoga Retreats",
+    label: "Yoga Retreats",
+    emoji: "🧘",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Nightlife Exploration",
+    label: "Nightlife Exploration",
+    emoji: "🌃",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Food Markets",
+    label: "Food Markets",
+    emoji: "🛒",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Cooking Classes",
+    label: "Cooking Classes",
+    emoji: "👨‍🍳",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Farm Visits",
+    label: "Farm Visits",
+    emoji: "🚜",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Food Photography",
+    label: "Food Photography",
+    emoji: "📸",
+    category: "Food & Lifestyle",
+  },
+  {
+    id: "Restaurant Hopping",
+    label: "Restaurant Hopping",
+    emoji: "🍴",
+    category: "Food & Lifestyle",
+  },
 ];
 
-const POPULAR_CITIES = [
-  "Delhi",
-  "Mumbai",
-  "Bangalore",
-  "Chennai",
-  "Pune",
-  "Hyderabad",
-  "Ahmedabad",
-  "Jaipur",
-  "Kolkata",
-  "Kochi",
-  "Goa",
-  "Chandigarh",
+// ✅ Group travel styles by category for better organization
+const TRAVEL_STYLES_BY_CATEGORY = [
+  {
+    name: "Travel Styles",
+    styles: TRAVEL_STYLES.filter((s) => s.category === "Travel Styles"),
+  },
+  {
+    name: "Adventure",
+    styles: TRAVEL_STYLES.filter((s) => s.category === "Adventure"),
+  },
+  {
+    name: "Water Activities",
+    styles: TRAVEL_STYLES.filter((s) => s.category === "Water Activities"),
+  },
+  {
+    name: "Nature & Wildlife",
+    styles: TRAVEL_STYLES.filter((s) => s.category === "Nature & Wildlife"),
+  },
+  {
+    name: "Culture & Arts",
+    styles: TRAVEL_STYLES.filter((s) => s.category === "Culture & Arts"),
+  },
+  {
+    name: "Food & Lifestyle",
+    styles: TRAVEL_STYLES.filter((s) => s.category === "Food & Lifestyle"),
+  },
 ];
 
 const SORT_OPTIONS = [
@@ -82,13 +495,16 @@ const SORT_OPTIONS = [
   { value: "date", label: "Trip Date" },
 ];
 
-const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
-  // ✅ 1. LOAD saved filters from cookies on mount
+const FilterBar = ({
+  onFiltersChange,
+  totalResults = 0,
+  currentFilters,
+}: FilterBarProps) => {
+  // ✅ LOAD saved filters from cookies on mount
   const [filters, setFilters] = useState<FilterOptions>(() => {
     const savedFilters = getCookie<FilterOptions>(COOKIE_KEYS.SEARCH_FILTERS);
 
     if (savedFilters) {
-      // Convert date strings back to Date objects
       return {
         ...savedFilters,
         startDate: savedFilters.startDate
@@ -98,7 +514,6 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
       };
     }
 
-    // Default filters if no cookie
     return {
       search: "",
       budgetRange: [0, 10000],
@@ -111,21 +526,35 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
     };
   });
 
-  // ✅ 2. LOAD saved UI states from cookies
   const [showAdvanced, setShowAdvanced] = useState(() => {
     return getCookie(COOKIE_KEYS.SHOW_ADVANCED_FILTERS) || false;
   });
-
   const [showAllTravelStyles, setShowAllTravelStyles] = useState(false);
   const [showAllCities, setShowAllCities] = useState(false);
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
-  // ✅ 3. SAVE filters to cookies whenever they change
-  // ✅ 3. SAVE filters to cookies whenever they change
+  // ✅ Track if we're syncing from parent to prevent loop
+  const isSyncingFromParent = useRef(false);
+
   useEffect(() => {
+    if (currentFilters && currentFilters.search !== filters.search) {
+      isSyncingFromParent.current = true; // Mark as syncing
+      setFilters((prev) => ({
+        ...prev,
+        search: currentFilters.search,
+        cities: currentFilters.cities || prev.cities,
+      }));
+    }
+  }, [currentFilters?.search, currentFilters?.cities]);
+
+  useEffect(() => {
+    if (isSyncingFromParent.current) {
+      isSyncingFromParent.current = false; // Reset flag
+      return;
+    }
+
     onFiltersChange(filters);
 
-    // Update active filter count
     let count = 0;
     if (filters.search) count++;
     if (filters.budgetRange[0] > 0 || filters.budgetRange[1] < 10000) count++;
@@ -135,26 +564,12 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
     if (filters.cities.length > 0) count++;
     setActiveFiltersCount(count);
 
-    // Save to cookies (expires in 7 days)
     setCookie(COOKIE_KEYS.SEARCH_FILTERS, filters, 7);
   }, [filters, onFiltersChange]);
 
-  // ✅ 4. SAVE "Show Advanced" state
   useEffect(() => {
     setCookie(COOKIE_KEYS.SHOW_ADVANCED_FILTERS, showAdvanced, 30);
   }, [showAdvanced]);
-
-  // Rest of your code stays the same...
-  const updateActiveFiltersCount = () => {
-    let count = 0;
-    if (filters.search) count++;
-    if (filters.budgetRange[0] > 0 || filters.budgetRange[1] < 10000) count++;
-    if (filters.startDate || filters.endDate) count++;
-    if (filters.groupSize[0] > 1 || filters.groupSize[1] < 20) count++;
-    if (filters.travelStyles.length > 0) count++;
-    if (filters.cities.length > 0) count++;
-    setActiveFiltersCount(count);
-  };
 
   const updateFilters = (updates: Partial<FilterOptions>) => {
     setFilters((prev) => ({ ...prev, ...updates }));
@@ -162,20 +577,17 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
 
   const clearAllFilters = () => {
     const defaultFilters = {
-      // ✅ Add 'const' here
       search: "",
-      budgetRange: [0, 10000] as [number, number], // ✅ Add type assertion
+      budgetRange: [0, 10000] as [number, number],
       startDate: null,
       endDate: null,
-      groupSize: [1, 20] as [number, number], // ✅ Add type assertion
+      groupSize: [1, 20] as [number, number],
       travelStyles: [],
       cities: [],
-      sortBy: "newest" as const, // ✅ Add 'as const'
+      sortBy: "newest" as const,
     };
 
     setFilters(defaultFilters);
-
-    // ✅ Clear cookies when clearing filters
     setCookie(COOKIE_KEYS.SEARCH_FILTERS, defaultFilters, 7);
   };
 
@@ -199,21 +611,19 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
     return `₹${amount}`;
   };
 
-  // Mobile: Show only 3 travel styles initially
+  // ✅ Show top 8 most popular styles initially, then all
   const visibleTravelStyles = showAllTravelStyles
     ? TRAVEL_STYLES
-    : TRAVEL_STYLES.slice(0, 3);
+    : TRAVEL_STYLES.slice(0, 8);
 
-  // Mobile: Show only 4 cities initially
   const visibleCities = showAllCities
     ? POPULAR_CITIES
-    : POPULAR_CITIES.slice(0, 4);
+    : POPULAR_CITIES.slice(0, 12);
 
   return (
     <Card className="p-3 md:p-6 space-y-3 md:space-y-6 bg-white border-0 shadow-soft">
-      {/* ✅ DESKTOP: Search and Filters in ONE ROW | MOBILE: Stacked */}
+      {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-3 md:gap-4 md:items-center">
-        {/* Search Input - Takes full width on mobile, flex-1 on desktop */}
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 md:w-5 md:h-5" />
           <Input
@@ -224,7 +634,6 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
           />
         </div>
 
-        {/* Quick Action Buttons */}
         <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
           <Button
             variant={showAdvanced ? "default" : "outline"}
@@ -255,7 +664,7 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
         </div>
       </div>
 
-      {/* Results Count and Sort - Hidden on mobile to save space */}
+      {/* Results Count and Sort */}
       {totalResults >= 0 && (
         <div className="hidden md:flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
@@ -263,7 +672,6 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
             {totalResults === 1 ? "trip" : "trips"} found
           </div>
 
-          {/* Sort Options */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground shrink-0">
               Sort:
@@ -291,7 +699,7 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
         </div>
       )}
 
-      {/* Mobile Sort Dropdown */}
+      {/* Mobile Sort */}
       <div className="md:hidden">
         <Label className="text-xs text-muted-foreground mb-1 block">
           Sort:
@@ -322,9 +730,8 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
       {/* Advanced Filters Panel */}
       {showAdvanced && (
         <div className="space-y-4 md:space-y-6 pt-3 md:pt-4 border-t">
-          {/* Budget and Group Size Row */}
+          {/* Budget and Group Size */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {/* Budget Range */}
             <div className="space-y-3 md:space-y-4">
               <Label className="flex items-center gap-2 font-medium text-sm md:text-base">
                 <IndianRupee className="w-4 h-4 md:w-5 md:h-5 text-accent" />
@@ -352,7 +759,6 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
               </div>
             </div>
 
-            {/* Group Size */}
             <div className="space-y-3 md:space-y-4">
               <Label className="flex items-center gap-2 font-medium text-sm md:text-base">
                 <Users className="w-4 h-4 md:w-5 md:h-5 text-accent" />
@@ -447,53 +853,87 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
 
           <Separator className="my-3 md:my-4" />
 
-          {/* Travel Styles */}
+          {/* ✅ UPDATED: Travel Styles with Categories */}
           <div className="space-y-3 md:space-y-4">
             <Label className="flex items-center gap-2 font-medium text-sm md:text-base">
               <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-accent" />
-              Travel Styles
+              Travel Interests
             </Label>
-            <div className="flex flex-wrap gap-1.5 md:gap-2">
-              {visibleTravelStyles.map((style) => (
-                <Badge
-                  key={style.id}
-                  variant={
-                    filters.travelStyles.includes(style.id)
-                      ? "default"
-                      : "outline"
-                  }
-                  className={`cursor-pointer transition-all hover:scale-105 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2 ${
-                    filters.travelStyles.includes(style.id)
-                      ? "bg-accent hover:bg-accent/90 text-accent-foreground"
-                      : "hover:bg-accent/10 border-accent/20"
-                  }`}
-                  onClick={() => toggleTravelStyle(style.id)}
-                >
-                  <span className="mr-1 md:mr-2">{style.emoji}</span>
-                  {style.label}
-                </Badge>
-              ))}
-              {TRAVEL_STYLES.length > 3 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAllTravelStyles(!showAllTravelStyles)}
-                  className="h-7 md:h-8 px-2 md:px-3 text-xs text-accent"
-                >
-                  {showAllTravelStyles ? (
-                    <>
-                      <ChevronUp className="w-3 h-3 mr-1" />
-                      Less
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-3 h-3 mr-1" />
-                      More
-                    </>
-                  )}
-                </Button>
+
+            {/* Show by category when expanded, flat list when collapsed */}
+            {showAllTravelStyles ? (
+              <div className="space-y-4">
+                {TRAVEL_STYLES_BY_CATEGORY.map((category) => (
+                  <div key={category.name} className="space-y-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {category.name}
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5 md:gap-2">
+                      {category.styles.map((style) => (
+                        <Badge
+                          key={style.id}
+                          variant={
+                            filters.travelStyles.includes(style.id)
+                              ? "default"
+                              : "outline"
+                          }
+                          className={`cursor-pointer transition-all hover:scale-105 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2 ${
+                            filters.travelStyles.includes(style.id)
+                              ? "bg-accent hover:bg-accent/90 text-accent-foreground"
+                              : "hover:bg-accent/10 border-accent/20"
+                          }`}
+                          onClick={() => toggleTravelStyle(style.id)}
+                        >
+                          <span className="mr-1 md:mr-2">{style.emoji}</span>
+                          {style.label}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 md:gap-2">
+                {visibleTravelStyles.map((style) => (
+                  <Badge
+                    key={style.id}
+                    variant={
+                      filters.travelStyles.includes(style.id)
+                        ? "default"
+                        : "outline"
+                    }
+                    className={`cursor-pointer transition-all hover:scale-105 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2 ${
+                      filters.travelStyles.includes(style.id)
+                        ? "bg-accent hover:bg-accent/90 text-accent-foreground"
+                        : "hover:bg-accent/10 border-accent/20"
+                    }`}
+                    onClick={() => toggleTravelStyle(style.id)}
+                  >
+                    <span className="mr-1 md:mr-2">{style.emoji}</span>
+                    {style.label}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAllTravelStyles(!showAllTravelStyles)}
+              className="h-7 md:h-8 px-2 md:px-3 text-xs text-accent"
+            >
+              {showAllTravelStyles ? (
+                <>
+                  <ChevronUp className="w-3 h-3 mr-1" />
+                  Show Less
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3 h-3 mr-1" />
+                  Show All ({TRAVEL_STYLES.length} interests)
+                </>
               )}
-            </div>
+            </Button>
           </div>
 
           {/* Popular Cities */}
@@ -519,7 +959,7 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
                   {city}
                 </Badge>
               ))}
-              {POPULAR_CITIES.length > 4 && (
+              {POPULAR_CITIES.length > 12 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -529,12 +969,12 @@ const FilterBar = ({ onFiltersChange, totalResults = 0 }: FilterBarProps) => {
                   {showAllCities ? (
                     <>
                       <ChevronUp className="w-3 h-3 mr-1" />
-                      Less
+                      Show Less
                     </>
                   ) : (
                     <>
-                      <ChevronDown className="w-3 h-3 mr-1" />
-                      More
+                      <ChevronDown className="w-3 h-3 mr-1" />+
+                      {POPULAR_CITIES.length - 12} More Cities
                     </>
                   )}
                 </Button>
