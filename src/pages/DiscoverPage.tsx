@@ -536,17 +536,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               </Button>
 
               {/* Add this near your refresh button for testing */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  console.log("Current filters:", filters);
-                  console.log("Filtered trips:", filteredTrips);
-                  console.log("Displayed trips:", displayedTrips);
-                }}
-              >
-                Debug
-              </Button>
 
               {/* View Switcher (Segmented Control style) */}
               <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-full flex">
