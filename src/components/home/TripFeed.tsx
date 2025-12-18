@@ -567,8 +567,8 @@ const TripFeed = ({ user }: TripFeedProps) => {
   const hasMore = trips.length < totalTrips && totalTrips > 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="pb-20">
+    <div className="min-h-screen bg-background w-full overflow-x-hidden relative">
+      <main className="pb-20 w-full max-w-[100vw]">
         <div className="px-4 pb-4">
           <div className="gradient-warm rounded-2xl p-6 text-center space-y-2 shadow-soft">
             <h2 className="text-lg font-semibold text-white">
@@ -948,8 +948,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           <CommunityHighlights />
         </div>
       </main>
-
-      <div className="fixed bottom-6 right-6 z-30">
+      <div className="hidden md:block fixed bottom-6 right-6 z-30">
         <Button
           variant="fab"
           onClick={handlePostTrip}
@@ -961,13 +960,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
           Post your trip!
         </div>
       </div>
-
       <PostTripModal
         open={isPostModalOpen}
         onClose={() => setIsPostModalOpen(false)}
         onTripCreated={refreshTrips}
       />
-
       {showSignInModal && (
         <div className="fixed inset-0 z-50 bg-background animate-fade-in">
           <LandingPage onSkipForNow={() => setShowSignInModal(false)} />
@@ -980,7 +977,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
           </Button>
         </div>
       )}
-
       <AuthGuard
         isOpen={authGuard.isOpen}
         onClose={() => setAuthGuard({ ...authGuard, isOpen: false })}

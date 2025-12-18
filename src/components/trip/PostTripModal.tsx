@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getCityCoordinates } from "@/lib/geocoding";
 
 interface TripData {
   id: number;
@@ -250,20 +251,59 @@ const PostTripModal = ({
         throw new Error("End date must be after start date.");
       }
 
+      // ✅ GEOCODE START CITY
+      let startLat: number | null = null;
+      let startLng: number | null = null;
+
+      try {
+        const coords = await getCityCoordinates(formData.start_city);
+        if (coords && coords.latitude !== null && coords.longitude !== null) {
+          startLat = coords.latitude;
+          startLng = coords.longitude;
+          console.log(`📍 Geocoded "${formData.start_city}":`, {
+            startLat,
+            startLng,
+          });
+        } else {
+          console.warn(
+            `⚠️ Could not geocode "${formData.start_city}", coordinates will be null`
+          );
+        }
+      } catch (geocodeError) {
+        console.error("Geocoding error:", geocodeError);
+      }
+
       if (mode === "edit" && tripData) {
-        const updateData = {
+        // ✅ FIXED: Build update object conditionally
+        const updateData: any = {
           destination: formData.destination.trim(),
           start_city: formData.start_city.trim(),
           start_date: formData.start_date,
           end_date: formData.end_date,
-          description: formData.description.trim() || null,
           max_group_size: formData.max_participants,
-          budget_per_person:
-            formData.budget_per_person > 0 ? formData.budget_per_person : null,
-          travel_style:
-            formData.travel_style.length > 0 ? formData.travel_style : null, // ✅ CHANGED
           updated_at: new Date().toISOString(),
         };
+
+        // ✅ Only add fields if they have values
+        if (formData.description.trim()) {
+          updateData.description = formData.description.trim();
+        }
+
+        if (formData.budget_per_person > 0) {
+          updateData.budget_per_person = formData.budget_per_person;
+        }
+
+        if (formData.travel_style.length > 0) {
+          updateData.travel_style = formData.travel_style;
+        }
+
+        if (startLat !== null) {
+          updateData.start_lat = startLat;
+        }
+
+        if (startLng !== null) {
+          updateData.start_lng = startLng;
+        }
 
         const { error } = await supabase
           .from("trips")
@@ -279,23 +319,40 @@ const PostTripModal = ({
 
         onTripUpdated?.();
       } else {
-        const newTrip = {
+        // ✅ FIXED: Build insert object conditionally
+        const newTrip: any = {
           creator_id: user.id,
           destination: formData.destination.trim(),
           start_city: formData.start_city.trim(),
           start_date: formData.start_date,
           end_date: formData.end_date,
-          description: formData.description.trim() || null,
           max_participants: formData.max_participants,
-          budget_per_person:
-            formData.budget_per_person > 0 ? formData.budget_per_person : null,
-          travel_style:
-            formData.travel_style.length > 0 ? formData.travel_style : null, // ✅ CHANGED
           status: "active",
           current_participants: 1,
         };
 
-        const { data, error } = await supabase
+        // ✅ Only add fields if they have values
+        if (formData.description.trim()) {
+          newTrip.description = formData.description.trim();
+        }
+
+        if (formData.budget_per_person > 0) {
+          newTrip.budget_per_person = formData.budget_per_person;
+        }
+
+        if (formData.travel_style.length > 0) {
+          newTrip.travel_style = formData.travel_style;
+        }
+
+        if (startLat !== null) {
+          newTrip.start_lat = startLat;
+        }
+
+        if (startLng !== null) {
+          newTrip.start_lng = startLng;
+        }
+
+        const { error } = await supabase
           .from("trips")
           .insert([newTrip])
           .select(
@@ -327,7 +384,7 @@ const PostTripModal = ({
           description: "",
           max_participants: 8,
           budget_per_person: 0,
-          travel_style: [], // ✅ CHANGED
+          travel_style: [],
         });
       }
 

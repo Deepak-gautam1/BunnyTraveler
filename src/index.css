@@ -115,6 +115,9 @@
       sans-serif;
     font-size: clamp(14px, 2.5vw, 16px);
     line-height: 1.6;
+
+    overflow-x: hidden;
+    width: 100%;
   }
 
   /* 📱 Responsive Typography */
@@ -365,7 +368,7 @@
   /* 📱 Responsive container fixes */
   .trip-card-container {
     padding: clamp(4px, 1vw, 8px);
-    margin: clamp(-4px, -1vw, -8px);
+    /* margin: clamp(-4px, -1vw, -8px); */
     overflow: visible;
   }
 
@@ -545,7 +548,7 @@
 
   /* 📱 Responsive overflow prevention */
   .hover-container {
-    overflow: visible !important;
+    /* overflow: visible !important; */
     position: relative;
   }
 
@@ -566,11 +569,11 @@
   }
 
   /* 📱 Container overflow fixes */
-  .grid,
+  /* .grid,
   .flex,
   [class*="space-"] {
     overflow: visible;
-  }
+  } */
 
   /* 📱 Responsive community highlights */
   .grid.grid-cols-2 {
