@@ -22,7 +22,7 @@ const INDIAN_CITIES_COORDS: CityCache = {
   kolkata: { latitude: 22.5726, longitude: 88.3639 },
   pune: { latitude: 18.5204, longitude: 73.8567 },
   jaipur: { latitude: 26.9124, longitude: 75.7873 },
-
+  chandigarh: { latitude: 30.7333, longitude: 76.7794 },
   // Tourist Destinations
   goa: { latitude: 15.2993, longitude: 74.124 },
   manali: { latitude: 32.2396, longitude: 77.1887 },
@@ -155,4 +155,23 @@ export async function batchGeocodeCities(
   }
 
   return results;
+}
+// NEW: Synchronous version for filtering (only checks hardcoded + cache)
+export function getCityCoordinatesSync(cityName: string): Coordinates | null {
+  if (!cityName) return null;
+
+  const normalizedCity = cityName.toLowerCase().trim();
+
+  // Check hardcoded list
+  if (INDIAN_CITIES_COORDS[normalizedCity]) {
+    return INDIAN_CITIES_COORDS[normalizedCity];
+  }
+
+  // Check dynamic cache (already resolved from previous async calls)
+  if (dynamicCache[normalizedCity]) {
+    return dynamicCache[normalizedCity];
+  }
+
+  // Don't make API calls here - return null
+  return null;
 }

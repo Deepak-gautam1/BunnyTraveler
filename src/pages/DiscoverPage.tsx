@@ -3,17 +3,15 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { motion, AnimatePresence } from "framer-motion"; // ✅ Added for animations
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card"; // ✅ Used for containerization
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
   List,
   Map as MapIcon,
   RefreshCw,
-  Filter,
   Sparkles,
   Plus,
   Loader2,
@@ -29,7 +27,8 @@ import EnhancedTripCard from "@/components/home/EnhancedTripCard";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
-import { POPULAR_CITIES } from "@/lib/constants";
+import { getCityCoordinates } from "@/lib/geocoding";
+import { getDistanceFromLatLonInKm } from "@/lib/distance";
 
 type Profile = { full_name: string; avatar_url: string };
 type TripParticipant = { user_id: string; joined_at: string };
@@ -47,6 +46,8 @@ type Trip = {
   budget_per_person: number | null;
   travel_style: string[] | null;
   status: string;
+  start_lat: number | null;
+  start_lng: number | null;
   profiles: Profile | null;
   trip_participants: TripParticipant[];
 };
@@ -54,6 +55,13 @@ type Trip = {
 interface DiscoverPageProps {
   user: User | null;
 }
+
+type MapFiltersState = {
+  searchRadius: number;
+  locationFilter: string;
+  nearbySearch: boolean;
+  centerCoords: { lat: number; lng: number } | null;
+};
 
 const TripCardWrapper = ({
   trip,
@@ -118,7 +126,16 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     getCurrentLocation,
     error: locationError,
   } = useGeolocation();
-
+  useEffect(() => {
+    if (locationError) {
+      toast({
+        title: "Location Access Denied",
+        description:
+          "Please enable location permissions to use 'Near Me' feature.",
+        variant: "destructive",
+      });
+    }
+  }, [locationError, toast]);
   const { toggleBookmark, isBookmarked } = useBookmarks(user);
 
   const [viewMode, setViewMode] = useState<"list" | "map">(() => {
@@ -129,7 +146,8 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
-  const [filters, setFilters] = useState<FilterOptions>({
+  // Default Filters
+  const defaultFilters: FilterOptions = {
     search: "",
     budgetRange: [0, 10000],
     startDate: null,
@@ -138,22 +156,25 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     travelStyles: [],
     cities: [],
     sortBy: "newest",
-  });
+  };
 
-  const [mapFilters, setMapFilters] = useState(() => {
+  const [filters, setFilters] = useState<FilterOptions>(defaultFilters);
+
+  const [mapFilters, setMapFilters] = useState<MapFiltersState>(() => {
     const saved = getCookie(COOKIE_KEYS.MAP_FILTERS);
     return (
       saved || {
-        searchRadius: 50,
+        searchRadius: 0,
         locationFilter: "",
         nearbySearch: false,
+        centerCoords: null as { lat: number; lng: number } | null,
       }
     );
   });
 
-  const TRIPS_PER_PAGE = 9; // Changed to 9 for better grid alignment (3x3)
+  const TRIPS_PER_PAGE = 9;
 
-  // --- Effects (Kept same logic) ---
+  // --- Effects ---
   useEffect(() => {
     setCookie(COOKIE_KEYS.VIEW_MODE, viewMode, 30);
   }, [viewMode]);
@@ -191,11 +212,13 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     }
   };
 
+  // ✅ CENTRAL FILTER LOGIC
   const filteredTrips = useMemo(() => {
     let result = [...allTrips];
 
-    // ✅ SEARCH FILTER - Must check destination AND start_city
-    if (filters.search) {
+    // 1. GENERIC SEARCH (Text matches anywhere)
+    // IMPORTANT: We only run generic search if we are NOT in specific location mode
+    if (filters.search && !mapFilters.locationFilter) {
       const searchTerm = filters.search.toLowerCase().trim();
       result = result.filter((trip) => {
         const destination = trip.destination?.toLowerCase() || "";
@@ -212,7 +235,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       });
     }
 
-    // Budget Filter
+    // 2. BUDGET FILTER
     if (filters.budgetRange[0] > 0 || filters.budgetRange[1] < 10000) {
       result = result.filter((trip) => {
         if (!trip.budget_per_person) return filters.budgetRange[0] === 0;
@@ -224,14 +247,13 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       });
     }
 
-    // Group Size Filter
+    // 3. GROUP SIZE & DATES
     result = result.filter(
       (trip) =>
         trip.max_participants >= filters.groupSize[0] &&
         trip.max_participants <= filters.groupSize[1]
     );
 
-    // Date Filters
     if (filters.startDate) {
       result = result.filter(
         (trip) => new Date(trip.start_date) >= filters.startDate!
@@ -243,7 +265,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // Travel Styles Filter
+    // 4. TRAVEL STYLES
     if (filters.travelStyles.length > 0) {
       result = result.filter(
         (trip) =>
@@ -254,8 +276,12 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // ✅ Cities Filter - Only apply if NO search active
-    if (filters.cities.length > 0 && !filters.search) {
+    // 5. CITIES ARRAY (Fallback from FilterBar)
+    if (
+      filters.cities.length > 0 &&
+      !filters.search &&
+      !mapFilters.locationFilter
+    ) {
       result = result.filter((trip) =>
         filters.cities.some(
           (city) =>
@@ -265,8 +291,26 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // Map Location Filter
-    if (mapFilters.locationFilter) {
+    // 6. MAP & LOCATION LOGIC
+    // CASE A: Radius Filter is ACTIVE (Slider > 0)
+    // This allows expanding search beyond the city name
+    if (mapFilters.centerCoords && mapFilters.searchRadius > 0) {
+      const { lat: centerLat, lng: centerLng } = mapFilters.centerCoords;
+
+      result = result.filter((trip) => {
+        if (trip.start_lat == null || trip.start_lng == null) return false;
+
+        const distance = getDistanceFromLatLonInKm(
+          centerLat,
+          centerLng,
+          trip.start_lat,
+          trip.start_lng
+        );
+        return distance <= mapFilters.searchRadius;
+      });
+    }
+    // CASE B: Exact Location Match (Radius == 0)
+    else if (mapFilters.locationFilter) {
       result = result.filter(
         (trip) =>
           trip.start_city
@@ -278,7 +322,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       );
     }
 
-    // Sort
+    // 7. SORT
     result.sort((a, b) => {
       switch (filters.sortBy) {
         case "budget":
@@ -299,7 +343,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
 
     return result;
   }, [allTrips, filters, mapFilters]);
-  // ✅ Add this useEffect right after your state declarations
 
   const displayedTrips = useMemo(() => {
     return filteredTrips.slice(0, (currentPage + 1) * TRIPS_PER_PAGE);
@@ -316,6 +359,18 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     await fetchAllTrips();
   };
 
+  const resetAllFilters = () => {
+    setFilters(defaultFilters);
+    setMapFilters({
+      searchRadius: 0,
+      locationFilter: "",
+      nearbySearch: false,
+      centerCoords: null,
+    });
+    setCurrentPage(0);
+    toast({ title: "Filters reset", description: "Showing all trips" });
+  };
+
   const handleFiltersChange = (newFilters: FilterOptions) => {
     setFilters(newFilters);
     setCurrentPage(0);
@@ -325,20 +380,55 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     onRadiusChange: (radius: number) => {
       setMapFilters((prev) => ({ ...prev, searchRadius: radius }));
     },
-    onLocationFilter: (locationName: string) => {
-      setMapFilters((prev) => ({ ...prev, locationFilter: locationName }));
-      setCurrentPage(0);
-    },
-    onNearbySearch: () => {
-      if (!location) {
-        getCurrentLocation();
-      } else {
-        setMapFilters((prev) => ({ ...prev, nearbySearch: true }));
-        toast({
-          title: "Searching nearby...",
-          description: `Finding trips within ${mapFilters.searchRadius}km`,
-        });
+    onLocationFilter: async (locationName: string) => {
+      setMapFilters((prev) => ({
+        ...prev,
+        locationFilter: locationName,
+        nearbySearch: false,
+      }));
+
+      if (!locationName) {
+        setMapFilters((prev) => ({ ...prev, centerCoords: null }));
+        return;
       }
+
+      const coords = await getCityCoordinates(locationName);
+      // ✅ FIXED: Add null checks before setting centerCoords
+      if (coords && coords.latitude !== null && coords.longitude !== null) {
+        setMapFilters((prev) => ({
+          ...prev,
+          centerCoords: { lat: coords.latitude, lng: coords.longitude },
+        }));
+      }
+    },
+    onNearbySearch: async () => {
+      // ✅ Already has null checks
+      if (
+        !location ||
+        location.latitude === null ||
+        location.longitude === null
+      ) {
+        getCurrentLocation();
+        return;
+      }
+      const DEFAULT_NEARBY_RADIUS = 50;
+      const currentLat = location.latitude;
+      const currentLng = location.longitude;
+      setMapFilters((prev) => ({
+        ...prev,
+        nearbySearch: true,
+        searchRadius: DEFAULT_NEARBY_RADIUS,
+        locationFilter: "Current Location",
+        centerCoords: {
+          lat: currentLat,
+          lng: currentLng,
+        },
+      }));
+
+      toast({
+        title: "Searching nearby",
+        description: `Finding trips within ${DEFAULT_NEARBY_RADIUS} km`,
+      });
     },
   };
 
@@ -347,29 +437,36 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     navigate(`/trip/${trip.id}`);
   };
 
-  const handleDestinationClick = (destination: string) => {
-    console.log("🔍 Destination clicked:", destination); // Debug log
-    // ✅ Check if destination is in popular cities (case-insensitive)
-    const matchedCity = POPULAR_CITIES.find(
-      (city) => city.toLowerCase() === destination.toLowerCase()
-    );
+  // ✅ LOGIC FIX: Handle Destination Click
+  // We clear generic 'search' and use 'locationFilter' + 'centerCoords'
+  // This allows the Radius Slider to work on this location later.
+  const handleDestinationClick = async (destination: string) => {
+    setFilters((prev) => ({ ...prev, search: "" }));
 
-    // Update filters with both search AND cities
-    setFilters((prev) => ({
+    setMapFilters((prev) => ({
       ...prev,
-      search: destination,
-      cities: matchedCity ? [matchedCity] : [], // ✅ Use exact city name
+      locationFilter: destination,
+      searchRadius: 0,
+      nearbySearch: false,
+      centerCoords: null,
     }));
 
-    // 2. Reset pagination
     setCurrentPage(0);
 
-    // 3. Switch to list view if on map
-    if (viewMode === "map") {
-      setViewMode("list");
+    const coords = await getCityCoordinates(destination);
+
+    if (coords) {
+      setMapFilters((prev) => ({
+        ...prev,
+        centerCoords: { lat: coords.latitude, lng: coords.longitude },
+      }));
     }
 
-    // 4. Smooth scroll to trips section
+    toast({
+      title: `Showing trips in ${destination}`,
+      description: "Use the radius slider to expand your search.",
+    });
+
     setTimeout(() => {
       const tripsSection = document.getElementById("trips-section");
       if (tripsSection) {
@@ -378,60 +475,25 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
           tripsSection.getBoundingClientRect().top +
           window.pageYOffset +
           yOffset;
-
-        window.scrollTo({
-          top: y,
-          behavior: "smooth",
-        });
+        window.scrollTo({ top: y, behavior: "smooth" });
       }
-    }, 150); // Slightly longer delay for state update
-
-    // 5. Calculate matching trips
-    setTimeout(() => {
-      const matchingTrips = allTrips.filter(
-        (t) =>
-          t.destination.toLowerCase().includes(destination.toLowerCase()) ||
-          t.start_city.toLowerCase().includes(destination.toLowerCase())
-      );
-
-      console.log("✅ Matching trips found:", matchingTrips.length); // Debug log
-
-      toast({
-        title: `🗺️ Showing trips to ${destination}`,
-        description:
-          matchingTrips.length > 0
-            ? `Found ${matchingTrips.length} ${
-                matchingTrips.length === 1 ? "trip" : "trips"
-              }`
-            : "No trips found. Try clearing other filters.",
-        duration: 3000,
-      });
-    }, 100);
+    }, 150);
   };
 
   useEffect(() => {
     fetchAllTrips();
   }, []);
-  useEffect(() => {
-    console.log("🔍 Filters updated:", filters);
-    console.log("📊 All trips:", allTrips.length);
-    console.log("🎯 Filtered trips:", filteredTrips.length);
-    console.log("👀 Displayed trips:", displayedTrips.length);
-  }, [filters, allTrips, filteredTrips, displayedTrips]);
-  // --- RENDER ---
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* 1. Modern Hero Section - LIGHTER GRADIENT */}
+      {/* Hero Section */}
       <div className="relative bg-gradient-to-br from-orange-50 via-orange-100 to-pink-50 pt-16 pb-32 px-4 shadow-sm overflow-hidden">
-        {/* Abstract Background Shapes - More Subtle */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-30 pointer-events-none">
           <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-orange-200 blur-3xl"></div>
           <div className="absolute top-1/2 right-0 w-64 h-64 rounded-full bg-pink-200 blur-3xl"></div>
         </div>
 
         <div className="relative max-w-5xl mx-auto text-center space-y-6">
-          {/* Title & Subtitle - Darker Text for Better Contrast */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -446,7 +508,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             </p>
           </motion.div>
 
-          {/* ✅ STATS CARDS - Better Contrast */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -482,7 +543,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             </div>
           </motion.div>
 
-          {/* Popular Destinations Pills */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -494,11 +554,10 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         </div>
       </div>
 
-      {/* 2. Floating Control Bar (Filters & Toggles) */}
+      {/* Control Bar */}
       <div className="max-w-7xl mx-auto px-4 -mt-16 relative z-10">
         <Card className="p-2 md:p-4 shadow-xl border-white/20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl">
           <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-            {/* Filter Bar Component */}
             <div className="w-full md:flex-1">
               <FilterBar
                 onFiltersChange={handleFiltersChange}
@@ -507,9 +566,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               />
             </div>
 
-            {/* View Toggles & Actions */}
             <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-              {/* Location Badge */}
               {location && (
                 <Badge
                   variant="secondary"
@@ -519,7 +576,16 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                 </Badge>
               )}
 
-              {/* Refresh Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetAllFilters}
+                className="text-gray-500 hover:text-red-500 hover:bg-red-50"
+                title="Clear all filters"
+              >
+                Clear Filters
+              </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -535,9 +601,6 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                 />
               </Button>
 
-              {/* Add this near your refresh button for testing */}
-
-              {/* View Switcher (Segmented Control style) */}
               <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-full flex">
                 <button
                   onClick={() => setViewMode("list")}
@@ -567,6 +630,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         </Card>
       </div>
 
+      {/* Trips Section */}
       <div id="trips-section" className="max-w-7xl mx-auto px-4 mt-8">
         <AnimatePresence mode="wait">
           {viewMode === "map" ? (
@@ -580,16 +644,43 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             >
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 space-y-4">
+                  {/* ✅ ADDED: Controlled prop searchRadius */}
                   <MapFilters
+                    searchRadius={mapFilters.searchRadius}
                     onRadiusChange={handleMapFiltersChange.onRadiusChange}
                     onLocationFilter={handleMapFiltersChange.onLocationFilter}
                     onNearbySearch={handleMapFiltersChange.onNearbySearch}
                     currentLocation={
-                      location
+                      location && location.latitude && location.longitude
                         ? { lat: location.latitude, lng: location.longitude }
                         : undefined
                     }
                   />
+
+                  {/* Status Card */}
+                  <Card className="p-4 bg-orange-50 border-orange-100">
+                    <h3 className="text-xs font-bold text-orange-800 uppercase tracking-wide mb-2">
+                      Active Search Area
+                    </h3>
+                    {mapFilters.locationFilter ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                          <MapPin className="w-4 h-4 text-orange-600" />
+                          {mapFilters.locationFilter}
+                        </div>
+                        <div className="text-xs text-gray-600 pl-6">
+                          {mapFilters.searchRadius > 0
+                            ? `Radius: ${mapFilters.searchRadius} km`
+                            : "Exact city match only"}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        No specific location selected. Showing all trips.
+                      </p>
+                    )}
+                  </Card>
+
                   <Card className="p-4">
                     <h3 className="font-semibold text-sm mb-3">
                       Travel Styles
@@ -657,43 +748,28 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                     No adventures found
                   </h3>
                   <p className="text-gray-500 mt-2 max-w-md text-center">
-                    We could not find any trips matching your criteria. Try
-                    adjusting your filters or searching for a different
-                    destination.
+                    We could not find any trips matching your criteria.
                   </p>
                   <Button
                     variant="outline"
                     className="mt-6"
-                    onClick={() =>
-                      setFilters({
-                        search: "",
-                        budgetRange: [0, 10000],
-                        startDate: null,
-                        endDate: null,
-                        groupSize: [1, 20],
-                        travelStyles: [],
-                        cities: [],
-                        sortBy: "newest",
-                      })
-                    }
+                    onClick={resetAllFilters}
                   >
                     Clear All Filters
                   </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {displayedTrips.map((trip) => {
-                    return (
-                      <TripCardWrapper
-                        key={trip.id}
-                        trip={trip}
-                        navigate={navigate}
-                        toggleBookmark={toggleBookmark}
-                        isBookmarked={isBookmarked}
-                        refreshTrips={refreshTrips}
-                      />
-                    );
-                  })}
+                  {displayedTrips.map((trip) => (
+                    <TripCardWrapper
+                      key={trip.id}
+                      trip={trip}
+                      navigate={navigate}
+                      toggleBookmark={toggleBookmark}
+                      isBookmarked={isBookmarked}
+                      refreshTrips={refreshTrips}
+                    />
+                  ))}
                 </div>
               )}
 

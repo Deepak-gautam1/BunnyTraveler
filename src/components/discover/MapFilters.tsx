@@ -1,13 +1,13 @@
 // src/components/discover/MapFilters.tsx
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { MapPin, Navigation, Crosshair, Globe, Target } from "lucide-react";
+import { MapPin, Navigation, Globe, Target } from "lucide-react";
 
 interface MapFiltersProps {
+  searchRadius: number; // ✅ Controlled from parent
   onRadiusChange: (radius: number) => void;
   onLocationFilter: (location: string) => void;
   onNearbySearch: () => void;
@@ -15,13 +15,12 @@ interface MapFiltersProps {
 }
 
 const MapFilters = ({
+  searchRadius, // ✅ Use this prop, don't create local state
   onRadiusChange,
   onLocationFilter,
   onNearbySearch,
   currentLocation,
 }: MapFiltersProps) => {
-  const [searchRadius, setSearchRadius] = useState(50); // km
-
   const popularDestinations = [
     "Mumbai",
     "Delhi",
@@ -77,24 +76,23 @@ const MapFilters = ({
         <div className="space-y-3">
           <Label className="flex items-center gap-2 font-medium">
             <Target className="w-4 h-4 text-accent" />
-            Search Radius: {searchRadius}km
+            Search Radius: {searchRadius === 0 ? "All" : `${searchRadius}km`}
           </Label>
 
           <Slider
-            value={[searchRadius]}
+            value={[searchRadius]} // ✅ Use prop value
             onValueChange={(value) => {
-              setSearchRadius(value[0]);
-              onRadiusChange(value[0]);
+              onRadiusChange(value[0]); // ✅ Only call parent handler
             }}
-            max={200}
-            min={10}
+            max={500} // ✅ Changed from 200 to 500 to match your requirements
+            min={0} // ✅ Changed from 10 to 0 to allow "show all"
             step={10}
             className="w-full"
           />
 
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>10km</span>
-            <span>200km</span>
+            <span>0km (All)</span>
+            <span>500km</span>
           </div>
         </div>
 
@@ -104,10 +102,9 @@ const MapFilters = ({
             variant="ghost"
             size="sm"
             onClick={() => {
-              // Reset to India view
+              // Reset to view all
               onLocationFilter("");
-              setSearchRadius(50);
-              onRadiusChange(50);
+              onRadiusChange(0); // ✅ Reset to 0, not 50
             }}
           >
             <Globe className="w-4 h-4 mr-1" />
