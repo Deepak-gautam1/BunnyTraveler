@@ -1,23 +1,9 @@
 #root {
   width: 100%;
   max-width: 100vw;
-  /* overflow-x: hidden; */
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-/* Responsive padding for mobile */
-@media (max-width: 768px) {
-  #root {
-    padding: 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  #root {
-    padding: 0.5rem;
-  }
+  margin: 0;
+  padding: 0; /* This must be 0 to remove the white space */
+  overflow-x: hidden; /* Recommended to prevent horizontal scrollbars */
 }
 
 .logo {
@@ -52,19 +38,6 @@
 
 .card {
   padding: 2em;
-}
-
-/* Responsive card padding */
-@media (max-width: 768px) {
-  .card {
-    padding: 1.5em;
-  }
-}
-
-@media (max-width: 480px) {
-  .card {
-    padding: 1em;
-  }
 }
 
 .read-the-docs {

@@ -33,7 +33,6 @@ import {
   MapPin,
   Calendar,
   Users,
-  // For Discover icon
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -90,7 +89,7 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
       label: "Discover",
     },
     {
-      path: null, // Special Create Button
+      path: null,
       icon: PlusCircle,
       label: "Plan",
       onClick: handleCreateTrip,
@@ -111,146 +110,157 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
 
   return (
     <>
-      {/* =======================================================
-          TOP HEADER (Logo + Desktop Nav + User Profile)
-          ======================================================= */}
-      {/* Added overflow-x-hidden to prevent header items from causing scroll */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-x-hidden">
-        <div className="container flex h-16 items-center justify-between">
-          {/* 1. Logo (Visible on Desktop AND Mobile now) */}
+      {/* ✅ TOP HEADER - Fixed overflow and z-index issues */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between px-4">
+          {/* Logo */}
           <Link
             to="/"
-            className="flex items-center space-x-2 cursor-pointer z-50"
+            className="flex items-center space-x-2 cursor-pointer shrink-0"
           >
             <img
               src="/SafarSquadLogo.svg"
               alt="SafarSquad Logo"
               className="h-10 w-auto object-contain select-none"
             />
-            {/* Show Text Logo on Mobile too if you want, or just the icon */}
-            <span className="text-xl font-bold bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent select-none">
+            <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-accent to-accent/80 bg-clip-text text-transparent select-none">
               SafarSquad
             </span>
           </Link>
 
-          {/* 2. Desktop Navigation (HIDDEN on Mobile) */}
-          <NavigationMenu className="hidden md:flex">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild>
-                  <Link
-                    to="/"
-                    className={`group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
-                      isActive("/") ? "bg-accent text-accent-foreground" : ""
-                    }`}
-                  >
-                    <Home className="mr-2 h-4 w-4" />
-                    Home
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-
-              <NavigationMenuItem>
-                <NavigationMenuTrigger>
-                  <MapPin className="mr-2 h-4 w-4" />
-                  Trips
-                </NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <div className="grid gap-3 p-6 w-[400px]">
-                    <div className="row-span-3">
-                      <NavigationMenuLink asChild>
-                        <Link
-                          to="/discover"
-                          className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
-                        >
-                          <Search className="h-6 w-6" />
-                          <div className="mb-2 mt-4 text-lg font-medium">
-                            Discover Trips
-                          </div>
-                          <p className="text-sm leading-tight text-muted-foreground">
-                            Explore amazing trips planned by fellow travelers
-                          </p>
-                        </Link>
-                      </NavigationMenuLink>
-                    </div>
-                    <NavigationMenuLink asChild>
-                      <Link
-                        to="/my-trips"
-                        className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                      >
-                        <div className="flex items-center text-sm font-medium leading-none">
-                          <Calendar className="mr-2 h-4 w-4" />
-                          My Trips
-                        </div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          View and manage your joined trips
-                        </p>
-                      </Link>
-                    </NavigationMenuLink>
-                    <NavigationMenuLink asChild>
-                      <button
-                        onClick={handleCreateTrip}
-                        className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground text-left w-full"
-                      >
-                        <div className="flex items-center text-sm font-medium leading-none">
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                          Create Trip
-                        </div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Plan a new adventure
-                        </p>
-                      </button>
-                    </NavigationMenuLink>
-                  </div>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild>
-                  <Link
-                    to="/community"
-                    className={`group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
-                      isActive("/community")
-                        ? "bg-accent text-accent-foreground"
-                        : ""
-                    }`}
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    Community
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-
-              {user && (
+          {/* ✅ Desktop Navigation - Fixed with proper overflow handling */}
+          <div className="hidden md:flex flex-1 justify-center px-4">
+            <NavigationMenu>
+              <NavigationMenuList className="flex gap-1">
+                {/* Home */}
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild>
                     <Link
-                      to="/messages"
-                      className={`group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
-                        isActive("/messages")
+                      to="/"
+                      className={`group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 ${
+                        isActive("/") ? "bg-accent text-accent-foreground" : ""
+                      }`}
+                    >
+                      <Home className="mr-2 h-4 w-4" />
+                      Home
+                    </Link>
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+
+                {/* ✅ Trips Dropdown - Fixed */}
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger className="h-10">
+                    <MapPin className="mr-2 h-4 w-4" />
+                    Trips
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent>
+                    <ul className="grid gap-3 p-4 w-[400px] lg:w-[500px]">
+                      {/* Discover Trips - Hero Item */}
+                      <li className="row-span-3">
+                        <NavigationMenuLink asChild>
+                          <Link
+                            to="/discover"
+                            className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md hover:bg-muted/80 transition-colors"
+                          >
+                            <Search className="h-6 w-6 mb-2" />
+                            <div className="mb-2 text-lg font-medium">
+                              Discover Trips
+                            </div>
+                            <p className="text-sm leading-tight text-muted-foreground">
+                              Explore amazing trips planned by fellow travelers
+                            </p>
+                          </Link>
+                        </NavigationMenuLink>
+                      </li>
+
+                      {/* My Trips */}
+                      <li>
+                        <NavigationMenuLink asChild>
+                          <Link
+                            to="/my-trips"
+                            className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                          >
+                            <div className="flex items-center text-sm font-medium leading-none">
+                              <Calendar className="mr-2 h-4 w-4" />
+                              My Trips
+                            </div>
+                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                              View and manage your joined trips
+                            </p>
+                          </Link>
+                        </NavigationMenuLink>
+                      </li>
+
+                      {/* Create Trip */}
+                      <li>
+                        <NavigationMenuLink asChild>
+                          <button
+                            onClick={handleCreateTrip}
+                            className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground text-left w-full"
+                          >
+                            <div className="flex items-center text-sm font-medium leading-none">
+                              <PlusCircle className="mr-2 h-4 w-4" />
+                              Create Trip
+                            </div>
+                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                              Plan a new adventure
+                            </p>
+                          </button>
+                        </NavigationMenuLink>
+                      </li>
+                    </ul>
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
+
+                {/* Community */}
+                <NavigationMenuItem>
+                  <NavigationMenuLink asChild>
+                    <Link
+                      to="/community"
+                      className={`group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 ${
+                        isActive("/community")
                           ? "bg-accent text-accent-foreground"
                           : ""
                       }`}
                     >
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      Messages
-                      {unreadCount > 0 && (
-                        <Badge
-                          variant="destructive"
-                          className="ml-2 animate-pulse"
-                        >
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </Badge>
-                      )}
+                      <Users className="mr-2 h-4 w-4" />
+                      Community
                     </Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
-              )}
-            </NavigationMenuList>
-          </NavigationMenu>
 
-          {/* 3. User Actions (Avatar/Sign In) */}
-          <div className="flex items-center space-x-4">
+                {/* Messages */}
+                {user && (
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild>
+                      <Link
+                        to="/messages"
+                        className={`group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 ${
+                          isActive("/messages")
+                            ? "bg-accent text-accent-foreground"
+                            : ""
+                        }`}
+                      >
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Messages
+                        {unreadCount > 0 && (
+                          <Badge
+                            variant="destructive"
+                            className="ml-2 animate-pulse"
+                          >
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </Badge>
+                        )}
+                      </Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                )}
+              </NavigationMenuList>
+            </NavigationMenu>
+          </div>
+
+          {/* User Actions */}
+          <div className="flex items-center space-x-2 shrink-0">
             {user ? (
               <>
                 <NotificationsDropdown user={user} />
@@ -322,17 +332,14 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
         </div>
       </header>
 
-      {/* =======================================================
-    BOTTOM NAVIGATION (HIDDEN on Desktop, Visible on Mobile)
-    ======================================================= */}
-      {/* Changed fixed 'left-0 right-0' to 'left-0 w-full' to prevent horizontal overflow */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white/95 backdrop-blur-lg border-t border-gray-200 shadow-lg safe-bottom">
+      {/* ✅ BOTTOM NAVIGATION (Mobile Only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-gray-200 shadow-lg safe-bottom">
         <div className="flex items-center justify-around h-16 px-2 relative">
           {mobileNavItems.map((item, index) => {
             const Icon = item.icon;
             const active = item.path ? isActive(item.path) : false;
 
-            // Special Create Button (Center)
+            // Special Create Button
             if (item.isSpecial) {
               return (
                 <button
@@ -340,11 +347,9 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                   onClick={item.onClick}
                   className="flex flex-col items-center justify-center -mt-8 transition-transform active:scale-95 z-10"
                 >
-                  {/* Gradient Circle Button */}
                   <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#f97415] to-[#ff8c42] flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-300 ring-4 ring-white">
                     <Icon className="w-7 h-7 text-white" strokeWidth={2.5} />
                   </div>
-                  {/* Label */}
                   <span className="text-[10px] font-semibold text-[#f97415] mt-1.5">
                     {item.label}
                   </span>
@@ -352,16 +357,14 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
               );
             }
 
-            // Regular Navigation Items
+            // Regular Items
             return (
               <Link
                 key={index}
                 to={item.path!}
                 className="flex flex-col items-center justify-center gap-1 py-2 flex-1 transition-all duration-200 active:scale-95"
               >
-                {/* Icon Container with Badge */}
                 <div className="relative">
-                  {/* Icon Background (Active State) */}
                   <div
                     className={`p-2 rounded-xl transition-all duration-200 ${
                       active ? "bg-orange-50" : ""
@@ -375,7 +378,6 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                     />
                   </div>
 
-                  {/* Badge on Top Right */}
                   {item.badge !== undefined && item.badge > 0 && (
                     <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-600 shadow-md">
                       <span className="text-[10px] font-bold text-white px-1">
@@ -385,7 +387,6 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                   )}
                 </div>
 
-                {/* Label */}
                 <span
                   className={`text-[10px] font-medium transition-colors ${
                     active ? "text-[#f97415] font-semibold" : "text-gray-600"
@@ -394,7 +395,6 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                   {item.label}
                 </span>
 
-                {/* Active Indicator Dot */}
                 {active && (
                   <div className="absolute bottom-1 w-1 h-1 bg-[#f97415] rounded-full" />
                 )}

@@ -45,8 +45,7 @@ const AppLayout = ({ user }: { user: User | null }) => {
     <>
       {!shouldHideNav && <AppNavigation user={user} />}
       <main
-        className={`min-h-screen max-w-screen overflow-x-hidden ${
-          !shouldHideNav ? "pt-16" : ""
+        className={`min-h-screen max-w-screen overflow-x-hidden 
         }`}
       >
         <Routes>

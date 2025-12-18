@@ -1,15 +1,11 @@
 import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+
 import {
   Calendar,
   MapPin,
@@ -18,6 +14,7 @@ import {
   Sparkles,
   IndianRupee,
   Edit3,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +29,7 @@ interface TripData {
   description: string | null;
   max_group_size: number;
   budget_per_person?: number;
-  travel_style?: string[]; // ✅ BACK TO travel_style
+  travel_style?: string[];
 }
 
 interface PostTripModalProps {
@@ -44,7 +41,6 @@ interface PostTripModalProps {
   mode?: "create" | "edit";
 }
 
-// ✅ Complete interests with emojis (categories stay the same)
 const availableInterests = [
   {
     category: "Travel Styles",
@@ -158,6 +154,28 @@ const PostTripModal = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+
+  const motivationalMessages = [
+    { text: "✨ Your adventure starts here", emoji: "🚀" },
+    { text: "🌍 Find your travel companions", emoji: "👥" },
+    { text: "🗺️ Plan your dream journey", emoji: "💫" },
+    { text: "🎒 Adventures are better together", emoji: "❤️" },
+  ];
+
+  // ✅ Rotate messages every 3 seconds
+  useEffect(() => {
+    if (!open) return;
+
+    const interval = setInterval(() => {
+      setCurrentMessageIndex(
+        (prev) => (prev + 1) % motivationalMessages.length
+      );
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [open]);
+
   const getInitialFormData = () => {
     if (mode === "edit" && tripData) {
       return {
@@ -168,7 +186,7 @@ const PostTripModal = ({
         description: tripData.description || "",
         max_participants: tripData.max_group_size,
         budget_per_person: tripData.budget_per_person || 0,
-        travel_style: tripData.travel_style || [], // ✅ BACK TO travel_style
+        travel_style: tripData.travel_style || [],
       };
     }
 
@@ -180,7 +198,7 @@ const PostTripModal = ({
       description: "",
       max_participants: 8,
       budget_per_person: 0,
-      travel_style: [] as string[], // ✅ BACK TO travel_style
+      travel_style: [] as string[],
     };
   };
 
@@ -199,15 +217,14 @@ const PostTripModal = ({
     }));
   };
 
-  // ✅ Handle interest selection with 5 limit (variable name stays same internally)
   const handleInterestToggle = (interest: string) => {
     setFormData((prev) => {
-      const currentInterests = prev.travel_style || []; // ✅ CHANGED
+      const currentInterests = prev.travel_style || [];
 
       if (currentInterests.includes(interest)) {
         return {
           ...prev,
-          travel_style: currentInterests.filter((i) => i !== interest), // ✅ CHANGED
+          travel_style: currentInterests.filter((i) => i !== interest),
         };
       }
 
@@ -222,7 +239,7 @@ const PostTripModal = ({
 
       return {
         ...prev,
-        travel_style: [...currentInterests, interest], // ✅ CHANGED
+        travel_style: [...currentInterests, interest],
       };
     });
   };
@@ -251,7 +268,6 @@ const PostTripModal = ({
         throw new Error("End date must be after start date.");
       }
 
-      // ✅ GEOCODE START CITY
       let startLat: number | null = null;
       let startLng: number | null = null;
 
@@ -260,21 +276,12 @@ const PostTripModal = ({
         if (coords && coords.latitude !== null && coords.longitude !== null) {
           startLat = coords.latitude;
           startLng = coords.longitude;
-          console.log(`📍 Geocoded "${formData.start_city}":`, {
-            startLat,
-            startLng,
-          });
-        } else {
-          console.warn(
-            `⚠️ Could not geocode "${formData.start_city}", coordinates will be null`
-          );
         }
       } catch (geocodeError) {
         console.error("Geocoding error:", geocodeError);
       }
 
       if (mode === "edit" && tripData) {
-        // ✅ FIXED: Build update object conditionally
         const updateData: any = {
           destination: formData.destination.trim(),
           start_city: formData.start_city.trim(),
@@ -284,7 +291,6 @@ const PostTripModal = ({
           updated_at: new Date().toISOString(),
         };
 
-        // ✅ Only add fields if they have values
         if (formData.description.trim()) {
           updateData.description = formData.description.trim();
         }
@@ -319,7 +325,6 @@ const PostTripModal = ({
 
         onTripUpdated?.();
       } else {
-        // ✅ FIXED: Build insert object conditionally
         const newTrip: any = {
           creator_id: user.id,
           destination: formData.destination.trim(),
@@ -331,7 +336,6 @@ const PostTripModal = ({
           current_participants: 1,
         };
 
-        // ✅ Only add fields if they have values
         if (formData.description.trim()) {
           newTrip.description = formData.description.trim();
         }
@@ -355,15 +359,7 @@ const PostTripModal = ({
         const { error } = await supabase
           .from("trips")
           .insert([newTrip])
-          .select(
-            `
-            *,
-            profiles:creator_id (
-              full_name,
-              avatar_url
-            )
-          `
-          );
+          .select();
 
         if (error) throw error;
 
@@ -376,16 +372,7 @@ const PostTripModal = ({
       }
 
       if (mode === "create") {
-        setFormData({
-          destination: "",
-          start_city: "",
-          start_date: "",
-          end_date: "",
-          description: "",
-          max_participants: 8,
-          budget_per_person: 0,
-          travel_style: [],
-        });
+        setFormData(getInitialFormData());
       }
 
       onClose();
@@ -434,15 +421,59 @@ const PostTripModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="mx-4 rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-2xl font-bold text-center bg-gradient-warm bg-clip-text text-transparent">
-            {content.title}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground text-center">
-            {content.subtitle}
-          </p>
-        </DialogHeader>
+      {/* w-[95vw] sm:max-w-lg ensures it looks good on mobile and desktop */}
+      <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 [&>button:last-child]:hidden">
+        {/* ✅ FIXED: Sleek, non-circular Red X */}
+        <button
+          onClick={onClose}
+          type="button"
+          className="absolute right-3 top-3 sm:right-4 sm:top-4 z-50 
+                   w-8 h-8 sm:w-9 sm:h-9 
+                   rounded-lg
+                   bg-red-500/10 hover:bg-red-500 
+                   text-red-600 hover:text-white
+                   border-2 border-red-500/20 hover:border-red-500
+                   flex items-center justify-center 
+                   transition-all duration-200 
+                   hover:rotate-90 hover:scale-110
+                   focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+                   group"
+          aria-label="Close"
+        >
+          <X
+            className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110"
+            strokeWidth={2.5}
+          />
+        </button>
+
+        {/* Animated Motivational Banner */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-accent/10 via-accent/5 to-accent/10 rounded-xl py-3 px-4 mb-4 mt-6 sm:mt-0">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-2xl animate-bounce">
+              {motivationalMessages[currentMessageIndex].emoji}
+            </span>
+            <p
+              key={currentMessageIndex}
+              className="text-xs sm:text-sm font-medium text-accent animate-fade-in"
+            >
+              {motivationalMessages[currentMessageIndex].text}
+            </p>
+          </div>
+
+          {/* Progress dots */}
+          <div className="flex justify-center gap-1.5 mt-2">
+            {motivationalMessages.map((_, idx) => (
+              <div
+                key={idx}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  idx === currentMessageIndex
+                    ? "w-6 bg-accent"
+                    : "w-1.5 bg-accent/30"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Destination */}
@@ -480,7 +511,7 @@ const PostTripModal = ({
           </div>
 
           {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label
                 htmlFor="start_date"
@@ -557,7 +588,7 @@ const PostTripModal = ({
             )}
           </div>
 
-          {/* Group Size - Mobile-Friendly Stepper */}
+          {/* Group Size */}
           <div className="space-y-2">
             <Label
               htmlFor="max_participants"
@@ -568,7 +599,6 @@ const PostTripModal = ({
             </Label>
 
             <div className="flex items-center gap-3">
-              {/* Decrement Button */}
               <Button
                 type="button"
                 variant="outline"
@@ -585,7 +615,6 @@ const PostTripModal = ({
                 <span className="text-lg font-bold">−</span>
               </Button>
 
-              {/* Number Input */}
               <div className="flex-1 relative">
                 <Input
                   id="max_participants"
@@ -606,7 +635,6 @@ const PostTripModal = ({
                     }
                   }}
                   onBlur={() => {
-                    // ✅ If empty on blur, set to default
                     if (
                       !formData.max_participants ||
                       formData.max_participants < 2
@@ -621,7 +649,6 @@ const PostTripModal = ({
                 />
               </div>
 
-              {/* Increment Button */}
               <Button
                 type="button"
                 variant="outline"
@@ -639,7 +666,6 @@ const PostTripModal = ({
               </Button>
             </div>
 
-            {/* Helper Text */}
             <p className="text-xs text-muted-foreground text-center">
               {formData.max_participants === 2 && "Minimum 2 people"}
               {formData.max_participants > 2 &&
@@ -649,7 +675,7 @@ const PostTripModal = ({
             </p>
           </div>
 
-          {/* ✅ Interests with Emojis */}
+          {/* Interests */}
           <div className="space-y-3">
             <Label className="text-sm font-medium flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-accent" />
@@ -667,13 +693,13 @@ const PostTripModal = ({
                       <Badge
                         key={tag.name}
                         variant={
-                          formData.travel_style?.includes(tag.name) // ✅ CHANGED
+                          formData.travel_style?.includes(tag.name)
                             ? "default"
                             : "outline"
                         }
                         onClick={() => handleInterestToggle(tag.name)}
                         className={`cursor-pointer transition-all hover:scale-105 text-sm ${
-                          formData.travel_style?.includes(tag.name) // ✅ CHANGED
+                          formData.travel_style?.includes(tag.name)
                             ? "bg-accent hover:bg-accent/90 text-accent-foreground shadow-md"
                             : "hover:bg-accent/10 border-accent/20"
                         }`}
@@ -689,23 +715,21 @@ const PostTripModal = ({
 
             <div className="flex items-center justify-between pt-2 border-t">
               <p className="text-xs text-muted-foreground">
-                {formData.travel_style?.length || 0}/5 interests selected{" "}
-                {/* ✅ CHANGED */}
+                {formData.travel_style?.length || 0}/5 interests selected
               </p>
-              {formData.travel_style &&
-                formData.travel_style.length > 0 && ( // ✅ CHANGED
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      setFormData((prev) => ({ ...prev, travel_style: [] }))
-                    } // ✅ CHANGED
-                    className="h-7 text-xs"
-                  >
-                    Clear all
-                  </Button>
-                )}
+              {formData.travel_style && formData.travel_style.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, travel_style: [] }))
+                  }
+                  className="h-7 text-xs"
+                >
+                  Clear all
+                </Button>
+              )}
             </div>
           </div>
 
