@@ -500,7 +500,7 @@ const PostTripModal = ({
             )}
           </div>
 
-          {/* Group Size */}
+          {/* Group Size - Mobile-Friendly Stepper */}
           <div className="space-y-2">
             <Label
               htmlFor="max_participants"
@@ -509,21 +509,87 @@ const PostTripModal = ({
               <Users className="w-4 h-4 text-accent" />
               Max Group Size *
             </Label>
-            <Input
-              id="max_participants"
-              type="number"
-              value={formData.max_participants}
-              onChange={(e) =>
-                handleInputChange(
-                  "max_participants",
-                  parseInt(e.target.value) || 8
-                )
-              }
-              className="rounded-xl border-0 bg-muted/50 focus:bg-white transition-colors"
-              min="2"
-              max="50"
-              placeholder="Maximum number of people"
-            />
+
+            <div className="flex items-center gap-3">
+              {/* Decrement Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() =>
+                  handleInputChange(
+                    "max_participants",
+                    Math.max(2, formData.max_participants - 1)
+                  )
+                }
+                disabled={formData.max_participants <= 2}
+                className="h-11 w-11 rounded-xl border-2 hover:bg-accent/10 hover:border-accent transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                <span className="text-lg font-bold">−</span>
+              </Button>
+
+              {/* Number Input */}
+              <div className="flex-1 relative">
+                <Input
+                  id="max_participants"
+                  type="number"
+                  value={formData.max_participants || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      handleInputChange("max_participants", "");
+                      return;
+                    }
+                    const num = parseInt(value);
+                    if (!isNaN(num)) {
+                      handleInputChange(
+                        "max_participants",
+                        Math.min(50, Math.max(2, num))
+                      );
+                    }
+                  }}
+                  onBlur={() => {
+                    // ✅ If empty on blur, set to default
+                    if (
+                      !formData.max_participants ||
+                      formData.max_participants < 2
+                    ) {
+                      handleInputChange("max_participants", 2);
+                    }
+                  }}
+                  className="rounded-xl border-2 bg-muted/50 focus:bg-white transition-colors text-center text-lg font-semibold h-11 hide-number-arrows"
+                  min="2"
+                  max="50"
+                  placeholder="8"
+                />
+              </div>
+
+              {/* Increment Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() =>
+                  handleInputChange(
+                    "max_participants",
+                    Math.min(50, formData.max_participants + 1)
+                  )
+                }
+                disabled={formData.max_participants >= 50}
+                className="h-11 w-11 rounded-xl border-2 hover:bg-accent/10 hover:border-accent transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                <span className="text-lg font-bold">+</span>
+              </Button>
+            </div>
+
+            {/* Helper Text */}
+            <p className="text-xs text-muted-foreground text-center">
+              {formData.max_participants === 2 && "Minimum 2 people"}
+              {formData.max_participants > 2 &&
+                formData.max_participants < 50 &&
+                `Up to ${formData.max_participants} travelers`}
+              {formData.max_participants >= 50 && "Maximum 50 people"}
+            </p>
           </div>
 
           {/* ✅ Interests with Emojis */}

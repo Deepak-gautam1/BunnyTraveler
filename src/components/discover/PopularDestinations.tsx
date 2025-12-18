@@ -226,28 +226,53 @@ const PopularDestinations = ({
 
         if (error) throw error;
 
+        // ✅ DEBUG: Log fetched trips
+        console.log("🔍 Fetched trips:", trips);
+        console.log("📊 Total active trips:", trips?.length || 0);
+
         const destinationsWithCounts = POPULAR_DESTINATIONS.map((dest) => {
           const count =
             trips?.filter((trip) => {
               const tripDest = trip.destination.toLowerCase();
               const tripCity = trip.start_city.toLowerCase();
-
-              return dest.keywords.some(
+              const matches = dest.keywords.some(
                 (keyword) =>
                   tripDest.includes(keyword) || tripCity.includes(keyword)
               );
-            }).length || 0;
 
+              // ✅ DEBUG: Log matches
+              if (matches) {
+                console.log(
+                  `✅ Match found: ${dest.name} matches trip "${trip.destination}" or "${trip.start_city}"`
+                );
+              }
+
+              return matches;
+            }).length || 0;
           return { ...dest, activePlans: count };
         });
 
-        destinationsWithCounts.sort((a, b) => b.activePlans - a.activePlans);
-        setDestinations(destinationsWithCounts);
-      } catch (error) {
-        console.error("Error fetching destination counts:", error);
-        setDestinations(
-          POPULAR_DESTINATIONS.map((dest) => ({ ...dest, activePlans: 0 }))
+        // ✅ DEBUG: Log all counts
+        console.log("📍 All destination counts:", destinationsWithCounts);
+
+        // ✅ Filter out destinations with 0 plans
+        const activeDestinations = destinationsWithCounts.filter(
+          (dest) => dest.activePlans > 0
         );
+
+        // ✅ DEBUG: Log filtered results
+        console.log("🎯 Active destinations (>0 plans):", activeDestinations);
+        console.log(
+          `📊 Showing ${activeDestinations.length} of ${POPULAR_DESTINATIONS.length} destinations`
+        );
+
+        // ✅ Sort by most active plans first
+        activeDestinations.sort((a, b) => b.activePlans - a.activePlans);
+
+        setDestinations(activeDestinations);
+      } catch (error) {
+        console.error("❌ Error fetching destination counts:", error);
+        setDestinations([]);
       } finally {
         setLoading(false);
       }
@@ -385,7 +410,7 @@ const PopularDestinations = ({
 
       {/* Load More Button */}
       {destinations.length > 8 && (
-        <div className="mt-6 text-center">
+        <div className="flex justify-center mt-6">
           <Button
             variant="outline"
             onClick={() => setShowAll(!showAll)}
@@ -393,13 +418,12 @@ const PopularDestinations = ({
           >
             {showAll ? (
               <>
-                Show Less
-                <ChevronRight className="w-4 h-4 ml-2 rotate-90" />
+                Show Less <ChevronRight className="w-4 h-4 ml-1 rotate-90" />
               </>
             ) : (
               <>
                 Load More Destinations ({destinations.length - 8} more)
-                <ChevronRight className="w-4 h-4 ml-2 -rotate-90" />
+                <ChevronRight className="w-4 h-4 ml-1 -rotate-90" />
               </>
             )}
           </Button>
@@ -407,16 +431,16 @@ const PopularDestinations = ({
       )}
 
       {/* Empty State */}
-      {destinations.every((d) => d.activePlans === 0) && (
-        <div className="text-center py-12 bg-gradient-to-br from-orange-50 to-pink-50 rounded-2xl border-2 border-dashed border-orange-200">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mb-4">
+      {destinations.length === 0 && !loading && (
+        <div className="text-center py-12 bg-orange-50/50 rounded-2xl border-2 border-dashed border-orange-200">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MapPin className="w-8 h-8 text-orange-500" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             No active trip plans yet
           </h3>
-          <p className="text-sm text-gray-600">
-            Be the first to create an adventure to these destinations!
+          <p className="text-gray-600 text-sm max-w-md mx-auto">
+            Be the first to create an adventure to popular destinations!
           </p>
         </div>
       )}

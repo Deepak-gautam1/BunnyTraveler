@@ -1199,3 +1199,15 @@ video {
 .delay-700 {
   animation-delay: 700ms;
 }
+
+/* Hide number input arrows for cleaner stepper UI */
+.hide-number-arrows::-webkit-outer-spin-button,
+.hide-number-arrows::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.hide-number-arrows[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
