@@ -555,10 +555,12 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
       </div>
 
       {/* Control Bar */}
+      {/* Control Bar */}
       <div className="max-w-7xl mx-auto px-4 -mt-16 relative z-10">
         <Card className="p-2 md:p-4 shadow-xl border-white/20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl">
-          <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-            <div className="w-full md:flex-1">
+          <div className="flex flex-col gap-4">
+            {/* Row 1: Search Bar (Full Width) */}
+            <div className="w-full">
               <FilterBar
                 onFiltersChange={handleFiltersChange}
                 totalResults={filteredTrips.length}
@@ -566,64 +568,73 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               />
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-              {location && (
-                <Badge
-                  variant="secondary"
-                  className="hidden md:flex items-center gap-1 bg-green-100 text-green-700 hover:bg-green-200"
-                >
-                  <MapPin className="w-3 h-3" /> Location On
-                </Badge>
-              )}
+            {/* Row 2: Action Buttons (Always Horizontal) */}
+            <div className="flex items-center gap-2 justify-between flex-wrap">
+              {/* Left Side: Location Badge */}
+              <div className="flex items-center gap-2">
+                {location &&
+                  location.latitude !== null &&
+                  location.longitude !== null && (
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center gap-1 bg-green-100 text-green-700 hover:bg-green-200 whitespace-nowrap"
+                    >
+                      <MapPin className="w-3 h-3" /> Location On
+                    </Badge>
+                  )}
+              </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetAllFilters}
-                className="text-gray-500 hover:text-red-500 hover:bg-red-50"
-                title="Clear all filters"
-              >
-                Clear Filters
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={refreshTrips}
-                disabled={loading}
-                className="hover:bg-gray-100 rounded-full"
-                title="Refresh Trips"
-              >
-                <RefreshCw
-                  className={`w-5 h-5 text-gray-600 ${
-                    loading ? "animate-spin" : ""
-                  }`}
-                />
-              </Button>
-
-              <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-full flex">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                    viewMode === "list"
-                      ? "bg-white dark:bg-gray-700 text-orange-600 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
+              {/* Right Side: Action Buttons */}
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetAllFilters}
+                  className="text-gray-500 hover:text-red-500 hover:bg-red-50 whitespace-nowrap text-xs sm:text-sm"
+                  title="Clear all filters"
                 >
-                  <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">List</span>
-                </button>
-                <button
-                  onClick={() => setViewMode("map")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                    viewMode === "map"
-                      ? "bg-white dark:bg-gray-700 text-orange-600 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
+                  Clear Filters
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={refreshTrips}
+                  disabled={loading}
+                  className="hover:bg-gray-100 rounded-full flex-shrink-0"
+                  title="Refresh Trips"
                 >
-                  <MapIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">Map</span>
-                </button>
+                  <RefreshCw
+                    className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 ${
+                      loading ? "animate-spin" : ""
+                    }`}
+                  />
+                </Button>
+
+                <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-full flex flex-shrink-0">
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                      viewMode === "list"
+                        ? "bg-white dark:bg-gray-700 text-orange-600 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    <List className="w-4 h-4" />
+                    <span>List</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("map")}
+                    className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                      viewMode === "map"
+                        ? "bg-white dark:bg-gray-700 text-orange-600 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    <MapIcon className="w-4 h-4" />
+                    <span>Map</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
