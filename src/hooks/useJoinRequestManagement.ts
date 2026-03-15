@@ -88,14 +88,7 @@ export const useJoinRequestManagement = (
       setRequestLoading(true);
       try {
         // ✅ DEBUG: Check what we received
-        console.log("📍 sendJoinRequest - RECEIVED PARAMS:", {
-          message: message,
-          referralCode: referralCode,
-          referralCodeType: typeof referralCode,
-          referralCodeIsUndefined: referralCode === undefined,
-          referralCodeIsNull: referralCode === null,
-          referralCodeIsEmpty: referralCode === "",
-        });
+
 
         const dataToInsert = {
           trip_id: tripId,
@@ -105,7 +98,7 @@ export const useJoinRequestManagement = (
           referral_code: referralCode || null, // ✅ This should store the code
         };
 
-        console.log("📍 Data being inserted:", dataToInsert);
+
 
         const { data: insertedData, error } = await supabase
           .from("trip_join_requests")
@@ -123,7 +116,7 @@ export const useJoinRequestManagement = (
           throw error;
         }
 
-        console.log("✅ Successfully inserted request:", insertedData);
+
 
         toast({
           title: "Request sent! 📩",
@@ -133,7 +126,6 @@ export const useJoinRequestManagement = (
         await fetchJoinRequests();
         return true;
       } catch (error: any) {
-        console.error("Error sending join request:", error);
         toast({
           title: "Failed to send request",
           description: error.message,
@@ -153,7 +145,6 @@ export const useJoinRequestManagement = (
       if (!user || responseLoading) return false;
 
       if (!request || !request.id || !request.trip_id || !request.user_id) {
-        console.error("Invalid request data: Missing required fields", request);
         toast({
           title: "Error",
           description: "Invalid request data provided.",
@@ -180,10 +171,7 @@ export const useJoinRequestManagement = (
           .eq("id", request.id)
           .single();
 
-        if (requestError) {
-          console.error("Error fetching request data:", requestError);
-          throw requestError;
-        }
+        if (requestError) throw requestError;
 
         // ✅ Get trip's referral code for validation
         const { data: tripData, error: tripError } = await supabase
@@ -192,10 +180,7 @@ export const useJoinRequestManagement = (
           .eq("id", request.trip_id)
           .single();
 
-        if (tripError) {
-          console.error("Error fetching trip data:", tripError);
-          throw tripError;
-        }
+        if (tripError) throw tripError;
 
         const requestReferralCode = requestData?.referral_code;
         const tripReferralCode = tripData?.referral_code;
@@ -208,13 +193,7 @@ export const useJoinRequestManagement = (
 
         const finalReferralCode = isValidReferral ? requestReferralCode : null;
 
-        console.log("🔄 Approving request with validation:", {
-          requestId: request.id,
-          requestReferralCode: requestReferralCode || "NULL",
-          tripReferralCode: tripReferralCode,
-          isValid: isValidReferral,
-          willStoreInParticipants: finalReferralCode || "NULL",
-        });
+
 
         // Update request status
         const { error: updateError } = await supabase
@@ -228,10 +207,7 @@ export const useJoinRequestManagement = (
           .eq("id", request.id)
           .eq("status", "pending");
 
-        if (updateError) {
-          console.error("Error updating request status:", updateError);
-          throw updateError;
-        }
+        if (updateError) throw updateError;
 
         // ✅ Add participant with validated referral code (NULL if invalid/not provided)
         const { error: participantError } = await supabase
@@ -242,10 +218,7 @@ export const useJoinRequestManagement = (
             referral_code_used: finalReferralCode, // ✅ Only store if valid
           });
 
-        if (participantError && participantError.code !== "23505") {
-          console.error("Error adding participant:", participantError);
-          throw participantError;
-        }
+        if (participantError && participantError.code !== "23505") throw participantError;
 
         toast({
           title: "Request Approved! ✅",
@@ -256,17 +229,10 @@ export const useJoinRequestManagement = (
 
         await fetchJoinRequests();
 
-        if (onTripDataRefresh) {
-          setTimeout(() => {
-            console.log("🔄 Refreshing trip data after approval");
-            onTripDataRefresh();
-          }, 500);
-        }
+        if (onTripDataRefresh) setTimeout(() => onTripDataRefresh(), 500);
 
         return true;
       } catch (error: any) {
-        console.error("Error approving request:", error);
-
         let errorMessage = error.message;
         if (error.message?.includes("permission")) {
           errorMessage = "You don't have permission to approve this request";
@@ -325,7 +291,6 @@ export const useJoinRequestManagement = (
         await fetchJoinRequests();
         return true;
       } catch (error: any) {
-        console.error("Error rejecting request:", error);
         toast({
           title: "Failed to reject request",
           description: error.message,
@@ -362,8 +327,7 @@ export const useJoinRequestManagement = (
       await fetchJoinRequests();
       return true;
     } catch (error: any) {
-      console.error("Error cancelling request:", error);
-      toast({
+    toast({
         title: "Failed to cancel request",
         description: error.message,
         variant: "destructive",
@@ -390,8 +354,7 @@ export const useJoinRequestManagement = (
           table: "trip_join_requests",
           filter: `trip_id=eq.${tripId}`,
         },
-        (payload) => {
-          console.log("Join request change:", payload);
+        () => {
           fetchJoinRequests();
         }
       )

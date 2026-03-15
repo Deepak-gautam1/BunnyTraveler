@@ -23,8 +23,8 @@ type Trip = {
   status: string;
   interested_count?: number;
   completed_at?: string | null;
-  profiles: any;
-  trip_participants: any[];
+  profiles: { full_name: string | null; avatar_url: string | null } | null;
+  trip_participants: { user_id: string; joined_at: string }[];
 };
 
 interface CacheData {
@@ -32,7 +32,7 @@ interface CacheData {
   totalTrips: number;
   currentPage: number;
   timestamp: number;
-  filters: any;
+  filters: Record<string, unknown>;
 }
 
 interface TripCacheContextType {
@@ -56,7 +56,6 @@ export const TripCacheProvider = ({ children }: { children: ReactNode }) => {
   }, [cache]);
 
   const setCachedTrips = useCallback((data: CacheData) => {
-    console.log("📦 Caching trips:", data.trips.length);
     setCache({
       ...data,
       timestamp: Date.now(),
@@ -64,16 +63,13 @@ export const TripCacheProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const clearCache = useCallback(() => {
-    console.log("🗑️ Clearing cache");
     setCache(null);
   }, []);
 
   const isCacheValid = useCallback(() => {
     if (!cache) return false;
     const age = Date.now() - cache.timestamp;
-    const valid = age < CACHE_DURATION;
-    console.log(`⏰ Cache age: ${Math.round(age / 1000)}s, valid: ${valid}`);
-    return valid;
+    return age < CACHE_DURATION;
   }, [cache]);
 
   return (

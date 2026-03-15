@@ -203,10 +203,10 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
       if (completedJoinedError) throw completedJoinedError;
 
       // Process active trips
-      setCreatedTrips((created as unknown as Trip[]) || []);
+      setCreatedTrips((created as Trip[]) ?? []);
 
       const processedJoinedTrips =
-        (joinedData as unknown as JoinedTripData[])
+        (joinedData as JoinedTripData[])
           ?.map((item) => item.trips)
           .filter(
             (trip): trip is Trip => trip !== null && trip !== undefined
@@ -216,14 +216,14 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
 
       // Process completed trips
       const completedJoinedTrips =
-        (completedJoinedData as unknown as JoinedTripData[])
+        (completedJoinedData as JoinedTripData[])
           ?.map((item) => item.trips)
           .filter(
             (trip): trip is Trip => trip !== null && trip !== undefined
           ) || [];
 
       const allCompletedTrips = [
-        ...((completedCreated as unknown as Trip[]) || []),
+        ...((completedCreated as Trip[]) ?? []),
         ...completedJoinedTrips,
       ];
 
@@ -233,8 +233,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
       );
 
       setCompletedTrips(uniqueCompletedTrips);
-    } catch (error) {
-      console.error("Error fetching trips:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to load your trips",
@@ -251,7 +250,6 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
   };
 
   const handleTripCreated = () => {
-    console.log("Trip created successfully!");
     toast({
       title: "Success! 🎉",
       description: "Your trip has been created successfully",

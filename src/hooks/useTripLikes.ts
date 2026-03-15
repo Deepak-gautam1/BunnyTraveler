@@ -26,9 +26,8 @@ export const useTripLikes = (user: User | null) => {
 
       const tripIds = new Set(data.map((like) => like.trip_id));
       setLikedTripIds(tripIds);
-      console.log("✅ Loaded liked trips:", tripIds);
-    } catch (error) {
-      console.error("Error fetching liked trips:", error);
+    } catch {
+      // silently fail
     }
   }, [user]);
 
@@ -56,9 +55,6 @@ export const useTripLikes = (user: User | null) => {
     }
 
     const isCurrentlyLiked = isLiked(tripId);
-    console.log(
-      `🔄 Toggling like for trip ${tripId}, currently liked: ${isCurrentlyLiked}`
-    );
 
     try {
       if (isCurrentlyLiked) {
@@ -114,7 +110,6 @@ export const useTripLikes = (user: User | null) => {
         return true; // Now liked
       }
     } catch (error: any) {
-      console.error("❌ Error toggling like:", error);
       toast({
         title: "Error",
         description: "Failed to update like status",

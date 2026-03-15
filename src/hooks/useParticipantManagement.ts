@@ -102,7 +102,6 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
         referral_participants: referralCount, // ADD THIS
       });
     } catch (error: any) {
-      console.error("Error fetching participants:", error);
       toast({
         title: "Error loading participants",
         description: error.message || "Failed to load participants",
@@ -168,7 +167,6 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
       await fetchParticipants();
       return true;
     } catch (error: any) {
-      console.error("Error joining trip:", error);
       toast({
         title: "Failed to join trip",
         description: error.message || "Something went wrong",
@@ -211,7 +209,6 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
       await fetchParticipants();
       return true;
     } catch (error: any) {
-      console.error("Error leaving trip:", error);
       toast({
         title: "Failed to leave trip",
         description: error.message || "Something went wrong",
@@ -262,7 +259,6 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
         await fetchParticipants();
         return true;
       } catch (error: any) {
-        console.error("Error removing participant:", error);
         toast({
           title: "Failed to remove participant",
           description: error.message || "Something went wrong",
@@ -292,9 +288,7 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
           table: "trip_participants",
           filter: `trip_id=eq.${tripId}`,
         },
-        (payload) => {
-          console.log("Participant change detected:", payload);
-          // ✅ Immediately refresh participant data
+        () => {
           setTimeout(() => {
             fetchParticipants();
           }, 200); // Small delay to ensure database consistency
@@ -314,8 +308,6 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
           filter: `trip_id=eq.${tripId}`,
         },
         (payload) => {
-          console.log("Join request updated:", payload);
-          // If request was approved, refresh participants
           if (
             payload.new?.status === "approved" &&
             payload.old?.status === "pending"

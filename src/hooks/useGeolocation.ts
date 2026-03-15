@@ -143,8 +143,7 @@ export const useGeolocation = () => {
       };
 
       return timezoneMap[timezone] || timezoneMap.default;
-    } catch (error) {
-      console.log("Timezone detection failed, using default");
+    } catch {
       return {
         city: null,
         state: null,
@@ -277,10 +276,7 @@ export const useGeolocation = () => {
 
   const getCurrentLocation = async () => {
     // Prevent multiple simultaneous requests
-    if (requestInProgress.current) {
-      console.log("Location request already in progress");
-      return;
-    }
+    if (requestInProgress.current) return;
 
     if (!navigator.geolocation) {
       const fallbackLocation = getTimezoneBasedLocation();

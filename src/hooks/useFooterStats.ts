@@ -26,27 +26,21 @@ export const useFooterStats = () => {
         .from("profiles")
         .select("*", { count: "exact", head: true });
 
-      if (travelersError) {
-        console.error("Error fetching travelers count:", travelersError);
-      }
+
 
       // 2. Get total number of trips (all statuses)
       const { count: tripsCount, error: tripsError } = await supabase
         .from("trips")
         .select("*", { count: "exact", head: true });
 
-      if (tripsError) {
-        console.error("Error fetching trips count:", tripsError);
-      }
+
 
       // 3. Get unique destinations from trips table
       const { data: tripsData, error: destinationsError } = await supabase
         .from("trips")
         .select("destination");
 
-      if (destinationsError) {
-        console.error("Error fetching destinations:", destinationsError);
-      }
+
 
       // Count unique destinations (case-insensitive, trimmed)
       const uniqueDestinations = tripsData
@@ -79,14 +73,8 @@ export const useFooterStats = () => {
 
       setStats(newStats);
 
-      console.log("📊 Footer stats updated:", {
-        travelers: travelersCount,
-        trips: tripsCount,
-        destinations: uniqueDestinations,
-        rating: avgRating.toFixed(1),
-      });
-    } catch (error) {
-      console.error("Error fetching footer stats:", error);
+
+    } catch {
       // Set default fallback values on error
       setStats({
         totalTravelers: 0,
@@ -112,8 +100,7 @@ export const useFooterStats = () => {
           schema: "public",
           table: "profiles",
         },
-        (payload) => {
-          console.log("🔴 New traveler registered:", payload.new);
+        () => {
           fetchStats();
         }
       )
@@ -129,8 +116,7 @@ export const useFooterStats = () => {
           schema: "public",
           table: "trips",
         },
-        (payload) => {
-          console.log("🔴 Trip event detected:", payload.eventType);
+        () => {
           fetchStats();
         }
       )
@@ -146,8 +132,7 @@ export const useFooterStats = () => {
           schema: "public",
           table: "trip_reviews",
         },
-        (payload) => {
-          console.log("🔴 New review added:", payload.new);
+        () => {
           fetchStats();
         }
       )
@@ -155,7 +140,6 @@ export const useFooterStats = () => {
 
     // Cleanup subscriptions on unmount
     return () => {
-      console.log("🔴 Cleaning up footer stats subscriptions");
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(tripsChannel);
       supabase.removeChannel(reviewsChannel);

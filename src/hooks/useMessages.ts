@@ -119,8 +119,8 @@ export const useMessages = (user: User | null) => {
       );
 
       setConversations(conversationsArray);
-    } catch (error) {
-      console.error("Error fetching conversations:", error);
+    } catch {
+      // silently fail
     } finally {
       setLoading(false);
     }
@@ -159,10 +159,7 @@ export const useMessages = (user: User | null) => {
         .is("read_at", null)
         .select("*", { count: "exact" });
 
-      if (updateError) {
-        console.error("Error marking messages as read:", updateError);
-      } else if (updatedCount && updatedCount > 0) {
-        console.log(`Marked ${updatedCount} messages as read`);
+      if (!updateError && updatedCount && updatedCount > 0) {
 
         // ✅ OPTIMIZED: Update conversations state directly instead of refetching
         setConversations((prev) =>
@@ -176,8 +173,8 @@ export const useMessages = (user: User | null) => {
           )
         );
       }
-    } catch (error) {
-      console.error("Error fetching messages:", error);
+    } catch {
+      // silently fail
     }
   };
 
@@ -257,14 +254,7 @@ export const useMessages = (user: User | null) => {
         )
       );
     } catch (error) {
-      console.error("Error sending message:", error);
-
-      // ✅ Remove optimistic message on error
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
-
-      // ✅ Restore original conversation state on error
-      // Real-time subscription will handle restoring the correct state
-
       throw error;
     }
   };
@@ -284,7 +274,7 @@ export const useMessages = (user: User | null) => {
         },
         (payload) => {
           const newMessage = payload.new as any;
-          console.log("📨 New message received:", newMessage);
+
 
           // ✅ Only update current conversation if viewing it
           if (
@@ -350,7 +340,7 @@ export const useMessages = (user: User | null) => {
 
           // ✅ Handle read status updates
           if (!oldMessage.read_at && updatedMessage.read_at) {
-            console.log("📖 Message marked as read");
+
 
             // Update read status in current messages if viewing this conversation
             if (
@@ -372,7 +362,6 @@ export const useMessages = (user: User | null) => {
       .subscribe();
 
     return () => {
-      console.log("🔌 Cleaning up message subscription");
       supabase.removeChannel(messageChannel);
     };
   }, [user?.id, selectedParticipantId]);

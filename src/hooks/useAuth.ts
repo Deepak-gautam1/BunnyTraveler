@@ -1,12 +1,21 @@
-// src/hooks/useAuth.ts
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureProfileExists } from "@/lib/auth-helpers";
 
+export interface UserProfile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  email?: string | null;
+  terms_accepted_at?: string | null;
+  privacy_accepted_at?: string | null;
+  [key: string]: unknown;
+}
+
 interface AuthState {
   user: User | null;
-  profile: any | null;
+  profile: UserProfile | null;
   loading: boolean;
   isAuthenticated: boolean;
 }
@@ -20,91 +29,44 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
-    // Get initial session
     const getInitialSession = async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          // Ensure profile exists and get it
           const profile = await ensureProfileExists(session.user);
-          setState({
-            user: session.user,
-            profile,
-            loading: false,
-            isAuthenticated: true,
-          });
+          setState({ user: session.user, profile, loading: false, isAuthenticated: true });
         } else {
-          setState({
-            user: null,
-            profile: null,
-            loading: false,
-            isAuthenticated: false,
-          });
+          setState({ user: null, profile: null, loading: false, isAuthenticated: false });
         }
-      } catch (error) {
-        console.error("Error getting initial session:", error);
-        setState({
-          user: null,
-          profile: null,
-          loading: false,
-          isAuthenticated: false,
-        });
+      } catch {
+        setState({ user: null, profile: null, loading: false, isAuthenticated: false });
       }
     };
 
     getInitialSession();
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        // User signed in
         const profile = await ensureProfileExists(session.user);
-        setState({
-          user: session.user,
-          profile,
-          loading: false,
-          isAuthenticated: true,
-        });
+        setState({ user: session.user, profile, loading: false, isAuthenticated: true });
       } else {
-        // User signed out
-        setState({
-          user: null,
-          profile: null,
-          loading: false,
-          isAuthenticated: false,
-        });
+        setState({ user: null, profile: null, loading: false, isAuthenticated: false });
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Helper methods
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
+    await supabase.auth.signOut().catch(() => null);
   };
 
-  const refreshProfile = async () => {
-    if (state.user) {
-      const profile = await ensureProfileExists(state.user);
-      setState((prev) => ({ ...prev, profile }));
-      return profile;
-    }
-    return null;
+  const refreshProfile = async (): Promise<UserProfile | null> => {
+    if (!state.user) return null;
+    const profile = await ensureProfileExists(state.user);
+    setState((prev) => ({ ...prev, profile }));
+    return profile;
   };
 
-  return {
-    ...state,
-    signOut,
-    refreshProfile,
-  };
+  return { ...state, signOut, refreshProfile };
 };

@@ -1,5 +1,3 @@
-// src/hooks/usePostTripNotifications.ts
-import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const usePostTripNotifications = () => {
@@ -10,7 +8,6 @@ export const usePostTripNotifications = () => {
     endDate: string
   ) => {
     try {
-      // Calculate notification date (2 days after trip end)
       const notificationDate = new Date(endDate);
       notificationDate.setDate(notificationDate.getDate() + 2);
 
@@ -24,9 +21,8 @@ export const usePostTripNotifications = () => {
       });
 
       if (error) throw error;
-      console.log("Post-trip notification scheduled successfully");
-    } catch (error) {
-      console.error("Error scheduling notification:", error);
+    } catch {
+      // silently fail — notification scheduling is non-critical
     }
   };
 
@@ -34,7 +30,6 @@ export const usePostTripNotifications = () => {
     try {
       const now = new Date().toISOString();
 
-      // Get pending notifications that should be sent
       const { data: notifications, error } = await supabase
         .from("trip_notifications")
         .select("*")
@@ -43,15 +38,14 @@ export const usePostTripNotifications = () => {
 
       if (error) throw error;
 
-      // Mark notifications as sent (in a real app, you'd trigger push notifications here)
       for (const notification of notifications || []) {
         await supabase
           .from("trip_notifications")
           .update({ sent_at: now })
           .eq("id", notification.id);
       }
-    } catch (error) {
-      console.error("Error checking notifications:", error);
+    } catch {
+      // silently fail — notification check is non-critical
     }
   };
 

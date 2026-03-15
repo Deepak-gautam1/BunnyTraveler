@@ -28,12 +28,9 @@ class ImageCacheManager {
     if (cachedData && lastCheck) {
       const now = Date.now();
       if (now - lastCheck < CACHE_DURATION) {
-        console.log("✅ Images cache is fresh, using cached data");
         Object.entries(cachedData).forEach(([key, value]) => {
           this.memoryCache.set(key, value.url);
         });
-      } else {
-        console.log("⚠️ Image cache expired, will refresh");
       }
     }
   }
@@ -42,7 +39,7 @@ class ImageCacheManager {
   async preloadImages(
     imageUrls: { name: string; url: string }[]
   ): Promise<void> {
-    console.log(`🖼️ Preloading ${imageUrls.length} images...`);
+
 
     const cacheData: Record<string, CachedImage> = {};
     const promises = imageUrls.map(async ({ name, url }) => {
@@ -60,7 +57,6 @@ class ImageCacheManager {
               cachedAt: Date.now(),
               size: parseInt(response.headers.get("content-length") || "0"),
             };
-            console.log(`✅ Cached: ${name}`);
           }
         } else {
           // Fallback: Just preload the image
@@ -68,8 +64,8 @@ class ImageCacheManager {
           this.memoryCache.set(name, url);
           cacheData[name] = { url, cachedAt: Date.now() };
         }
-      } catch (error) {
-        console.warn(`⚠️ Failed to cache ${name}:`, error);
+      } catch {
+        // silently skip failed cache entries
       }
     });
 
@@ -79,9 +75,7 @@ class ImageCacheManager {
     setCookie(COOKIE_KEYS.IMAGES_CACHED, cacheData, 7);
     setCookie(COOKIE_KEYS.LAST_IMAGE_CHECK, Date.now(), 7);
 
-    console.log(
-      `✅ Successfully cached ${Object.keys(cacheData).length} images`
-    );
+
   }
 
   private preloadImage(url: string): Promise<void> {
@@ -113,7 +107,7 @@ class ImageCacheManager {
       await caches.delete(CACHE_NAME);
     }
 
-    console.log("🗑️ Image cache cleared");
+
   }
 
   // Get cache stats

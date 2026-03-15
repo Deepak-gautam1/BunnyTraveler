@@ -20,7 +20,7 @@ export const useTrendingCommunities = () => {
   useEffect(() => {
     const fetchTrendingCommunities = async () => {
       try {
-        console.log("🔄 Fetching trending communities from database...");
+
 
         // Get communities with member counts
         const { data, error } = await supabase
@@ -60,10 +60,9 @@ export const useTrendingCommunities = () => {
           }
         );
 
-        console.log("✅ Trending communities fetched:", transformedData);
+
         setCommunities(transformedData);
       } catch (err: any) {
-        console.error("❌ Failed to fetch trending communities:", err);
         setError(err.message);
       } finally {
         setLoading(false);

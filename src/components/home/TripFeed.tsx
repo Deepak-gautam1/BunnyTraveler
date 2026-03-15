@@ -199,7 +199,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
       if (page === 0 && !append && !hasActiveFilters() && isCacheValid()) {
         const cachedData = getCachedTrips();
         if (cachedData) {
-          console.log("✅ Using cached trips:", cachedData.trips.length);
+
           setTrips(cachedData.trips);
           setTotalTrips(cachedData.totalTrips);
           setCurrentPage(cachedData.currentPage);
@@ -283,7 +283,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
         const { data, error } = await dataQuery;
 
         if (error) {
-          console.error("Fetch error:", error);
           toast({
             title: "Error loading trips",
             description: "Failed to load trips. Please try again.",
@@ -323,8 +322,8 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
           setCurrentPage(page);
         }
-      } catch (err) {
-        console.error("Error fetching trips:", err);
+      } catch {
+        // silently fail — toast already shown on query error
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -417,7 +416,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
   }, [trips.length, totalTrips, loadingMore, currentPage, fetchTrips]);
 
   const refreshTrips = useCallback(async () => {
-    console.log("🔄 Manual refresh, clearing cache");
     clearCache();
     setCurrentPage(0);
     setTrips([]);
@@ -426,10 +424,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
   // ✅ UPDATED handleFiltersChange - Clear cache when filters change
   const handleFiltersChange = useCallback(
     (newFilters: FilterOptions) => {
-      const filtersChanged =
-        JSON.stringify(filters) !== JSON.stringify(newFilters);
-      if (filtersChanged) {
-        console.log("🔄 Filters changed, clearing cache");
+      if (JSON.stringify(filters) !== JSON.stringify(newFilters)) {
         clearCache();
       }
       setFilters(newFilters);
@@ -538,9 +533,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
     }
   };
 
-  const handleLocationSelect = (location: any) => {
-    console.log("Location selected:", location);
-  };
+  const handleLocationSelect = (_location: any) => {};
 
   const clearAllFilters = useCallback(() => {
     handleFiltersChange({
@@ -895,7 +888,6 @@ const TripFeed = ({ user }: TripFeedProps) => {
             {trips.length > INITIAL_TRIPS_COUNT && (
               <Button
                 onClick={() => {
-                  console.log("🔙 Showing less trips");
                   setTrips(trips.slice(0, INITIAL_TRIPS_COUNT));
                   setCurrentPage(0);
                 }}

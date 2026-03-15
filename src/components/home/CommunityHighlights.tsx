@@ -60,7 +60,7 @@ const CommunityHighlights = () => {
   // ✅ UPDATED: Fetch testimonials with pagination support
   const fetchTestimonials = async (limit: number = 2) => {
     try {
-      console.log(`🔄 Fetching ${limit} testimonials from database...`);
+
 
       const { data, error, count } = await supabase
         .from("trip_reviews")
@@ -88,13 +88,9 @@ const CommunityHighlights = () => {
         .order("created_at", { ascending: false })
         .limit(limit);
 
-      if (error) {
-        console.error("❌ Error fetching testimonials:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log("✅ Raw testimonials data:", data);
-      console.log("📊 Total testimonials count:", count);
+
 
       // Transform data to match our interface
       const transformedData: Testimonial[] = (data || []).map((item) => ({
@@ -117,9 +113,8 @@ const CommunityHighlights = () => {
 
       setTestimonials(transformedData);
       setTotalCount(count || 0);
-      console.log("✅ Transformed testimonials:", transformedData);
+
     } catch (err: any) {
-      console.error("❌ Failed to fetch testimonials:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -245,10 +240,6 @@ const CommunityHighlights = () => {
                                         maxHeight: "150px",
                                       }}
                                       onError={(e) => {
-                                        console.error(
-                                          "Failed to load image:",
-                                          photoUrl
-                                        );
                                         e.currentTarget.style.display = "none";
                                       }}
                                     />

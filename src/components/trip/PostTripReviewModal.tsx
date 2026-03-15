@@ -157,8 +157,7 @@ const PostTripReviewModal = ({
           compressedFiles.length > 1 ? "s" : ""
         } compressed and ready to upload`,
       });
-    } catch (error) {
-      console.error("Error compressing images:", error);
+    } catch {
       toast({
         title: "Compression failed",
         description: "Using original images",
@@ -200,8 +199,7 @@ const PostTripReviewModal = ({
 
         photoUrls.push(publicUrl);
       }
-    } catch (error) {
-      console.error("Error uploading photos:", error);
+    } catch {
       throw new Error("Failed to upload photos");
     } finally {
       setUploading(false);

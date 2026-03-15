@@ -46,18 +46,6 @@ export default function PhotoGallery({
     checkPhotoAccess();
   }, [user, tripId, isParticipant]);
 
-  // Debug the access state
-  useEffect(() => {
-    console.log("📸 PhotoGallery Debug:", {
-      tripId,
-      isParticipant,
-      isAuthenticated,
-      hasAccess,
-      userId: user?.id,
-      tripCreatorId,
-      uploadSectionVisible: isParticipant && hasAccess,
-    });
-  }, [tripId, isParticipant, isAuthenticated, hasAccess, user, tripCreatorId]);
 
   const checkPhotoAccess = async () => {
     if (!user || !isAuthenticated) {
@@ -83,7 +71,6 @@ export default function PhotoGallery({
         .maybeSingle();
 
       if (error && error.code !== "PGRST116") {
-        console.error("Error checking participation:", error);
         setHasAccess(false);
       } else {
         const isParticipantInDb = !!data;
@@ -93,8 +80,7 @@ export default function PhotoGallery({
           fetchPhotos();
         }
       }
-    } catch (error) {
-      console.error("Error checking photo access:", error);
+    } catch {
       setHasAccess(false);
     } finally {
       setLoading(false);
@@ -121,54 +107,31 @@ export default function PhotoGallery({
 
       if (error) throw error;
       setPhotos(data || []);
-    } catch (error) {
-      console.error("Error fetching photos:", error);
-      // If access is denied, clear photos
+    } catch {
       setPhotos([]);
     }
   };
 
   // Upload photo function
   const uploadPhoto = async (file: File, caption?: string) => {
-    if (!user || !isAuthenticated) {
-      console.error("Upload failed: User not authenticated");
-      return;
-    }
-
-    console.log("Starting photo upload:", {
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-      tripId,
-      userId: user.id,
-    });
+    if (!user || !isAuthenticated) return;
 
     setUploading(true);
     try {
-      // Upload to Supabase Storage
       const fileExt = file.name.split(".").pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `trip-photos/${tripId}/${fileName}`;
 
-      console.log("Uploading to path:", filePath);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("trip-photos")
         .upload(filePath, file);
 
-      if (uploadError) {
-        console.error("Storage upload error:", uploadError);
-        throw uploadError;
-      }
-
-      console.log("Storage upload successful:", uploadData);
+      if (uploadError) throw uploadError;
 
       // Get public URL
       const {
         data: { publicUrl },
       } = supabase.storage.from("trip-photos").getPublicUrl(filePath);
-
-      console.log("Generated public URL:", publicUrl);
 
       // Save to database
       const photoData = {
@@ -181,27 +144,17 @@ export default function PhotoGallery({
         mime_type: file.type,
       };
 
-      console.log("Inserting to database:", photoData);
-
-      const { data: dbData, error: dbError } = await supabase
+      const { error: dbError } = await supabase
         .from("trip_photos")
         .insert(photoData)
         .select();
 
-      if (dbError) {
-        console.error("Database insert error:", dbError);
-        throw dbError;
-      }
+      if (dbError) throw dbError;
 
-      console.log("Database insert successful:", dbData);
-
-      // Refresh photos
       fetchPhotos();
-
-      console.log("✅ Photo upload completed successfully");
-    } catch (error) {
-      console.error("❌ Photo upload failed:", error);
-      alert(`Upload failed: ${error.message}`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      alert(`Upload failed: ${msg}`);
     } finally {
       setUploading(false);
     }

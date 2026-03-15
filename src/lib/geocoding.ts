@@ -1,5 +1,3 @@
-// src/lib/geocoding.ts
-
 interface Coordinates {
   latitude: number;
   longitude: number;
@@ -9,9 +7,7 @@ interface CityCache {
   [city: string]: Coordinates;
 }
 
-// Hardcoded coordinates for popular Indian cities (faster, no API needed)
 const INDIAN_CITIES_COORDS: CityCache = {
-  // Major Cities
   mumbai: { latitude: 19.076, longitude: 72.8777 },
   delhi: { latitude: 28.7041, longitude: 77.1025 },
   bangalore: { latitude: 12.9716, longitude: 77.5946 },
@@ -23,7 +19,6 @@ const INDIAN_CITIES_COORDS: CityCache = {
   pune: { latitude: 18.5204, longitude: 73.8567 },
   jaipur: { latitude: 26.9124, longitude: 75.7873 },
   chandigarh: { latitude: 30.7333, longitude: 76.7794 },
-  // Tourist Destinations
   goa: { latitude: 15.2993, longitude: 74.124 },
   manali: { latitude: 32.2396, longitude: 77.1887 },
   shimla: { latitude: 31.1048, longitude: 77.1734 },
@@ -49,8 +44,6 @@ const INDIAN_CITIES_COORDS: CityCache = {
   puducherry: { latitude: 11.9416, longitude: 79.8083 },
   nainital: { latitude: 29.3803, longitude: 79.4636 },
   ranthambore: { latitude: 26.0173, longitude: 76.5026 },
-
-  // More cities
   srinagar: { latitude: 34.0837, longitude: 74.7973 },
   gangtok: { latitude: 27.3389, longitude: 88.6065 },
   mountabu: { latitude: 24.5926, longitude: 72.7156 },
@@ -66,112 +59,50 @@ const INDIAN_CITIES_COORDS: CityCache = {
   pushkar: { latitude: 26.4899, longitude: 74.5511 },
 };
 
-// In-memory cache for dynamically geocoded cities
-let dynamicCache: CityCache = {};
+const dynamicCache: CityCache = {};
 
-/**
- * Get coordinates for a city
- * First checks hardcoded list, then falls back to API (if implemented)
- */
-export async function getCityCoordinates(
-  cityName: string
-): Promise<Coordinates | null> {
+export async function getCityCoordinates(cityName: string): Promise<Coordinates | null> {
   if (!cityName) return null;
-
-  const normalizedCity = cityName.toLowerCase().trim();
-
-  // Check hardcoded list first
-  if (INDIAN_CITIES_COORDS[normalizedCity]) {
-    return INDIAN_CITIES_COORDS[normalizedCity];
-  }
-
-  // Check dynamic cache
-  if (dynamicCache[normalizedCity]) {
-    return dynamicCache[normalizedCity];
-  }
-
-  // Fallback: Try to geocode using free API (optional)
+  const key = cityName.toLowerCase().trim();
+  if (INDIAN_CITIES_COORDS[key]) return INDIAN_CITIES_COORDS[key];
+  if (dynamicCache[key]) return dynamicCache[key];
   try {
     const coords = await geocodeCityViaAPI(cityName);
-    if (coords) {
-      dynamicCache[normalizedCity] = coords;
-      return coords;
-    }
-  } catch (error) {
-    console.warn(`Failed to geocode ${cityName}:`, error);
+    if (coords) { dynamicCache[key] = coords; return coords; }
+  } catch {
+    // Silently fail — caller handles null
   }
-
   return null;
 }
 
-/**
- * Optional: Geocode using Nominatim (free, no API key needed)
- * Note: Has rate limits (1 req/sec), use sparingly
- */
-async function geocodeCityViaAPI(
-  cityName: string
-): Promise<Coordinates | null> {
+async function geocodeCityViaAPI(cityName: string): Promise<Coordinates | null> {
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        cityName + ", India"
-      )}&limit=1`,
-      {
-        headers: {
-          "User-Agent": "SafarSquad/1.0", // Required by Nominatim
-        },
-      }
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName + ", India")}&limit=1`,
+      { headers: { "User-Agent": "SafarSquad/1.0" } }
     );
-
-    const data = await response.json();
-    if (data && data.length > 0) {
-      return {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
-      };
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
     }
-  } catch (error) {
-    console.error("Geocoding API error:", error);
+  } catch {
+    // Network unavailable or API rate-limited — caller handles null
   }
-
   return null;
 }
 
-/**
- * Batch geocode multiple cities (for initial load)
- */
-export async function batchGeocodeCities(
-  cities: string[]
-): Promise<Map<string, Coordinates>> {
+export async function batchGeocodeCities(cities: string[]): Promise<Map<string, Coordinates>> {
   const results = new Map<string, Coordinates>();
-
   for (const city of cities) {
     const coords = await getCityCoordinates(city);
-    if (coords) {
-      results.set(city.toLowerCase(), coords);
-    }
-    // Add small delay to respect API rate limits
+    if (coords) results.set(city.toLowerCase(), coords);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-
   return results;
 }
-// NEW: Synchronous version for filtering (only checks hardcoded + cache)
+
 export function getCityCoordinatesSync(cityName: string): Coordinates | null {
   if (!cityName) return null;
-
-  const normalizedCity = cityName.toLowerCase().trim();
-
-  // Check hardcoded list
-  if (INDIAN_CITIES_COORDS[normalizedCity]) {
-    return INDIAN_CITIES_COORDS[normalizedCity];
-  }
-
-  // Check dynamic cache (already resolved from previous async calls)
-  if (dynamicCache[normalizedCity]) {
-    return dynamicCache[normalizedCity];
-  }
-
-  // Don't make API calls here - return null
-  return null;
+  const key = cityName.toLowerCase().trim();
+  return INDIAN_CITIES_COORDS[key] ?? dynamicCache[key] ?? null;
 }

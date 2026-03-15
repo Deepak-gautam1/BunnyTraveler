@@ -21,11 +21,7 @@ const Index = ({ user }: IndexProps) => {
   useEffect(() => {
     const hasSeenWelcome = localStorage.getItem("welcomeModalSeen");
 
-    console.log("🔍 Index useEffect:", {
-      hasUser: !!user,
-      hasSeenWelcome,
-      willCheck: user && !hasSeenWelcome,
-    });
+
 
     // ✅ FIXED: Show to any logged-in user who hasn't seen it
     if (user && !hasSeenWelcome) {
@@ -35,7 +31,6 @@ const Index = ({ user }: IndexProps) => {
 
   const checkIfNewUser = async (user: User) => {
     try {
-      console.log("Checking user profile for:", user.id);
 
       const profile = await ensureProfileExists(user);
 
@@ -46,24 +41,18 @@ const Index = ({ user }: IndexProps) => {
         const isNewProfile =
           !profile.home_city || !profile.tagline || completionPercentage < 60;
 
-        console.log("📊 Profile check:", {
-          completionPercentage,
-          isNewProfile,
-          homeCity: profile.home_city,
-          tagline: profile.tagline,
-        });
+
 
         // ✅ FIXED: Show welcome modal to everyone who hasn't seen it
         setIsNewUser(isNewProfile);
         setShowWelcome(true); // ← Always show if they haven't seen it
       }
-    } catch (error) {
-      console.error("Error checking user profile:", error);
+    } catch {
+      // silently fail — welcome modal is non-critical
     }
   };
 
   const handleProfileComplete = () => {
-    console.log("✅ Welcome modal closed");
     setShowWelcome(false);
     setIsNewUser(false);
   };

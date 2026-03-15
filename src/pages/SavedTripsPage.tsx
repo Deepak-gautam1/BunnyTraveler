@@ -1,4 +1,3 @@
-// src/pages/SavedTripsPage.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { User } from "@supabase/supabase-js";
@@ -8,111 +7,60 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import BookmarkButton from "@/components/trip/BookmarkButton";
 import EnhancedTripCard from "@/components/home/EnhancedTripCard";
 import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
+import { Heart, Search, Filter, Grid, List, RefreshCw } from "lucide-react";
 
-import {
-  Heart,
-  Search,
-  Calendar,
-  MapPin,
-  Filter,
-  Grid,
-  List,
-  RefreshCw,
-  Trash2,
-  IndianRupee,
-} from "lucide-react";
+type SortOption = "newest" | "oldest" | "date" | "destination";
+type ViewMode  = "grid" | "list";
 
 interface SavedTripsPageProps {
   user: User | null;
 }
 
 const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
-  const navigate = useNavigate();
-  const { bookmarks, loading, toggleBookmark, isBookmarked, refreshBookmarks } =
-    useBookmarks(user);
+  const navigate  = useNavigate();
+  const { bookmarks, loading, toggleBookmark, refreshBookmarks } = useBookmarks(user);
 
   const [searchTerm, setSearchTerm] = useState("");
-  // ✅ Load sort preference from cookies
-  const [sortBy, setSortBy] = useState<
-    "newest" | "oldest" | "date" | "destination"
-  >(() => {
-    return getCookie(COOKIE_KEYS.BOOKMARKS_SORT) || "newest";
-  });
+  const [sortBy, setSortBy]   = useState<SortOption>(() => getCookie<SortOption>(COOKIE_KEYS.BOOKMARKS_SORT) ?? "newest");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => getCookie<ViewMode>(COOKIE_KEYS.BOOKMARKS_VIEW) ?? "list");
 
-  // ✅ Load view mode from cookies
-  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
-    return getCookie(COOKIE_KEYS.BOOKMARKS_VIEW) || "list";
-  });
-  // ✅ Save sort preference when it changes
-  useEffect(() => {
-    setCookie(COOKIE_KEYS.BOOKMARKS_SORT, sortBy, 30);
-  }, [sortBy]);
+  useEffect(() => { setCookie(COOKIE_KEYS.BOOKMARKS_SORT, sortBy, 30); }, [sortBy]);
+  useEffect(() => { setCookie(COOKIE_KEYS.BOOKMARKS_VIEW, viewMode, 30); }, [viewMode]);
 
-  // ✅ Save view mode when it changes
-  useEffect(() => {
-    setCookie(COOKIE_KEYS.BOOKMARKS_VIEW, viewMode, 30);
-  }, [viewMode]);
-  // Filter and sort bookmarks
   const filteredBookmarks = bookmarks
     .filter((bookmark) => {
       if (!bookmark.trips) return false;
-
-      const searchLower = searchTerm.toLowerCase();
+      const q = searchTerm.toLowerCase();
       return (
-        bookmark.trips.destination.toLowerCase().includes(searchLower) ||
-        bookmark.trips.start_city.toLowerCase().includes(searchLower) ||
-        (bookmark.trips.description &&
-          bookmark.trips.description.toLowerCase().includes(searchLower))
+        bookmark.trips.destination.toLowerCase().includes(q) ||
+        bookmark.trips.start_city.toLowerCase().includes(q) ||
+        (bookmark.trips.description?.toLowerCase().includes(q) ?? false)
       );
     })
     .sort((a, b) => {
       if (!a.trips || !b.trips) return 0;
-
       switch (sortBy) {
         case "oldest":
-          return (
-            new Date(a.bookmarked_at).getTime() -
-            new Date(b.bookmarked_at).getTime()
-          );
+          return new Date(a.bookmarked_at).getTime() - new Date(b.bookmarked_at).getTime();
         case "date":
-          return (
-            new Date(a.trips.start_date).getTime() -
-            new Date(b.trips.start_date).getTime()
-          );
+          return new Date(a.trips.start_date).getTime() - new Date(b.trips.start_date).getTime();
         case "destination":
           return a.trips.destination.localeCompare(b.trips.destination);
-        case "newest":
         default:
-          return (
-            new Date(b.bookmarked_at).getTime() -
-            new Date(a.bookmarked_at).getTime()
-          );
+          return new Date(b.bookmarked_at).getTime() - new Date(a.bookmarked_at).getTime();
       }
     });
-
-  const handleTripClick = (tripId: number) => {
-    navigate(`/trip/${tripId}`);
-  };
-
-  const clearAllBookmarks = async () => {
-    // You could implement a bulk delete function here
-    console.log("Clear all bookmarks");
-  };
 
   if (!user) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto text-center py-20">
-          <Heart className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
-          <h1 className="text-2xl font-bold mb-4">
-            Sign in to view saved trips
-          </h1>
+          <Heart className="w-16 h-16 mx-auto mb-6 text-muted-foreground" aria-hidden="true" />
+          <h1 className="text-2xl font-bold mb-4">Sign in to view saved trips</h1>
           <p className="text-muted-foreground mb-6">
-            Create an account to save your favorite trips and access them
-            anytime.
+            Create an account to save your favourite trips and access them anytime.
           </p>
           <Button onClick={() => navigate("/auth")}>Sign In</Button>
         </div>
@@ -130,35 +78,22 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
               <h1 className="text-3xl font-bold bg-gradient-warm bg-clip-text text-transparent">
                 Saved Trips
               </h1>
-              <p className="text-muted-foreground">
-                Your collection of amazing adventures
-              </p>
+              <p className="text-muted-foreground">Your collection of amazing adventures</p>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refreshBookmarks}
-                disabled={loading}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={refreshBookmarks} disabled={loading} aria-label="Refresh saved trips">
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+              Refresh
+            </Button>
           </div>
 
-          {/* Stats */}
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="px-3 py-1">
-              <Heart className="w-4 h-4 mr-2 fill-current" />
+              <Heart className="w-4 h-4 mr-2 fill-current" aria-hidden="true" />
               {bookmarks.length} saved trips
             </Badge>
             {filteredBookmarks.length !== bookmarks.length && (
               <Badge variant="outline" className="px-3 py-1">
-                <Filter className="w-4 h-4 mr-2" />
+                <Filter className="w-4 h-4 mr-2" aria-hidden="true" />
                 {filteredBookmarks.length} showing
               </Badge>
             )}
@@ -168,56 +103,45 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
         {/* Controls */}
         <Card className="p-4">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" aria-hidden="true" />
               <Input
                 placeholder="Search saved trips..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
+                aria-label="Search saved trips"
               />
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Sort */}
-              <Tabs
-                value={sortBy}
-                onValueChange={(value) => setSortBy(value as any)}
-              >
+              <Tabs value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
                 <TabsList className="grid grid-cols-4">
-                  <TabsTrigger value="newest" className="text-xs">
-                    Newest
-                  </TabsTrigger>
-                  <TabsTrigger value="oldest" className="text-xs">
-                    Oldest
-                  </TabsTrigger>
-                  <TabsTrigger value="date" className="text-xs">
-                    Trip Date
-                  </TabsTrigger>
-                  <TabsTrigger value="destination" className="text-xs">
-                    A-Z
-                  </TabsTrigger>
+                  <TabsTrigger value="newest" className="text-xs">Newest</TabsTrigger>
+                  <TabsTrigger value="oldest" className="text-xs">Oldest</TabsTrigger>
+                  <TabsTrigger value="date" className="text-xs">Trip Date</TabsTrigger>
+                  <TabsTrigger value="destination" className="text-xs">A-Z</TabsTrigger>
                 </TabsList>
               </Tabs>
 
-              {/* View Mode */}
-              <div className="flex items-center bg-muted rounded-lg p-1">
+              <div className="flex items-center bg-muted rounded-lg p-1" role="group" aria-label="View mode">
                 <Button
                   variant={viewMode === "list" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("list")}
-                  className={viewMode === "list" ? "bg-white shadow-sm" : ""}
+                  aria-label="List view"
+                  aria-pressed={viewMode === "list"}
                 >
-                  <List className="w-4 h-4" />
+                  <List className="w-4 h-4" aria-hidden="true" />
                 </Button>
                 <Button
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("grid")}
-                  className={viewMode === "grid" ? "bg-white shadow-sm" : ""}
+                  aria-label="Grid view"
+                  aria-pressed={viewMode === "grid"}
                 >
-                  <Grid className="w-4 h-4" />
+                  <Grid className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>
@@ -226,13 +150,13 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
 
         {/* Content */}
         {loading ? (
-          <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
+          <div className="text-center py-20" role="status" aria-live="polite">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4" aria-hidden="true" />
             <p className="text-muted-foreground">Loading saved trips...</p>
           </div>
         ) : filteredBookmarks.length === 0 ? (
           <div className="text-center py-20">
-            <Heart className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
+            <Heart className="w-16 h-16 mx-auto mb-6 text-muted-foreground" aria-hidden="true" />
             <h2 className="text-xl font-semibold mb-4">
               {searchTerm ? "No trips match your search" : "No saved trips yet"}
             </h2>
@@ -242,82 +166,48 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                 : "Start exploring and save trips you're interested in!"}
             </p>
             {!searchTerm && (
-              <Button onClick={() => navigate("/discover")}>
-                Discover Trips
-              </Button>
+              <Button onClick={() => navigate("/discover")}>Discover Trips</Button>
             )}
           </div>
         ) : (
-          <div
-            className={`grid gap-6 ${
-              viewMode === "grid"
-                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                : "grid-cols-1"
-            }`}
-          >
+          <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
             {filteredBookmarks.map((bookmark) => {
               if (!bookmark.trips) return null;
-
               const trip = bookmark.trips;
-              const enhancedTrip = {
-                id: trip.id,
-                destination: trip.destination,
-                startDate: trip.start_date,
-                endDate: trip.end_date,
-                startCity: trip.start_city,
-                description: trip.description || "No description provided.",
-                creator: {
-                  id: "unknown", // Add this too if missing
-                  name: trip.profiles?.full_name || "A Wanderer",
-                  avatar: trip.profiles?.avatar_url || "",
-                  rating: 4.8,
-                  verificationBadges: ["verified"],
-                  isHost: true,
-                },
-                vibe: trip.travel_style || ["Adventure"],
-                groupSize: {
-                  current: trip.current_participants,
-                  max: trip.max_participants,
-                },
-                interestedCount: trip.current_participants,
-                status: "active", // ✅ ADD THIS - Required prop
-                price: {
-                  amount: trip.budget_per_person || 0,
-                  currency: "INR",
-                },
-                isFemaleOnly: false,
-                isInstantJoin: true,
-                postedAt: trip.start_date,
-                bookmarkedAt: bookmark.bookmarked_at,
-                isBookmarked: true,
-                isLiked: false,
-              };
-
               return (
                 <div key={bookmark.id} className="relative">
-                  {/* ✅ REMOVE: External BookmarkButton wrapper that was causing overlap */}
-
-                  {/* Saved Date Badge - Keep this */}
                   <div className="absolute top-4 left-4 z-10">
-                    <Badge
-                      variant="secondary"
-                      className="bg-white/90 backdrop-blur-sm text-xs"
-                    >
-                      Saved{" "}
-                      {new Date(bookmark.bookmarked_at).toLocaleDateString()}
+                    <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm text-xs">
+                      Saved {new Date(bookmark.bookmarked_at).toLocaleDateString()}
                     </Badge>
                   </div>
-
-                  {/* ✅ FIXED: EnhancedTripCard handles both bookmark and heart internally */}
                   <EnhancedTripCard
-                    {...enhancedTrip}
-                    onClick={() => handleTripClick(trip.id)}
-                    onChatClick={() => {
-                      console.log("Chat for trip:", trip.id);
+                    id={trip.id}
+                    destination={trip.destination}
+                    startDate={trip.start_date}
+                    endDate={trip.end_date}
+                    startCity={trip.start_city}
+                    description={trip.description ?? "No description provided."}
+                    creator={{
+                      id: "unknown",
+                      name: trip.profiles?.full_name ?? "A Wanderer",
+                      avatar: trip.profiles?.avatar_url ?? "",
+                      rating: 4.8,
+                      verificationBadges: ["verified"],
+                      isHost: true,
                     }}
-                    onLikeClick={() => {
-                      console.log("Like trip:", trip.id);
-                    }}
+                    vibe={trip.travel_style ?? ["Adventure"]}
+                    groupSize={{ current: trip.current_participants, max: trip.max_participants }}
+                    interestedCount={trip.current_participants}
+                    status="active"
+                    isFemaleOnly={false}
+                    isInstantJoin={true}
+                    postedAt={trip.start_date}
+                    isBookmarked={true}
+                    isLiked={false}
+                    onClick={() => navigate(`/trip/${trip.id}`)}
+                    onChatClick={() => {}}
+                    onLikeClick={() => {}}
                     onBookmarkClick={() => toggleBookmark(trip.id)}
                   />
                 </div>

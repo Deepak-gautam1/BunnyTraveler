@@ -39,13 +39,7 @@ const WelcomeModal = ({
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   // ✅ SIMPLIFIED: Just use isOpen directly
-  useEffect(() => {
-    console.log("🎉 WelcomeModal state:", {
-      isOpen,
-      currentStep,
-      hasSeenBefore: localStorage.getItem("welcomeModalSeen"),
-    });
-  }, [isOpen, currentStep]);
+
 
   const steps = [
     {
@@ -203,14 +197,12 @@ const WelcomeModal = ({
   };
 
   const handleSkip = () => {
-    console.log("⏭️ User skipped welcome modal");
     localStorage.setItem("welcomeModalSeen", "true");
     setCurrentStep(0); // Reset for next time
     onClose();
   };
 
   const handleProfileComplete = () => {
-    console.log("✅ Profile editing complete");
     setIsEditProfileOpen(false);
     setCurrentStep(0);
     onClose();
@@ -218,7 +210,6 @@ const WelcomeModal = ({
 
   const handleClose = (open: boolean) => {
     if (!open) {
-      console.log("❌ Modal closed manually");
       localStorage.setItem("welcomeModalSeen", "true");
       setCurrentStep(0);
       onClose();

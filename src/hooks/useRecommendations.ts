@@ -1,4 +1,3 @@
-// src/hooks/useRecommendations.ts
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -34,31 +33,23 @@ export const useRecommendations = (user: User | null) => {
     setError(null);
 
     try {
-      console.log("Fetching recommendations for user:", user.id);
-
-      // ✅ FIXED: Use correct parameter names matching your database function
-      const { data, error } = await supabase.rpc("get_recommended_trips", {
-        input_user_id: user.id, // ✅ FIXED: Changed from target_user_id to input_user_id
-        max_results: maxResults, // ✅ FIXED: This matches your function parameter
+      const { data, error: rpcError } = await supabase.rpc("get_recommended_trips", {
+        input_user_id: user.id,
+        max_results: maxResults,
       });
 
-      if (error) {
-        console.error("Supabase RPC error:", error);
-        throw error;
-      }
+      if (rpcError) throw rpcError;
 
-      console.log("Recommendations received:", data);
       setRecommendations(data || []);
-    } catch (err: any) {
-      console.error("Error fetching recommendations:", err);
-      setError(err.message || "Failed to load recommendations");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to load recommendations";
+      setError(message);
       setRecommendations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-fetch on user change
   useEffect(() => {
     fetchRecommendations();
   }, [user?.id]);

@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -423,6 +428,13 @@ const PostTripModal = ({
     <Dialog open={open} onOpenChange={onClose}>
       {/* w-[95vw] sm:max-w-lg ensures it looks good on mobile and desktop */}
       <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 [&>button:last-child]:hidden">
+        {/* Required by Radix UI for screen reader accessibility */}
+        <DialogTitle className="sr-only">
+          {mode === "edit" ? "Edit Your Adventure" : "Plan Your Adventure"}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Fill in the trip details to {mode === "edit" ? "update" : "create"} your adventure
+        </DialogDescription>
         {/* ✅ FIXED: Sleek, non-circular Red X */}
         <button
           onClick={onClose}

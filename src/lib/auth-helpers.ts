@@ -1,33 +1,42 @@
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 
-export const ensureProfileExists = async (user: User) => {
+export interface UserProfileData {
+  id?: string;
+  full_name?: string | null;
+  bio?: string | null;
+  home_city?: string | null;
+  tagline?: string | null;
+  avatar_url?: string | null;
+  email?: string | null;
+  website?: string | null;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: unknown;
+}
+
+export const ensureProfileExists = async (user: User): Promise<UserProfileData | null> => {
   try {
-    // Check if profile already exists
     const { data: existingProfile, error: checkError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
 
-    if (checkError && checkError.code !== "PGRST116") {
-      console.error("Error checking profile:", checkError);
-      return null;
-    }
+    if (checkError && checkError.code !== "PGRST116") return null;
 
     if (!existingProfile) {
-      // Create new profile from Google data
       const { data: newProfile, error: createError } = await supabase
         .from("profiles")
         .insert({
           id: user.id,
-          full_name: user.user_metadata?.full_name || null,
-          avatar_url: user.user_metadata?.avatar_url || null,
-          email: user.email || null,
+          full_name: user.user_metadata?.full_name ?? null,
+          avatar_url: user.user_metadata?.avatar_url ?? null,
+          email: user.email ?? null,
           user_id: user.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          // Leave new fields empty for user to fill
           home_city: null,
           tagline: null,
           website: null,
@@ -36,59 +45,46 @@ export const ensureProfileExists = async (user: User) => {
         .select()
         .single();
 
-      if (createError) {
-        console.error("Error creating profile:", createError);
-        return null;
-      }
-
+      if (createError) return null;
       return newProfile;
-    } else {
-      // Update existing profile with latest Google data if needed
-      const updates: any = {};
-      let needsUpdate = false;
-
-      if (!existingProfile.full_name && user.user_metadata?.full_name) {
-        updates.full_name = user.user_metadata.full_name;
-        needsUpdate = true;
-      }
-
-      if (!existingProfile.avatar_url && user.user_metadata?.avatar_url) {
-        updates.avatar_url = user.user_metadata.avatar_url;
-        needsUpdate = true;
-      }
-
-      if (!existingProfile.email && user.email) {
-        updates.email = user.email;
-        needsUpdate = true;
-      }
-
-      if (needsUpdate) {
-        updates.updated_at = new Date().toISOString();
-
-        const { data: updatedProfile, error: updateError } = await supabase
-          .from("profiles")
-          .update(updates)
-          .eq("id", user.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error("Error updating profile:", updateError);
-          return existingProfile;
-        }
-
-        return updatedProfile;
-      }
-
-      return existingProfile;
     }
-  } catch (error) {
-    console.error("Error in ensureProfileExists:", error);
+
+    const updates: Partial<UserProfileData> = {};
+    let needsUpdate = false;
+
+    if (!existingProfile.full_name && user.user_metadata?.full_name) {
+      updates.full_name = user.user_metadata.full_name;
+      needsUpdate = true;
+    }
+    if (!existingProfile.avatar_url && user.user_metadata?.avatar_url) {
+      updates.avatar_url = user.user_metadata.avatar_url;
+      needsUpdate = true;
+    }
+    if (!existingProfile.email && user.email) {
+      updates.email = user.email;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      updates.updated_at = new Date().toISOString();
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", user.id)
+        .select()
+        .single();
+
+      if (updateError) return existingProfile;
+      return updatedProfile;
+    }
+
+    return existingProfile;
+  } catch {
     return null;
   }
 };
 
-export const checkProfileCompletion = (profile: any) => {
+export const checkProfileCompletion = (profile: UserProfileData) => {
   if (!profile) return { isComplete: false, completionScore: 0 };
 
   const fields = [
@@ -100,10 +96,10 @@ export const checkProfileCompletion = (profile: any) => {
   ];
 
   const filledFields = fields.filter(
-    (field) => field && field.trim().length > 0
+    (field) => field && String(field).trim().length > 0
   ).length;
   const completionScore = Math.round((filledFields / fields.length) * 100);
-  const isComplete = completionScore >= 80; // Consider 80%+ as complete
+  const isComplete = completionScore >= 80;
 
   return { isComplete, completionScore };
 };
