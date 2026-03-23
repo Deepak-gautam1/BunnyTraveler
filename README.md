@@ -6,7 +6,6 @@ SafarSquad is a full-stack social travel app that connects like-minded traveller
 
 🌐 **Live App:** [safarsquad.in](https://www.safarsquad.in/)
 
-
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black)
 ![Tests](https://img.shields.io/badge/tests-75%20passing-brightgreen?style=flat)
@@ -243,4 +242,5 @@ Please make sure `npm run lint`, `npm run typecheck`, and `npm test` all pass be
 
 ## License
 
-MIT © [Deepak Gautam](https://github.com/Deepak-gautam1)
+MIT © [Deepak Gautam](<[text](https://github.com/Deepak-gautam1)>)
+© 2025 Deepak Gautam. Commercial use requires written permission.

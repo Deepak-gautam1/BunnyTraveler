@@ -136,3 +136,5 @@ secrets.json
 config/secrets.js
 *.key
 *.pem
+
+supabase/migrations/
