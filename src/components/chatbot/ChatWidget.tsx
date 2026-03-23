@@ -126,9 +126,10 @@ const ChatWidget = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-session-id": SESSION_ID, // ✅ rate limiting support
+          "x-session-id": SESSION_ID,
         },
         body: JSON.stringify({ message: userMessage, history }),
+        signal: AbortSignal.timeout(30000), // ✅ 30 second timeout
       });
 
       const data = await response.json();
