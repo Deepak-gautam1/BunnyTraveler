@@ -132,11 +132,19 @@ const ChatWidget = () => {
         signal: AbortSignal.timeout(30000), // ✅ 30 second timeout
       });
 
+      if (!response.ok) throw new Error("API error");
+
       const data = await response.json();
+      //   console.log("API response:", data); // ✅ Add this to debug
+
+      // Make sure it reads 'reply' — NOT 'message' or 'response'
+      const botReply = data.reply || data.message || data.response;
+
+      if (!botReply) throw new Error("No reply in response");
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply, timestamp: getTime() },
+        { role: "assistant", content: botReply, timestamp: getTime() },
       ]);
 
       // ✅ Increment unread badge if chat is closed
