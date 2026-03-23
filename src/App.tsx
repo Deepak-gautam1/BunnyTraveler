@@ -14,35 +14,51 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { TripCacheProvider } from "./contexts/TripCacheContext";
 import { imageCacheManager } from "@/lib/imageCache";
 import { getDestinationImage } from "@/lib/images";
-
+import ChatWidget from "./components/chatbot/ChatWidget";
 // ─── Lazy-loaded routes (code splitting per page) ─────────────────────────────
-const Index               = lazy(() => import("@/pages/Index"));
-const TripDetailsPage     = lazy(() => import("@/pages/TripDetailsPage"));
-const ProfilePage         = lazy(() => import("@/pages/ProfilePage"));
-const DiscoverPage        = lazy(() => import("@/pages/DiscoverPage"));
-const MyTripsPage         = lazy(() => import("@/pages/MyTripsPage"));
-const CommunityPage       = lazy(() => import("@/pages/CommunityPage"));
+const Index = lazy(() => import("@/pages/Index"));
+const TripDetailsPage = lazy(() => import("@/pages/TripDetailsPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const DiscoverPage = lazy(() => import("@/pages/DiscoverPage"));
+const MyTripsPage = lazy(() => import("@/pages/MyTripsPage"));
+const CommunityPage = lazy(() => import("@/pages/CommunityPage"));
 const CommunityMembersPage = lazy(() => import("@/pages/CommunityMembersPage"));
-const MessagesPage        = lazy(() => import("@/pages/MessagesPage"));
-const SettingsPage        = lazy(() => import("@/pages/SettingsPage"));
-const AuthPage            = lazy(() => import("@/pages/AuthPage"));
-const Safety              = lazy(() => import("@/pages/Safety"));
-const Contact             = lazy(() => import("@/pages/Contact"));
-const AboutUs             = lazy(() => import("@/pages/AboutUs"));
-const TermsConditions     = lazy(() => import("@/pages/TermsConditions"));
-const PrivacyPolicy       = lazy(() => import("@/pages/PrivacyPolicy"));
-const MyRewardsPage       = lazy(() => import("@/pages/RewardsPage"));
-const ResetPassword       = lazy(() => import("@/pages/ResetPassword"));
-const NotFound            = lazy(() => import("@/pages/NotFound"));
+const MessagesPage = lazy(() => import("@/pages/MessagesPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const AuthPage = lazy(() => import("@/pages/AuthPage"));
+const Safety = lazy(() => import("@/pages/Safety"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const AboutUs = lazy(() => import("@/pages/AboutUs"));
+const TermsConditions = lazy(() => import("@/pages/TermsConditions"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const MyRewardsPage = lazy(() => import("@/pages/RewardsPage"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const queryClient = new QueryClient();
 
 const PRELOAD_DESTINATIONS = [
-  "manali", "goa", "rishikesh", "jaipur", "shimla",
-  "udaipur", "kerala", "leh-ladakh", "varanasi", "darjeeling",
-  "ooty", "andaman", "agra", "amristar", "mysore",
-  "pondicherry", "coorg", "nainital", "ranthambore", "kasol",
+  "manali",
+  "goa",
+  "rishikesh",
+  "jaipur",
+  "shimla",
+  "udaipur",
+  "kerala",
+  "leh-ladakh",
+  "varanasi",
+  "darjeeling",
+  "ooty",
+  "andaman",
+  "agra",
+  "amristar",
+  "mysore",
+  "pondicherry",
+  "coorg",
+  "nainital",
+  "ranthambore",
+  "kasol",
 ];
 
 const NO_NAV_ROUTES = ["/auth", "/landing", "/signup", "/login", "/reset"];
@@ -66,37 +82,50 @@ const AppLayout = ({ user }: { user: User | null }) => {
         <ErrorBoundary>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/"                   element={<Index user={user} />} />
-              <Route path="/trip/:tripId"        element={<TripDetailsPage />} />
-              <Route path="/profile"             element={<ProfilePage currentUser={user} />} />
-              <Route path="/profile/:userId"     element={<ProfilePage currentUser={user} />} />
-              <Route path="/discover"            element={<DiscoverPage user={user} />} />
-              <Route path="/my-trips"            element={<MyTripsPage user={user} />} />
-              <Route path="/community"           element={<CommunityPage user={user} />} />
-              <Route path="/community/:slug"     element={<CommunityMembersPage />} />
-              <Route path="/messages"            element={<MessagesPage user={user} />} />
-              <Route path="/settings"            element={<SettingsPage user={user} />} />
-              <Route path="/safety"              element={<Safety />} />
-              <Route path="/contact"             element={<Contact />} />
-              <Route path="/about-us"            element={<AboutUs />} />
-              <Route path="/auth"                element={<AuthPage />} />
-              <Route path="/terms"               element={<TermsConditions />} />
-              <Route path="/privacy"             element={<PrivacyPolicy />} />
-              <Route path="/rewards"             element={<MyRewardsPage user={user} />} />
-              <Route path="/reset"               element={<ResetPassword />} />
-              <Route path="*"                    element={<NotFound />} />
+              <Route path="/" element={<Index user={user} />} />
+              <Route path="/trip/:tripId" element={<TripDetailsPage />} />
+              <Route
+                path="/profile"
+                element={<ProfilePage currentUser={user} />}
+              />
+              <Route
+                path="/profile/:userId"
+                element={<ProfilePage currentUser={user} />}
+              />
+              <Route path="/discover" element={<DiscoverPage user={user} />} />
+              <Route path="/my-trips" element={<MyTripsPage user={user} />} />
+              <Route
+                path="/community"
+                element={<CommunityPage user={user} />}
+              />
+              <Route
+                path="/community/:slug"
+                element={<CommunityMembersPage />}
+              />
+              <Route path="/messages" element={<MessagesPage user={user} />} />
+              <Route path="/settings" element={<SettingsPage user={user} />} />
+              <Route path="/safety" element={<Safety />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/about-us" element={<AboutUs />} />
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/terms" element={<TermsConditions />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/rewards" element={<MyRewardsPage user={user} />} />
+              <Route path="/reset" element={<ResetPassword />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>
       </main>
+      <ChatWidget /> {/* ✅ ADD HERE — outside main, inside fragment */}
     </>
   );
 };
 
 // ─── Root app ─────────────────────────────────────────────────────────────────
 const App = () => {
-  const [user, setUser]                             = useState<User | null>(null);
-  const [loading, setLoading]                       = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [requireConsentModal, setRequireConsentModal] = useState(false);
 
   // Auth session
@@ -106,7 +135,9 @@ const App = () => {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -119,8 +150,14 @@ const App = () => {
     if (loading) return;
     const preload = async () => {
       await new Promise((r) => setTimeout(r, 2000));
-      if (imageCacheManager.getCacheStats().count >= PRELOAD_DESTINATIONS.length) return;
-      const imageData = PRELOAD_DESTINATIONS.map((name) => ({ name, url: getDestinationImage(name) }));
+      if (
+        imageCacheManager.getCacheStats().count >= PRELOAD_DESTINATIONS.length
+      )
+        return;
+      const imageData = PRELOAD_DESTINATIONS.map((name) => ({
+        name,
+        url: getDestinationImage(name),
+      }));
       await imageCacheManager.preloadImages(imageData).catch(() => null);
     };
     preload();
