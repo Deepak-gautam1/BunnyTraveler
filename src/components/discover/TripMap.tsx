@@ -236,6 +236,16 @@ const CtrlScrollZoom = () => {
 
   return null;
 };
+// Add this AFTER the CtrlScrollZoom component (around line 185)
+const MapInvalidator = () => {
+  const map = useMap();
+  useEffect(() => {
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+  }, [map]);
+  return null;
+};
 
 const TripMap = ({
   trips,
@@ -335,11 +345,10 @@ const TripMap = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-
         <CtrlScrollZoom />
+        <MapInvalidator /> {/* ✅ ADD THIS LINE */}
         <MapBoundsAdjuster trips={trips} />
         {/* @ts-expect-error - Type compatibility issue with React 18 */}
-
         <MarkerClusterGroup
           chunkedLoading
           maxClusterRadius={50}
