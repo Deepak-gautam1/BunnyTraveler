@@ -60,21 +60,13 @@ const MessagesPage = ({ user }: MessagesPageProps) => {
             .update({ read_at: new Date().toISOString() })
             .eq("receiver_id", user.id)
             .is("read_at", null)
-            .select("*", { count: "exact" });
+            .select("*");
 
-          if (error) {
-            console.error("Error marking all messages as read:", error);
-          } else if (count && count > 0) {
-            console.log(`✅ Marked ${count} messages as read on page load`);
-
-            // ✅ NEW: Manually trigger a count refresh immediately
-            // This ensures the navigation updates without waiting for real-time
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new CustomEvent("unread-count-changed"));
-            }
+          if (!error && count && count > 0) {
+            window.dispatchEvent(new CustomEvent("unread-count-changed"));
           }
-        } catch (error) {
-          console.error("Error marking messages as read:", error);
+        } catch {
+          // silently fail
         }
       };
 
@@ -119,10 +111,8 @@ const MessagesPage = ({ user }: MessagesPageProps) => {
         title: "Message sent! 📨",
         description: "Your message has been delivered.",
       });
-    } catch (error) {
-      // ✅ IMPORTANT: Restore message if sending fails
+    } catch {
       setNewMessage(messageContent);
-
       toast({
         title: "Failed to send message",
         description: "Please try again.",

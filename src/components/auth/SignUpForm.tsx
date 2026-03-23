@@ -92,7 +92,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     try {
       new URL(string);
       return true;
-    } catch (_) {
+    } catch {
       return false;
     }
   };
@@ -113,7 +113,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
@@ -139,10 +139,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
       setTimeout(() => {
         window.location.href = "/";
       }, 1000);
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: e instanceof Error ? e.message : "An error occurred",
         variant: "destructive",
       });
     } finally {
@@ -218,11 +218,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           description: `We've sent a 6-digit code to ${formData.email}`,
         });
       }
-    } catch (error: any) {
-      console.error("Unexpected error:", error);
+    } catch (e: unknown) {
       toast({
         title: "Sign up failed",
-        description: error.message || "An unexpected error occurred",
+        description: e instanceof Error ? e.message : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -270,7 +269,6 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
         });
 
         if (profileError) {
-          console.error("Error creating profile:", profileError);
           toast({
             title: "Profile creation failed",
             description: "Please contact support",
@@ -289,7 +287,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
           window.location.href = "/";
         }, 1500);
       }
-    } catch (error: any) {
+    } catch {
       toast({
         title: "Invalid code",
         description: "Please check your email and try again",
@@ -411,7 +409,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
               className={`w-full h-16 flex flex-col items-start justify-center
     border-2
     ${
-      step === "signin"
+      (step as string) === "signin"
         ? "border-orange-500 bg-orange-50/80 shadow-none"
         : "border-gray-55 bg-white"
     }
@@ -424,14 +422,14 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 <div className="text-left flex-1">
                   <p
                     className={`font-semibold ${
-                      step === "signin" ? "text-orange-800" : "text-gray-900"
+                      (step as string) === "signin" ? "text-orange-800" : "text-gray-900"
                     }`}
                   >
                     Already have an account?
                   </p>
                   <p
                     className={`text-xs ${
-                      step === "signin" ? "text-orange-700" : "text-gray-500"
+                      (step as string) === "signin" ? "text-orange-700" : "text-gray-500"
                     }`}
                   >
                     Sign in with your email and password
@@ -445,7 +443,7 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
               className={`w-full h-16 flex flex-col items-start justify-center
     border-2
     ${
-      step === "signup"
+      (step as string) === "signup"
         ? "border-orange-500 bg-orange-50/80 shadow-none"
         : "border-gray-55 bg-white"
     }
@@ -458,14 +456,14 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                 <div className="text-left flex-1">
                   <p
                     className={`font-semibold ${
-                      step === "signup" ? "text-orange-800" : "text-gray-900"
+                      (step as string) === "signup" ? "text-orange-800" : "text-gray-900"
                     }`}
                   >
                     New to SafarSquad?
                   </p>
                   <p
                     className={`text-xs ${
-                      step === "signup" ? "text-orange-700" : "text-gray-500"
+                      (step as string) === "signup" ? "text-orange-700" : "text-gray-500"
                     }`}
                   >
                     Create your travel profile
@@ -670,10 +668,10 @@ const SignUpForm = ({ onBackToLanding }: SignUpFormProps) => {
                         "We've sent a password reset link to your email.",
                     });
                     setStep("signin");
-                  } catch (err: any) {
+                  } catch (err: unknown) {
                     toast({
                       title: "Error",
-                      description: err.message,
+                      description: err instanceof Error ? err.message : "An error occurred",
                       variant: "destructive",
                     });
                   } finally {

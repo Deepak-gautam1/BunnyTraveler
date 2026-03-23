@@ -9,7 +9,7 @@ interface TrendingCommunity {
   members: number;
   growth: string;
   slug: string;
-  description?: string;
+  description?: string | null;
 }
 
 export const useTrendingCommunities = () => {
@@ -62,8 +62,8 @@ export const useTrendingCommunities = () => {
 
 
         setCommunities(transformedData);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }

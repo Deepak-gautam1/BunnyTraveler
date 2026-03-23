@@ -1,25 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
+import type { DbRecommendedTrip } from "@/types/database";
 
-interface RecommendedTrip {
-  trip_id: number;
-  destination: string;
-  start_city: string;
-  start_date: string;
-  end_date: string;
-  description: string;
-  budget_per_person: number;
-  travel_style: string[];
-  max_participants: number;
-  current_participants: number;
-  creator_name: string;
-  creator_avatar: string;
-  recommendation_score: number;
-}
+// Re-export for consumers
+export type { DbRecommendedTrip as RecommendedTrip };
 
 export const useRecommendations = (user: User | null) => {
-  const [recommendations, setRecommendations] = useState<RecommendedTrip[]>([]);
+  const [recommendations, setRecommendations] = useState<DbRecommendedTrip[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,8 +27,7 @@ export const useRecommendations = (user: User | null) => {
       });
 
       if (rpcError) throw rpcError;
-
-      setRecommendations(data || []);
+      setRecommendations(data ?? []);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load recommendations";
       setError(message);
@@ -52,6 +39,7 @@ export const useRecommendations = (user: User | null) => {
 
   useEffect(() => {
     fetchRecommendations();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   return {

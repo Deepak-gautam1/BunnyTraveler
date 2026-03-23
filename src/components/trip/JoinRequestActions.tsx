@@ -20,7 +20,6 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  MessageSquare,
   Loader2,
   Mail,
 } from "lucide-react";
@@ -32,7 +31,7 @@ interface JoinRequestActionsProps {
   user: User | null;
   stats: ParticipantStats;
   isParticipant: boolean;
-  userRequest: JoinRequest | null;
+  userRequest: (JoinRequest & { status: string | null }) | null;
   requestLoading: boolean;
   tripStatus: string;
   onSendRequest: (message?: string, referralCode?: string) => Promise<boolean>;
@@ -90,7 +89,7 @@ const JoinRequestActions = ({
             message: "Invalid referral code",
           });
         }
-      } catch (error) {
+      } catch {
         setCodeValidation({
           isValid: false,
           message: "Invalid referral code",

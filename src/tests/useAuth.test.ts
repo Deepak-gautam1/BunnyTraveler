@@ -136,7 +136,7 @@ describe("useAuth", () => {
     });
 
     const { unmount } = renderHook(() => useAuth());
-    await waitFor(() => expect(result => result.current !== undefined));
+    // waitFor removed — hook initializes synchronously in mock
     unmount();
     expect(unsubscribeMock).toHaveBeenCalled();
   });

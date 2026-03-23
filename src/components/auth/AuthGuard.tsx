@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +32,7 @@ const AuthGuard = ({ isOpen, onClose, user, actionType }: AuthGuardProps) => {
       });
 
       if (error) throw error;
-    } catch (error: any) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to sign in with Google",

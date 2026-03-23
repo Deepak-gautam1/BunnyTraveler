@@ -45,32 +45,38 @@ type ButtonProps = {
   variant?: "default" | "outline" | "ghost";
   disabled?: boolean;
   [rest: string]: unknown;
+  type?: "button" | "submit" | "reset";
 };
 
 /* -------------------------------------------------------------------------- */
 /*                         1. PWA install prompt box                          */
 /* -------------------------------------------------------------------------- */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: string }>;
+}
+
 const PWAInstallPrompt = () => {
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
     if (
       window.matchMedia("(display-mode: standalone)").matches ||
-      (window as any).navigator.standalone
+      (window as Window & { navigator: Navigator & { standalone?: boolean } }).navigator.standalone
     ) {
       setIsInstalled(true);
       return;
     }
 
-    const handleBefore = (e: any) => {
+    const handleBefore = (e: Event) => {
       e.preventDefault();
-      setInstallPrompt(e);
+      setInstallPrompt(e as BeforeInstallPromptEvent);
       setTimeout(() => setShowPrompt(true), 10_000);
     };
 
-    const handleInstalled = () => {
+    const handleInstalled = (_e: Event) => {
       setIsInstalled(true);
       setShowPrompt(false);
       setInstallPrompt(null);
@@ -180,7 +186,7 @@ const EnhancedButton = ({
           onClick?.(e);
         }}
         className={`relative w-full ${className}`}
-        variant={variant as any}
+        variant={variant as "default" | "outline" | "ghost"}
         disabled={disabled}
         {...props}
       >
@@ -232,6 +238,12 @@ const getDestinationsByLocation = (state?: string, country?: string) =>
 /* -------------------------------------------------------------------------- */
 /* 4. Location-aware COMMUNITY ACTIVITY feed (receives location via props)    */
 /* -------------------------------------------------------------------------- */
+interface ActivityItem {
+  id: number;
+  message: string;
+  time: string;
+}
+
 const LocationAwareLiveActivity = ({
   city,
   state,
@@ -241,11 +253,11 @@ const LocationAwareLiveActivity = ({
   state: string | null;
   loading: boolean;
 }) => {
-  if (typeof window !== "undefined" && window.innerWidth < 640) return null;
-  const [activities, setActivities] = useState<any[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [visible, setVisible] = useState(true);
+  const isNarrow = typeof window !== "undefined" && window.innerWidth < 640;
 
-  const buildActivity = () => {
+  const buildActivity = (): ActivityItem => {
     const near = state
       ? getDestinationsByLocation(state)
       : destinationMap.default;
@@ -276,7 +288,7 @@ const LocationAwareLiveActivity = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, state]);
 
-  if (!visible) return null;
+  if (!visible || isNarrow) return null;
 
   return (
     <motion.div
@@ -407,7 +419,7 @@ const LocationAwareLiveStatsCounter = ({
 /*                       6. Success toast notifications                       */
 /* -------------------------------------------------------------------------- */
 const PrivacySafeFloatingNotifications = () => {
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<{ id: number; msg: string }[]>([]);
   const messages = [
     "🎉 Amazing! 50+ adventures planned today",
     "✈️ Community growing! 200+ explorers connected",
@@ -432,6 +444,7 @@ const PrivacySafeFloatingNotifications = () => {
       clearTimeout(first);
       clearInterval(interval);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

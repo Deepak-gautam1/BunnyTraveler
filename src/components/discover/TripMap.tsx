@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, Users, IndianRupee, Eye } from "lucide-react";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import BookmarkButton from "@/components/trip/BookmarkButton";
-
+import { User } from "@supabase/supabase-js";
 // ✅ Leaflet CSS and icon fixes
 import "leaflet/dist/leaflet.css";
 
@@ -21,7 +21,7 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import iconRetina from "leaflet/dist/images/marker-icon-2x.png";
 
 // ✅ Configure default icons
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
   iconUrl: icon,
   iconRetinaUrl: iconRetina,
   shadowUrl: iconShadow,
@@ -37,7 +37,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 const createAdvancedTripMarker = (
   tripType: string,
   status: "available" | "filling" | "full" = "available",
-  size: "small" | "medium" | "large" = "medium"
+  size: "small" | "medium" | "large" = "medium",
 ) => {
   const colors = {
     adventure: "#EF4444",
@@ -158,7 +158,7 @@ interface TripMapProps {
     address: string;
   }) => void;
   selectedTrip?: Trip | null;
-  user?: any;
+  user?: { id: string } | null;
   className?: string;
   height?: string;
 }
@@ -189,7 +189,7 @@ const MapBoundsAdjuster = ({ trips }: { trips: Trip[] }) => {
     trips.forEach((trip) => {
       const cityName = trip.start_city.toLowerCase();
       const coords = Object.entries(cityCoordinates).find(([key]) =>
-        cityName.includes(key.toLowerCase())
+        cityName.includes(key.toLowerCase()),
       );
 
       if (coords) {
@@ -246,7 +246,9 @@ const TripMap = ({
   className = "",
   height = "500px",
 }: TripMapProps) => {
-  const { toggleBookmark, isBookmarked } = useBookmarks(user);
+  const { toggleBookmark, isBookmarked } = useBookmarks(
+    (user ?? null) as User | null,
+  );
   const [mapCenter] = useState<[number, number]>([20.5937, 78.9629]);
   const [mapZoom] = useState(5);
   const [hoveredTrip, setHoveredTrip] = useState<Trip | null>(null);
@@ -269,7 +271,7 @@ const TripMap = ({
 
     const cityKey = cityName.toLowerCase();
     const foundCity = Object.entries(cityCoordinates).find(
-      ([key]) => cityKey.includes(key) || key.includes(cityKey)
+      ([key]) => cityKey.includes(key) || key.includes(cityKey),
     );
 
     return foundCity ? foundCity[1] : [20.5937, 78.9629];
@@ -289,8 +291,8 @@ const TripMap = ({
       const size = isSelected
         ? "large"
         : hoveredTrip?.id === trip.id
-        ? "medium"
-        : "small";
+          ? "medium"
+          : "small";
 
       return {
         trip,
@@ -336,14 +338,14 @@ const TripMap = ({
 
         <CtrlScrollZoom />
         <MapBoundsAdjuster trips={trips} />
-        {/* @ts-ignore - Type compatibility issue with React 18 */}
+        {/* @ts-expect-error - Type compatibility issue with React 18 */}
 
         <MarkerClusterGroup
           chunkedLoading
           maxClusterRadius={50}
           showCoverageOnHover={false}
           spiderfyOnMaxZoom={true}
-          iconCreateFunction={(cluster) => {
+          iconCreateFunction={(cluster: { getChildCount: () => number }) => {
             const count = cluster.getChildCount();
             let size = "cluster-small";
             if (count >= 10) size = "cluster-large";

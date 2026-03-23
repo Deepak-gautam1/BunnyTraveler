@@ -1,6 +1,5 @@
 // src/components/trips/PostTripReviewModal.tsx
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -77,11 +76,6 @@ const PostTripReviewModal = ({
                 type: "image/jpeg",
                 lastModified: Date.now(),
               });
-              console.log(
-                `🗜️ Compressed ${file.name}: ${Math.round(
-                  file.size / 1024
-                )}KB → ${Math.round(blob.size / 1024)}KB`
-              );
               resolve(compressedFile);
             }
           },
@@ -91,7 +85,6 @@ const PostTripReviewModal = ({
       };
 
       img.onerror = () => {
-        console.error("Failed to load image for compression");
         resolve(file); // Return original file if compression fails
       };
 
@@ -184,14 +177,14 @@ const PostTripReviewModal = ({
         const fileExt = photo.name.split(".").pop();
         const fileName = `${trip.id}/${Date.now()}-${Math.random()}.${fileExt}`;
 
-        const { data, error } = await supabase.storage
+        const { error: uploadError2 } = await supabase.storage
           .from("trip-photos")
           .upload(fileName, photo, {
             cacheControl: "3600",
             upsert: false,
           });
 
-        if (error) throw error;
+        if (uploadError2) throw uploadError2;
 
         const {
           data: { publicUrl },
@@ -256,10 +249,10 @@ const PostTripReviewModal = ({
       // ✅ Call the callback if provided
       onReviewSubmitted?.();
       onClose();
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to submit review",
+        description: e instanceof Error ? e.message : "Failed to submit review",
         variant: "destructive",
       });
     } finally {

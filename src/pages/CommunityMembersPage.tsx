@@ -24,13 +24,13 @@ interface Community {
   description: string | null;
   emoji: string;
   slug: string;
-  created_at: string;
+  created_at: string | null;
   member_count: number;
 }
 
 interface CommunityMember {
   id: string;
-  joined_at: string;
+  joined_at: string | null;
   profiles: {
     id: string;
     full_name: string | null;
@@ -50,10 +50,11 @@ const CommunityMembersPage = () => {
   const [loading, setLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
     fetchCommunityData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   const fetchCommunityData = async () => {
@@ -70,7 +71,7 @@ const CommunityMembersPage = () => {
       const { data: communityData, error: communityError } = await supabase
         .from("communities")
         .select("*")
-        .eq("slug", slug)
+        .eq("slug", slug!)
         .eq("is_active", true)
         .single();
 
@@ -84,6 +85,7 @@ const CommunityMembersPage = () => {
 
       setCommunity({
         ...communityData,
+        created_at: communityData.created_at ?? null,
         member_count: count || 0,
       });
 
@@ -108,7 +110,7 @@ const CommunityMembersPage = () => {
 
       if (membersError) throw membersError;
 
-      setMembers(membersData || []);
+      setMembers((membersData as CommunityMember[]) || []);
 
       // ✅ FIX: Check if current user is a member - with maybeSingle
       if (user) {
@@ -121,13 +123,12 @@ const CommunityMembersPage = () => {
 
         // ✅ Handle error gracefully
         if (memberError && memberError.code !== "PGRST116") {
-          console.log("Membership check error:", memberError.code);
+          // non-critical error, ignore
         }
 
         setIsJoined(!!membershipData);
       }
-    } catch (error: any) {
-      console.error("Error fetching community data:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to load community details",
@@ -161,7 +162,7 @@ const CommunityMembersPage = () => {
         .maybeSingle(); // ✅ Use maybeSingle
 
       if (checkError && checkError.code !== "PGRST116") {
-        console.error("Check error:", checkError);
+        // non-critical error, ignore
       }
 
       if (existingMember) {
@@ -196,10 +197,10 @@ const CommunityMembersPage = () => {
         });
         fetchCommunityData(); // Refresh to show updated count
       }
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Error",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
     } finally {
@@ -226,10 +227,10 @@ const CommunityMembersPage = () => {
         description: `You've left ${community.name}`,
       });
       fetchCommunityData();
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Error",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
     } finally {
@@ -306,7 +307,7 @@ const CommunityMembersPage = () => {
                     <Badge variant="secondary">
                       <Calendar className="w-3 h-3 mr-1" />
                       Since{" "}
-                      {new Date(community.created_at).toLocaleDateString()}
+                      {community.created_at ? new Date(community.created_at).toLocaleDateString() : ""}
                     </Badge>
                   </div>
                 </div>
@@ -412,7 +413,7 @@ const CommunityMembersPage = () => {
                         <div className="flex items-center justify-between mt-2">
                           <Badge variant="outline" className="text-xs">
                             Joined{" "}
-                            {new Date(member.joined_at).toLocaleDateString()}
+                            {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : ""}
                           </Badge>
                           <Button variant="ghost" size="sm" asChild>
                             <Link to={`/profile/${member.profiles.id}`}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import {
   Dialog,
@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Plane,
   Users,
@@ -32,8 +32,6 @@ interface WelcomeModalProps {
 const WelcomeModal = ({
   isOpen,
   onClose,
-  user,
-  isNewUser = false,
 }: WelcomeModalProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -270,8 +268,7 @@ const WelcomeModal = ({
       <EditProfileModal
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
-        user={user}
-        onProfileUpdated={handleProfileComplete}
+        onProfileUpdate={handleProfileComplete}
       />
     </>
   );

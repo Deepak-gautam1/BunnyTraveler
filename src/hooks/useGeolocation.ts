@@ -157,12 +157,12 @@ export const useGeolocation = () => {
   // ✨ CORS-free reverse geocoding (using browser's built-in timezone)
   const reverseGeocodeFromCoordinates = async (
     lat: number,
-    lng: number
+    lng: number,
   ): Promise<LocationData> => {
     // Instead of API calls, use coordinate-based region detection
     const getRegionFromCoordinates = (
       latitude: number,
-      longitude: number
+      longitude: number,
     ): LocationData => {
       // India regions
       if (
@@ -313,9 +313,9 @@ export const useGeolocation = () => {
               enableHighAccuracy: false, // Faster, less battery
               timeout: 5000,
               maximumAge: 600000, // 10 minutes cache
-            }
+            },
           );
-        }
+        },
       );
 
       const { latitude, longitude } = position.coords;
@@ -323,7 +323,7 @@ export const useGeolocation = () => {
       // ✅ Use coordinate-based region detection (NO API CALLS)
       const locationData = await reverseGeocodeFromCoordinates(
         latitude,
-        longitude
+        longitude,
       );
 
       setState({
@@ -332,21 +332,22 @@ export const useGeolocation = () => {
         error: null,
         hasPermission: true,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = "Unable to retrieve your location";
-      let hasPermission = null;
+      let hasPermission: boolean | null = null;
 
-      if (error.code) {
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
+      const geoError = error as GeolocationPositionError;
+      if (geoError?.code) {
+        switch (geoError.code) {
+          case geoError.PERMISSION_DENIED:
             errorMessage = "Location access denied";
             hasPermission = false;
             break;
-          case error.POSITION_UNAVAILABLE:
+          case geoError.POSITION_UNAVAILABLE:
             errorMessage = "Location unavailable";
             hasPermission = true;
             break;
-          case error.TIMEOUT:
+          case geoError.TIMEOUT:
             errorMessage = "Location request timed out";
             hasPermission = true;
             break;
@@ -368,15 +369,16 @@ export const useGeolocation = () => {
   };
 
   // ✅ Auto-load on mount (single request only)
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      getCurrentLocation();
-    }, 1000); // Delay initial request
 
+  // REMOVE the eslint-disable comment before useEffect(
+
+  useEffect(() => {
+    const timeoutId = setTimeout(getCurrentLocation, 1000);
     return () => {
       clearTimeout(timeoutId);
       requestInProgress.current = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const retryLocation = () => {
@@ -400,8 +402,8 @@ export const useGeolocation = () => {
           state.location.state ? `, ${state.location.state}` : ""
         }`
       : state.location.state
-      ? state.location.state
-      : state.location.country || "Unknown",
+        ? state.location.state
+        : state.location.country || "Unknown",
   };
 };
 

@@ -10,26 +10,25 @@ import {
   Copy,
   CheckCircle,
   Sparkles,
-  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 interface Coupon {
   id: string;
-  status: string;
-  awarded_at: string;
+  status: string | null;
+  awarded_at: string | null;
   used_at: string | null;
   coupon: {
     code: string;
     title: string;
-    description: string;
-    discount_type: string;
-    discount_value: number;
+    description: string | null;
+    discount_type: string | null;
+    discount_value: number | null;
     partner_name: string;
-    partner_logo_url: string;
-    valid_until: string;
-    category: string;
+    partner_logo_url: string | null;
+    valid_until: string | null;
+    category: string | null;
   };
   trip: {
     destination: string;
@@ -59,8 +58,7 @@ const CouponsList = ({ userId }: { userId: string }) => {
 
         if (error) throw error;
         setCoupons(data || []);
-      } catch (error: any) {
-        console.error("Error fetching coupons:", error);
+      } catch {
         toast.error("Failed to load coupons");
       } finally {
         setLoading(false);
@@ -92,8 +90,7 @@ const CouponsList = ({ userId }: { userId: string }) => {
             : c
         )
       );
-    } catch (error: any) {
-      console.error("Error marking coupon as used:", error);
+    } catch {
       toast.error("Failed to update coupon");
     }
   };
@@ -197,7 +194,7 @@ const CouponsList = ({ userId }: { userId: string }) => {
                     <span>
                       Valid until:{" "}
                       {format(
-                        new Date(userCoupon.coupon.valid_until),
+                        new Date(userCoupon.coupon.valid_until ?? 0),
                         "MMM dd, yyyy"
                       )}
                     </span>

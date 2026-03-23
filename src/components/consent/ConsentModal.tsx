@@ -48,7 +48,7 @@ const ConsentModal = ({ userId, onConsentGiven }: ConsentModalProps) => {
           <Checkbox
             id="accept"
             checked={checked}
-            onCheckedChange={setChecked}
+            onCheckedChange={(val) => setChecked(val === true)}
           />
           <label htmlFor="accept" className="text-xs cursor-pointer">
             I understand and accept the Terms, Privacy Policy, and liability

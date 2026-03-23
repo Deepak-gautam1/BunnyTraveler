@@ -39,11 +39,11 @@ export const COOKIE_KEYS = {
   NOTIFICATIONS: "safar_notifications",
 } as const;
 
-export const setCookie = (key: string, value: any, days = 30) => {
+export const setCookie = (key: string, value: unknown, days = 30) => {
   Cookies.set(key, JSON.stringify(value), { expires: days });
 };
 
-export const getCookie = <T = any>(key: string): T | null => {
+export const getCookie = <T = unknown>(key: string): T | null => {
   const value = Cookies.get(key);
   if (!value) return null;
 

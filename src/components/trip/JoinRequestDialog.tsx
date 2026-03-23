@@ -52,7 +52,7 @@ const JoinRequestDialog = ({
       setIsValidatingCode(true);
 
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("trips")
           .select("id, destination, creator_id")
           .eq("referral_code", referralCode.toUpperCase())
@@ -69,7 +69,7 @@ const JoinRequestDialog = ({
             message: "Invalid referral code",
           });
         }
-      } catch (error) {
+      } catch {
         setCodeValidation({
           isValid: false,
           message: "Invalid referral code",
@@ -86,15 +86,6 @@ const JoinRequestDialog = ({
   const handleSendRequest = async () => {
     const trimmedMessage = requestMessage.trim();
     const trimmedCode = referralCode.trim();
-
-    // ✅ DEBUG: Log what we're about to send
-    console.log("🎯 Modal handleSendRequest called:", {
-      rawReferralCode: referralCode,
-      trimmedCode: trimmedCode,
-      codeLength: trimmedCode.length,
-      willSendCode: trimmedCode || undefined,
-      willSendMessage: trimmedMessage || undefined,
-    });
 
     const success = await onSendRequest(
       trimmedMessage || undefined,

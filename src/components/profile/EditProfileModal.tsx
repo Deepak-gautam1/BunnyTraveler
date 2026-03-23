@@ -22,25 +22,15 @@ import {
   Camera,
   Upload,
 } from "lucide-react";
-interface ProfileData {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  avatar_url: string | null;
-  home_city: string | null; // ✅ Add this
-  tagline: string | null; // ✅ Add this
-  website: string | null; // ✅ Add this
-  bio?: string | null;
-  created_at?: string | null; // ✅ Make optional
-  updated_at?: string | null; // ✅ Add this
-  user_id?: string; // ✅ Add this
-}
+import type { DbProfile } from "@/types/database";
+
+type ProfileData = DbProfile;
 
 interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  profile: ProfileData;
-  onProfileUpdate: (updatedProfile: ProfileData) => void;
+  profile?: ProfileData;
+  onProfileUpdate?: (updatedProfile: ProfileData) => void;
 }
 
 const EditProfileModal = ({
@@ -54,12 +44,12 @@ const EditProfileModal = ({
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [formData, setFormData] = useState({
-    full_name: profile?.full_name || "",
-    home_city: profile?.home_city || "",
-    tagline: profile?.tagline || "",
-    website: profile?.website || "",
-    bio: profile?.bio || "",
-    avatar_url: profile?.avatar_url || "",
+    full_name: profile?.full_name ?? "",
+    home_city: profile?.home_city ?? "",
+    tagline: profile?.tagline ?? "",
+    website: profile?.website ?? "",
+    bio: profile?.bio ?? "",
+    avatar_url: profile?.avatar_url ?? "",
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -96,7 +86,7 @@ const EditProfileModal = ({
 
     try {
       const fileExt = file.name.split(".").pop();
-      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${profile?.id ?? "user"}-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
@@ -114,11 +104,10 @@ const EditProfileModal = ({
         title: "Avatar uploaded!",
         description: "Your profile photo has been updated",
       });
-    } catch (error: any) {
-      console.error("Error uploading avatar:", error);
+    } catch (e: unknown) {
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload image",
+        description: e instanceof Error ? e.message : "Failed to upload image",
         variant: "destructive",
       });
     } finally {
@@ -152,7 +141,7 @@ const EditProfileModal = ({
     try {
       new URL(string);
       return true;
-    } catch (_) {
+    } catch {
       return false;
     }
   };
@@ -182,7 +171,7 @@ const EditProfileModal = ({
           avatar_url: formData.avatar_url || null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", profile.id)
+        .eq("id", profile?.id ?? "")
         .select(
           `
         id,
@@ -203,14 +192,13 @@ const EditProfileModal = ({
       if (error) throw error;
 
       // ✅ BETTER: Merge with existing profile to ensure no data loss
-      const updatedProfile = { ...profile, ...data };
-      onProfileUpdate(updatedProfile);
+      const updatedProfile = { ...profile, ...data } as ProfileData;
+      onProfileUpdate?.(updatedProfile);
       onClose();
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
+    } catch (e: unknown) {
       toast({
         title: "Update failed",
-        description: error.message || "Failed to update profile",
+        description: e instanceof Error ? e.message : "Failed to update profile",
         variant: "destructive",
       });
     } finally {

@@ -12,17 +12,15 @@ import {
   UserMinus,
   Clock,
   Activity,
-  User as UserIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import ProfileHoverCard from "@/components/profile/ProfileHoverCard";
 
 type ActivityItem = {
   id: string;
   activity_type: string;
   created_at: string;
   user_id: string;
-  message?: string;
+  message?: string | null;
   profiles: {
     full_name: string | null;
     avatar_url: string | null;
@@ -35,13 +33,14 @@ interface ActivityFeedProps {
   className?: string;
 }
 
-const ActivityFeed = ({ tripId, user, className }: ActivityFeedProps) => {
+const ActivityFeed = ({ tripId, className }: ActivityFeedProps) => {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchActivities();
     setupRealtimeSubscription();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
 
   const fetchActivities = async () => {
@@ -62,14 +61,11 @@ const ActivityFeed = ({ tripId, user, className }: ActivityFeedProps) => {
         .order("created_at", { ascending: false })
         .limit(50); // Limit to last 50 activities
 
-      if (error) {
-        console.error("Error fetching activities:", error);
-        return;
-      }
+      if (error) return;
 
-      setActivities(data || []);
-    } catch (error) {
-      console.error("Error fetching activities:", error);
+      setActivities((data as ActivityItem[]) || []);
+    } catch {
+      // silently fail
     } finally {
       setLoading(false);
     }
@@ -86,9 +82,8 @@ const ActivityFeed = ({ tripId, user, className }: ActivityFeedProps) => {
           table: "trip_activities",
           filter: `trip_id=eq.${tripId}`,
         },
-        (payload) => {
-          console.log("New activity:", payload.new);
-          fetchActivities(); // Refresh activities
+        () => {
+          fetchActivities();
         }
       )
       .subscribe();

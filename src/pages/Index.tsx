@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import {
   ensureProfileExists,
@@ -13,8 +12,6 @@ interface IndexProps {
 }
 
 const Index = ({ user }: IndexProps) => {
-  const [loading, setLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
 
@@ -31,15 +28,12 @@ const Index = ({ user }: IndexProps) => {
 
   const checkIfNewUser = async (user: User) => {
     try {
-
       const profile = await ensureProfileExists(user);
 
       if (profile) {
-        setUserProfile(profile);
-
-        const completionPercentage = checkProfileCompletion(profile);
+        const { completionScore } = checkProfileCompletion(profile);
         const isNewProfile =
-          !profile.home_city || !profile.tagline || completionPercentage < 60;
+          !profile.home_city || !profile.tagline || completionScore < 60;
 
 
 

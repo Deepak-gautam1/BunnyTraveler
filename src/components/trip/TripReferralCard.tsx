@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Copy, Gift, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

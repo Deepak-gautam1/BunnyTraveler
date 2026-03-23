@@ -12,11 +12,19 @@ import { usePostTripNotifications } from "@/hooks/usePostTripNotifications";
 import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
 import { formatDistanceToNow } from "date-fns";
 import {
-  ArrowLeft, Heart, Share2, Edit3, MoreVertical, Trash2,
+  ArrowLeft,
+  Heart,
+  Share2,
+  Edit3,
+  MoreVertical,
+  Trash2,
 } from "lucide-react";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 import { TripDetail } from "@/types/trip";
@@ -39,7 +47,11 @@ import TripChat from "@/components/trip/TripChat";
 const formatDateRange = (start: string, end: string) => {
   const startDate = new Date(start);
   const endDate = new Date(end);
-  const options: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" };
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  };
   if (startDate.toDateString() === endDate.toDateString()) {
     return startDate.toLocaleDateString("en-IN", options);
   }
@@ -79,10 +91,11 @@ const TripDetailsPage = () => {
   const [userHasReviewed, setUserHasReviewed] = useState(false);
 
   const { isLiked, toggleLike } = useTripLikes(user);
-  const { schedulePostTripNotification } = usePostTripNotifications();
+  usePostTripNotifications();
 
   const isCreator = !!(user && trip && user.id === trip.creator_id);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapToTripDetail = (data: any): TripDetail => ({
     id: data.id,
     destination: data.destination,
@@ -93,14 +106,20 @@ const TripDetailsPage = () => {
     max_group_size: data.max_group_size ?? 8,
     budget_per_person: data.budget_per_person,
     travel_style: data.travel_style,
-    created_at: data.created_at,
+    created_at: data.created_at ?? null,
     creator_id: data.creator_id,
     status: data.status ?? "planning",
     interested_count: data.interested_count ?? 0,
-    coupon_awarded: data.coupon_awarded,
-    coupon_awarded_at: data.coupon_awarded_at,
-    referral_code: data.referral_code,
-    current_participants: data.current_participants,
+    coupon_awarded: data.coupon_awarded ?? null,
+    coupon_awarded_at: data.coupon_awarded_at ?? null,
+    referral_code: data.referral_code ?? null,
+    current_participants: data.current_participants ?? 0,
+    budget: data.budget ?? null,
+    completed_at: data.completed_at ?? null,
+    max_participants: data.max_participants ?? data.max_group_size ?? 8,
+    start_lat: data.start_lat ?? null,
+    start_lng: data.start_lng ?? null,
+    updated_at: data.updated_at ?? null,
     profiles: data.profiles,
     trip_participants: data.trip_participants ?? [],
   });
@@ -117,7 +136,12 @@ const TripDetailsPage = () => {
     setTrip(tripData);
     setInterestedCount(data.interested_count ?? 0);
     if (user) {
-      setIsJoined(data.trip_participants?.some((p: any) => p.profiles?.id === user.id) ?? false);
+      setIsJoined(
+        data.trip_participants?.some(
+          (p: { profiles?: { id: string } | null }) =>
+            p.profiles?.id === user.id,
+        ) ?? false,
+      );
     }
   }, [tripId, user]);
 
@@ -128,37 +152,53 @@ const TripDetailsPage = () => {
   }, [tripId]);
 
   // Track recently viewed trips
+
   useEffect(() => {
     if (trip && user) {
-      const recentTrips = getCookie<number[]>(COOKIE_KEYS.RECENTLY_VIEWED_TRIPS) ?? [];
-      const updated = [trip.id, ...recentTrips.filter((id) => id !== trip.id)].slice(0, 10);
+      const recentTrips =
+        getCookie<number[]>(COOKIE_KEYS.RECENTLY_VIEWED_TRIPS) ?? [];
+      const updated = [
+        trip.id,
+        ...recentTrips.filter((id) => id !== trip.id),
+      ].slice(0, 10);
       setCookie(COOKIE_KEYS.RECENTLY_VIEWED_TRIPS, updated, 30);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id, user]);
+  // Post-trip review check
+  // Extract primitives in the component body (before the useEffect)
+  const tripIdForReview = trip?.id;
+  const tripEndDate = trip?.end_date;
 
   // Post-trip review check
   useEffect(() => {
-    if (!user || !trip || !isJoined) return;
+    if (!user || !tripIdForReview || !tripEndDate || !isJoined) return;
     const check = async () => {
       const { data, error } = await supabase
         .from("trip_reviews")
         .select("id")
-        .eq("trip_id", trip.id)
+        .eq("trip_id", tripIdForReview) // ✅ primitive, not trip.id
         .eq("user_id", user.id)
         .maybeSingle();
-      if (error || data) { if (data) setUserHasReviewed(true); return; }
-      const twoDaysAfter = new Date(trip.end_date);
+      if (error || data) {
+        if (data) setUserHasReviewed(true);
+        return;
+      }
+      const twoDaysAfter = new Date(tripEndDate); // ✅ primitive, not trip.end_date
       twoDaysAfter.setDate(twoDaysAfter.getDate() + 2);
-      if (new Date() >= twoDaysAfter && !userHasReviewed) setShowReviewModal(true);
+      if (new Date() >= twoDaysAfter && !userHasReviewed)
+        setShowReviewModal(true);
     };
     check();
-  }, [trip?.end_date, user, isJoined, userHasReviewed]);
+  }, [tripIdForReview, tripEndDate, user, isJoined, userHasReviewed]); // ✅ no ESLint complaint
 
   // Initial data load
   useEffect(() => {
     let mounted = true;
     const init = async () => {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
       if (!mounted) return;
       setUser(currentUser);
       if (!tripId) return;
@@ -170,7 +210,11 @@ const TripDetailsPage = () => {
         .maybeSingle();
       if (!mounted) return;
       if (error || !data) {
-        toast({ title: "Trip Not Found", description: `No trip found with ID ${tripId}.`, variant: "destructive" });
+        toast({
+          title: "Trip Not Found",
+          description: `No trip found with ID ${tripId}.`,
+          variant: "destructive",
+        });
         navigate("/");
         return;
       }
@@ -178,36 +222,67 @@ const TripDetailsPage = () => {
       setTrip(tripData);
       setInterestedCount(data.interested_count ?? 0);
       if (currentUser) {
-        setIsJoined(data.trip_participants?.some((p: any) => p.profiles?.id === currentUser.id) ?? false);
+        setIsJoined(
+          data.trip_participants?.some(
+            (p: { profiles?: { id: string } | null }) =>
+              p.profiles?.id === currentUser.id,
+          ) ?? false,
+        );
       }
       setLoading(false);
     };
     init();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
 
   const {
-    participants, stats, loading: participantLoading,
-    joinLoading: hookJoinLoading, leaveLoading, isParticipant,
-    joinTrip, leaveTrip, removeParticipant,
+    participants,
+    stats,
+    loading: participantLoading,
+    joinLoading: hookJoinLoading,
+    leaveLoading,
+    isParticipant,
+    joinTrip,
+    leaveTrip,
+    removeParticipant,
   } = useParticipantManagement(trip?.id ?? 0, user);
 
   const {
-    joinRequests, userRequest, loading: requestsLoading,
-    requestLoading, responseLoading,
-    sendJoinRequest, approveRequest, rejectRequest, cancelRequest,
+    joinRequests,
+    userRequest,
+    loading: requestsLoading,
+    requestLoading,
+    responseLoading,
+    sendJoinRequest,
+    approveRequest,
+    rejectRequest,
+    cancelRequest,
   } = useJoinRequestManagement(trip?.id ?? 0, user, refreshTripData);
 
   const handleDeleteTrip = async () => {
     if (!user || !trip) return;
     setDeleteLoading(true);
-    const { error } = await supabase.from("trips").delete().eq("id", trip.id).eq("creator_id", user.id);
+    const { error } = await supabase
+      .from("trips")
+      .delete()
+      .eq("id", trip.id)
+      .eq("creator_id", user.id);
     setDeleteLoading(false);
     if (error) {
-      toast({ title: "Failed to delete trip", description: error.message, variant: "destructive" });
+      toast({
+        title: "Failed to delete trip",
+        description: error.message,
+        variant: "destructive",
+      });
       return;
     }
-    toast({ title: "Trip deleted!", description: "Your trip has been successfully deleted." });
+    toast({
+      title: "Trip deleted!",
+      description: "Your trip has been successfully deleted.",
+    });
     setIsDeleteDialogOpen(false);
     setTimeout(() => navigate("/", { replace: true }), 500);
   };
@@ -215,42 +290,65 @@ const TripDetailsPage = () => {
   const handleLeave = async () => {
     if (!user || !trip) return;
     setJoinLoading(true);
-    const { error } = await supabase.from("trip_participants").delete()
-      .eq("trip_id", trip.id).eq("user_id", user.id);
+    const { error } = await supabase
+      .from("trip_participants")
+      .delete()
+      .eq("trip_id", trip.id)
+      .eq("user_id", user.id);
     if (!error) {
-      await supabase.from("trip_join_requests").delete().eq("trip_id", trip.id).eq("user_id", user.id);
+      await supabase
+        .from("trip_join_requests")
+        .delete()
+        .eq("trip_id", trip.id)
+        .eq("user_id", user.id);
       setIsJoined(false);
       toast({ title: "Left trip", description: "You have left this trip." });
       await supabase.from("trip_activities").insert({
-        trip_id: trip.id, user_id: user.id, activity_type: "leave",
+        trip_id: trip.id,
+        user_id: user.id,
+        activity_type: "leave",
         message: `${user.user_metadata?.full_name ?? "Someone"} had to leave the trip.`,
       });
       await refreshTripData();
     } else {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
     setJoinLoading(false);
   };
 
   const handleLike = async () => {
     if (!user || !trip) {
-      toast({ title: "Please sign in", description: "Sign in to show interest", variant: "destructive" });
+      toast({
+        title: "Please sign in",
+        description: "Sign in to show interest",
+        variant: "destructive",
+      });
       return;
     }
     const wasLiked = isLiked(trip.id);
     await toggleLike(trip.id);
-    setInterestedCount((prev) => wasLiked ? Math.max(prev - 1, 0) : prev + 1);
+    setInterestedCount((prev) => (wasLiked ? Math.max(prev - 1, 0) : prev + 1));
     setTimeout(refreshTripData, 500);
   };
 
   const handleTripUpdated = () => {
     refreshTripData();
-    toast({ title: "Trip updated!", description: "Your trip details have been updated successfully." });
+    toast({
+      title: "Trip updated!",
+      description: "Your trip details have been updated successfully.",
+    });
   };
 
   const handleContactOrganizer = () => {
     if (!user) {
-      toast({ title: "Please sign in to contact the organizer", variant: "destructive" });
+      toast({
+        title: "Please sign in to contact the organizer",
+        variant: "destructive",
+      });
       return;
     }
     setIsPrivateChatOpen(true);
@@ -281,7 +379,9 @@ const TripDetailsPage = () => {
           </Button>
           <div className="text-center py-20">
             <p className="text-muted-foreground">Trip not found.</p>
-            <p className="text-sm text-muted-foreground mt-2">Trip ID: {tripId}</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Trip ID: {tripId}
+            </p>
           </div>
         </div>
       </div>
@@ -290,7 +390,7 @@ const TripDetailsPage = () => {
 
   const spotsLeft = trip.max_group_size - (trip.trip_participants?.length ?? 0);
   const daysUntilTrip = Math.ceil(
-    (new Date(trip.start_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    (new Date(trip.start_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
   );
 
   return (
@@ -324,7 +424,11 @@ const TripDetailsPage = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <Button variant="ghost" size="icon" onClick={() => setIsShareDialogOpen(true)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsShareDialogOpen(true)}
+              >
                 <Share2 className="w-4 h-4" />
               </Button>
               <Button
@@ -333,7 +437,9 @@ const TripDetailsPage = () => {
                 onClick={handleLike}
                 className={isLiked(trip.id) ? "text-red-500" : ""}
               >
-                <Heart className={`w-4 h-4 ${isLiked(trip.id) ? "fill-red-500" : ""}`} />
+                <Heart
+                  className={`w-4 h-4 ${isLiked(trip.id) ? "fill-red-500" : ""}`}
+                />
               </Button>
             </div>
           </div>
@@ -364,7 +470,12 @@ const TripDetailsPage = () => {
               {trip.description ?? "No description provided."}
             </p>
             <div className="mt-4 text-xs text-muted-foreground">
-              Posted {formatDistanceToNow(new Date(trip.created_at), { addSuffix: true })}
+              Posted{" "}
+              {trip.created_at
+                ? formatDistanceToNow(new Date(trip.created_at), {
+                    addSuffix: true,
+                  })
+                : ""}
             </div>
           </CardContent>
         </Card>
@@ -401,8 +512,12 @@ const TripDetailsPage = () => {
               responseLoading={responseLoading}
               currentUser={user}
               tripCreatorId={trip.creator_id}
-              onApproveRequest={(request, message) => approveRequest(request, message)}
-              onRejectRequest={(request, message) => rejectRequest(request, message)}
+              onApproveRequest={(request, message) =>
+                approveRequest(request, message)
+              }
+              onRejectRequest={(request, message) =>
+                rejectRequest(request, message)
+              }
               className="mb-6"
             />
             <ParticipantActions
@@ -444,7 +559,17 @@ const TripDetailsPage = () => {
         <TripChat
           tripId={trip.id}
           user={user}
-          userRequest={userRequest}
+          userRequest={
+            userRequest
+              ? {
+                  status: userRequest.status as
+                    | "pending"
+                    | "approved"
+                    | "rejected"
+                    | null,
+                }
+              : null
+          }
           isParticipant={isParticipant}
           tripCreatorId={trip.creator_id}
         />
@@ -482,8 +607,15 @@ const TripDetailsPage = () => {
       <PostTripReviewModal
         isOpen={showReviewModal}
         onClose={() => setShowReviewModal(false)}
-        trip={{ id: trip.id, title: trip.destination, destination: trip.destination }}
-        onReviewSubmitted={() => { setUserHasReviewed(true); setShowReviewModal(false); }}
+        trip={{
+          id: trip.id,
+          title: trip.destination,
+          destination: trip.destination,
+        }}
+        onReviewSubmitted={() => {
+          setUserHasReviewed(true);
+          setShowReviewModal(false);
+        }}
       />
 
       <TripShareDialog

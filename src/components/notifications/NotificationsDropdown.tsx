@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
@@ -20,12 +19,9 @@ import {
   BellRing,
   Check,
   CheckCheck,
-  Trash2, // ✅ Already imported - good!
-  X,
+  Trash2,
   Users,
   MessageCircle,
-  Calendar,
-  MapPin,
 } from "lucide-react";
 
 interface NotificationsDropdownProps {
@@ -208,7 +204,7 @@ const NotificationsDropdown = ({ user }: NotificationsDropdownProps) => {
                         {notification.message}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {getTimeAgo(notification.created_at)}
+                        {notification.created_at ? getTimeAgo(notification.created_at) : ""}
                       </p>
                     </div>
 

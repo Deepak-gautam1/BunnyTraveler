@@ -88,8 +88,8 @@ const ParticipantsList = ({
         setRemoveDialogOpen(false);
         setSelectedParticipant(null);
       }
-    } catch (error) {
-      console.error("Error removing participant:", error);
+    } catch {
+      // silently fail
     } finally {
       setRemoving(false);
     }
@@ -159,15 +159,7 @@ const ParticipantsList = ({
                     className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
-                      <ProfileHoverCard
-                        userId={participant.user_id}
-                        userName={
-                          participant.profiles?.full_name || "Anonymous"
-                        }
-                        userAvatar={
-                          participant.profiles?.avatar_url || undefined
-                        }
-                      >
+                      <ProfileHoverCard userId={participant.user_id}>
                         <Avatar className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
                           <AvatarImage
                             src={participant.profiles?.avatar_url || ""}
@@ -205,10 +197,10 @@ const ParticipantsList = ({
                         <div className="flex items-center text-xs text-muted-foreground mt-1">
                           <Calendar className="w-3 h-3 mr-1" />
                           Joined{" "}
-                          {formatDistanceToNow(
+                          {participant.joined_at ? formatDistanceToNow(
                             new Date(participant.joined_at),
                             { addSuffix: true }
-                          )}
+                          ) : "recently"}
                         </div>
                       </div>
                     </div>

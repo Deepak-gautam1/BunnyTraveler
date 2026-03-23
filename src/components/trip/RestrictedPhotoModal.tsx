@@ -1,24 +1,16 @@
 // components/trip/RestrictedPhotoModal.tsx
-import React, { useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Trash2, Download, Lock } from "lucide-react";
 
-// Add the TripPhoto interface
-interface TripPhoto {
-  id: string;
-  trip_id: number;
-  url: string;
-  thumb_url: string;
-  uploaded_by: string;
-  caption?: string;
-  file_size?: number;
-  mime_type?: string;
-  created_at: string;
-  profiles?: {
-    full_name: string;
-    avatar_url?: string;
-  };
-}
+// TripPhoto matches DbTripPhoto (all DB nullable fields kept nullable)
+import type { DbTripPhoto } from "@/types/database";
+
+type TripPhoto = Omit<DbTripPhoto, "trip_id" | "uploaded_by"> & {
+  trip_id: number;             // overridden to non-null (caller guarantees this)
+  uploaded_by: string | null;  // keep nullable as per DB
+  profiles?: { full_name: string | null; avatar_url?: string | null } | null;
+};
 
 interface RestrictedPhotoModalProps {
   photo: TripPhoto;
@@ -59,8 +51,7 @@ export default function RestrictedPhotoModal({
 
       // Download using signed URL
       await downloadWithFetch(data.signedUrl, `trip-photo-${photo.id}.jpg`);
-    } catch (error) {
-      console.error("Download failed:", error);
+    } catch {
       alert(
         "Download failed. You may not have permission to access this photo."
       );
@@ -84,8 +75,7 @@ export default function RestrictedPhotoModal({
 
       onDelete();
       onClose();
-    } catch (error) {
-      console.error("Error deleting photo:", error);
+    } catch {
       alert("Failed to delete photo. Please try again.");
     } finally {
       setDeleting(false);
@@ -129,7 +119,7 @@ export default function RestrictedPhotoModal({
               {photo.profiles?.avatar_url ? (
                 <img
                   src={photo.profiles.avatar_url}
-                  alt={photo.profiles.full_name}
+                  alt={photo.profiles.full_name ?? undefined}
                   className="w-8 h-8 rounded-full object-cover"
                 />
               ) : (
@@ -143,7 +133,7 @@ export default function RestrictedPhotoModal({
                 {photo.profiles?.full_name || "Anonymous"}
               </p>
               <p className="text-sm text-gray-500">
-                {new Date(photo.created_at).toLocaleDateString()}
+                {photo.created_at ? new Date(photo.created_at).toLocaleDateString() : ""}
               </p>
             </div>
           </div>

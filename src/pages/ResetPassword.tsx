@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -57,10 +57,10 @@ const ResetPassword = () => {
 
       // Redirect after short delay
       setTimeout(() => (window.location.href = "/auth"), 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Error",
-        description: err.message,
+        description: err instanceof Error ? err.message : 'An error occurred',
         variant: "destructive",
       });
     } finally {

@@ -21,6 +21,7 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: { componentStack: string }) {
     // In production this would send to Sentry / Datadog etc.
     if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.error("[ErrorBoundary]", error, info.componentStack);
     }
   }

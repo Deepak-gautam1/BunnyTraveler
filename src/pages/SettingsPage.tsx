@@ -55,6 +55,7 @@ const SettingsPage = ({ user }: SettingsPageProps) => {
     if (user) {
       loadUserPreferences();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadUserPreferences = async () => {
@@ -82,8 +83,7 @@ const SettingsPage = ({ user }: SettingsPageProps) => {
         // Create default preferences if they don't exist
         await createDefaultPreferences();
       }
-    } catch (error: any) {
-      console.error("Error loading preferences:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to load your preferences",
@@ -96,7 +96,7 @@ const SettingsPage = ({ user }: SettingsPageProps) => {
 
   const createDefaultPreferences = async () => {
     try {
-      const { error } = await supabase.from("user_preferences").insert({
+      await supabase.from("user_preferences").insert({
         user_id: user!.id,
         email_notifications: true,
         push_notifications: false,
@@ -104,12 +104,8 @@ const SettingsPage = ({ user }: SettingsPageProps) => {
         new_messages: true,
         marketing_emails: false,
       });
-
-      if (error) {
-        console.error("Error creating default preferences:", error);
-      }
-    } catch (error: any) {
-      console.error("Error creating preferences:", error);
+    } catch {
+      // silently fail — default prefs will be created on next load
     }
   };
 
@@ -153,38 +149,23 @@ const SettingsPage = ({ user }: SettingsPageProps) => {
           .update(prefsData)
           .eq("user_id", user!.id);
 
-        if (updateError) {
-          console.error("Update error:", updateError);
-          throw updateError;
-        }
+        if (updateError) throw updateError;
       } else {
-        // Insert new record
         const { error: insertError } = await supabase
           .from("user_preferences")
-          .insert({
-            user_id: user!.id,
-            ...prefsData,
-          });
-
-        if (insertError) {
-          console.error("Insert error:", insertError);
-          throw insertError;
-        }
+          .insert({ user_id: user!.id, ...prefsData });
+        if (insertError) throw insertError;
       }
 
       toast({
         title: "Settings updated",
         description: "Your notification preferences have been saved",
       });
-    } catch (error: any) {
-      console.error("Error saving preferences:", error);
-
-      // Rollback to previous state
+    } catch (e: unknown) {
       setNotifications(previousNotifications);
-
       toast({
         title: "Error",
-        description: error.message || "Failed to save your preferences",
+        description: e instanceof Error ? e.message : "Failed to save your preferences",
         variant: "destructive",
       });
     } finally {
@@ -194,10 +175,6 @@ const SettingsPage = ({ user }: SettingsPageProps) => {
 
   const handlePrivacyChange = (key: string, value: boolean) => {
     setPrivacy((prev) => ({ ...prev, [key]: value }));
-    toast({
-      title: "Privacy settings updated",
-      description: "Your privacy preferences have been saved",
-    });
   };
 
   if (!user) {

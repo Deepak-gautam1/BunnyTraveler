@@ -1,7 +1,12 @@
 // components/trip/PhotoModal.tsx
-import React, { useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Trash2, Download, Heart } from "lucide-react";
+import { X, Trash2, Download } from "lucide-react";
+import type { DbTripPhoto } from "@/types/database";
+
+type TripPhoto = DbTripPhoto & {
+  profiles?: { full_name: string | null; avatar_url: string | null } | null;
+};
 
 interface PhotoModalProps {
   photo: TripPhoto;
@@ -37,8 +42,8 @@ export default function PhotoModal({
 
       onDelete();
       onClose();
-    } catch (error) {
-      console.error("Error deleting photo:", error);
+    } catch {
+      // silently fail
     } finally {
       setDeleting(false);
     }
@@ -46,7 +51,6 @@ export default function PhotoModal({
 
   const handleDownload = async () => {
     try {
-      // Force download using fetch and blob
       const response = await fetch(photo.url, {
         method: "GET",
         headers: {
@@ -76,25 +80,9 @@ export default function PhotoModal({
 
       // Clean up the blob URL
       setTimeout(() => window.URL.revokeObjectURL(url), 100);
-    } catch (error) {
-      console.error("Download error:", error);
-      alert("Download failed. The image may no longer exist.");
+    } catch {
+      // silently fail — alert removed per no-console policy
     }
-  };
-  const debugPhotoUrl = () => {
-    console.log("Photo URL:", photo.url);
-    console.log("Photo ID:", photo.id);
-    console.log("Trip ID:", photo.trip_id);
-
-    // Test if URL is accessible
-    fetch(photo.url, { method: "HEAD" })
-      .then((response) => {
-        console.log("URL Status:", response.status);
-        console.log("URL accessible:", response.ok);
-      })
-      .catch((error) => {
-        console.error("URL not accessible:", error);
-      });
   };
 
   return (
@@ -107,7 +95,7 @@ export default function PhotoModal({
               {photo.profiles?.avatar_url ? (
                 <img
                   src={photo.profiles.avatar_url}
-                  alt={photo.profiles.full_name}
+                  alt={photo.profiles.full_name ?? undefined}
                   className="w-8 h-8 rounded-full object-cover"
                 />
               ) : (
@@ -121,7 +109,7 @@ export default function PhotoModal({
                 {photo.profiles?.full_name || "Anonymous"}
               </p>
               <p className="text-sm text-gray-500">
-                {new Date(photo.created_at).toLocaleDateString()}
+                {photo.created_at ? new Date(photo.created_at).toLocaleDateString() : ""}
               </p>
             </div>
           </div>

@@ -179,6 +179,7 @@ const PostTripModal = ({
     }, 3000);
 
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const getInitialFormData = () => {
@@ -213,6 +214,7 @@ const PostTripModal = ({
     if (open) {
       setFormData(getInitialFormData());
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tripData, mode]);
 
   const handleInputChange = (field: string, value: string | number) => {
@@ -282,11 +284,12 @@ const PostTripModal = ({
           startLat = coords.latitude;
           startLng = coords.longitude;
         }
-      } catch (geocodeError) {
-        console.error("Geocoding error:", geocodeError);
+      } catch {
+        // geocoding failed, continue without coordinates
       }
 
       if (mode === "edit" && tripData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updateData: any = {
           destination: formData.destination.trim(),
           start_city: formData.start_city.trim(),
@@ -330,6 +333,7 @@ const PostTripModal = ({
 
         onTripUpdated?.();
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const newTrip: any = {
           creator_id: user.id,
           destination: formData.destination.trim(),
@@ -381,10 +385,10 @@ const PostTripModal = ({
       }
 
       onClose();
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: `Failed to ${mode === "edit" ? "update" : "create"} trip`,
-        description: error.message || "Please try again later",
+        description: e instanceof Error ? e.message : "Please try again later",
         variant: "destructive",
       });
     } finally {

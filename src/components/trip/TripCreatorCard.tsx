@@ -25,11 +25,7 @@ const TripCreatorCard = ({
       <CardContent className="p-6">
         <h3 className="font-semibold mb-3">Trip Creator</h3>
         <div className="flex items-center space-x-3">
-          <ProfileHoverCard
-            userId={creatorId}
-            userName={profile?.full_name ?? "Anonymous"}
-            userAvatar={profile?.avatar_url ?? undefined}
-          >
+          <ProfileHoverCard userId={creatorId}>
             <Avatar className="w-12 h-12 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
               {profile?.avatar_url ? (
                 <AvatarImage src={profile.avatar_url} />

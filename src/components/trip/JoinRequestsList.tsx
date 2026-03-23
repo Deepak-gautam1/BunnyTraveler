@@ -15,11 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  UserPlus,
   Clock,
   CheckCircle,
   XCircle,
-  MessageCircle,
   Mail,
   Loader2,
 } from "lucide-react";
@@ -79,22 +77,8 @@ const JoinRequestsList = ({
 
   // ✅ FIXED: Correct function call matching Gemini's working version
   const handleConfirmAction = async () => {
-    if (!selectedRequest) {
-      console.error("No selected request");
-      return;
-    }
-
-    console.log("Handling request:", selectedRequest);
-
-    // ✅ Validate required fields
-    if (
-      !selectedRequest.id ||
-      !selectedRequest.trip_id ||
-      !selectedRequest.user_id
-    ) {
-      console.error("❌ Missing required fields in request:", selectedRequest);
-      return;
-    }
+    if (!selectedRequest) return;
+    if (!selectedRequest.id || !selectedRequest.trip_id || !selectedRequest.user_id) return;
 
     let success = false;
 
@@ -217,15 +201,7 @@ const JoinRequestsList = ({
                         className="p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950/10 border-yellow-200"
                       >
                         <div className="flex items-start gap-3">
-                          <ProfileHoverCard
-                            userId={request.user_id}
-                            userName={
-                              request.profiles?.full_name || "Anonymous"
-                            }
-                            userAvatar={
-                              request.profiles?.avatar_url || undefined
-                            }
-                          >
+                          <ProfileHoverCard userId={request.user_id}>
                             <Avatar className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
                               <AvatarImage
                                 src={request.profiles?.avatar_url || ""}
@@ -257,10 +233,10 @@ const JoinRequestsList = ({
 
                             <p className="text-xs text-muted-foreground mb-3">
                               Requested{" "}
-                              {formatDistanceToNow(
+                              {request.requested_at ? formatDistanceToNow(
                                 new Date(request.requested_at),
                                 { addSuffix: true }
-                              )}
+                              ) : ""}
                             </p>
 
                             <div className="flex gap-2">
@@ -337,12 +313,12 @@ const JoinRequestsList = ({
 
                             <p className="text-xs text-muted-foreground">
                               {request.status}{" "}
-                              {formatDistanceToNow(
+                              {(request.responded_at ?? request.requested_at) ? formatDistanceToNow(
                                 new Date(
-                                  request.responded_at || request.requested_at
+                                  (request.responded_at ?? request.requested_at)!
                                 ),
                                 { addSuffix: true }
-                              )}
+                              ) : ""}
                             </p>
                           </div>
                         </div>

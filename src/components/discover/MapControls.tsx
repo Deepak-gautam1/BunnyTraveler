@@ -1,8 +1,6 @@
 // src/components/discover/MapControls.tsx
-import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -15,11 +13,8 @@ import {
   Locate,
   Home,
   Layers,
-  Filter,
   Search,
-  RotateCcw,
-  MapPin,
-  Grid3X3,
+  Filter,
 } from "lucide-react";
 
 interface MapControlsProps {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,6 @@ import {
   MapPin,
   MessageSquare,
   Link,
-  Camera,
   CheckCircle,
   X,
 } from "lucide-react";
@@ -18,7 +17,7 @@ import { checkProfileCompletion } from "@/lib/auth-helpers";
 
 interface ProfileCompletionFlowProps {
   user: User | null;
-  profile: any;
+  profile: Record<string, unknown> | null;
   onProfileUpdated: () => void;
   className?: string;
 }
@@ -32,7 +31,8 @@ const ProfileCompletionFlow = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  const { isComplete, completionScore } = checkProfileCompletion(profile);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { isComplete, completionScore } = checkProfileCompletion(profile as any);
 
   // Don't show if profile is complete or user dismissed it
   if (!user || !profile || isComplete || isDismissed) {
@@ -177,8 +177,7 @@ const ProfileCompletionFlow = ({
       <EditProfileModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        user={user}
-        onProfileUpdated={() => {
+        onProfileUpdate={() => {
           onProfileUpdated();
           setIsDismissed(true); // Hide the banner after successful update
         }}

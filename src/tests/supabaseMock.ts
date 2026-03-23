@@ -34,7 +34,7 @@ export function createSupabaseMock(resolvedValue: unknown = { data: null, error:
   const thenableBuilder = {
     ...builder,
     then: (resolve: (v: unknown) => void) => resolve(resolvedValue),
-    catch: (reject: (e: unknown) => void) => {},
+    catch: (_reject: (e: unknown) => void) => {},
   };
 
   chainable.forEach((method) => {

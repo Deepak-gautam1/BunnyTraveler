@@ -14,7 +14,6 @@ import {
   Users,
   FileText,
   Loader2,
-  ArrowRight,
   Plus,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -115,11 +114,10 @@ const CreateTripPage = ({ user }: CreateTripPageProps) => {
 
       // Navigate to the created trip or trips page
       navigate(`/trip/${data.id}`);
-    } catch (error: any) {
-      console.error("Error creating trip:", error);
+    } catch (e: unknown) {
       toast({
         title: "Failed to create trip",
-        description: error.message || "Please try again",
+        description: e instanceof Error ? e.message : "Please try again",
         variant: "destructive",
       });
     } finally {

@@ -29,7 +29,7 @@ type Profile = {
 };
 
 type TripParticipant = {
-  joined_at: string;
+  joined_at: string | null;
   profiles: Profile | null;
 };
 
@@ -41,7 +41,7 @@ type TripDetail = {
   start_city: string;
   description: string | null;
   max_group_size: number;
-  created_at: string;
+  created_at: string | null;
   creator_id: string;
   profiles: Profile | null;
   trip_participants: TripParticipant[];
@@ -58,9 +58,7 @@ const TripDetailsPage = () => {
   const [user, setUser] = useState<UserType | null>(null);
 
   const fetchTripDetails = async () => {
-    // Enhanced validation
     if (!tripId) {
-      console.error("No tripId provided");
       toast({
         title: "Invalid Trip",
         description: "No trip ID provided.",
@@ -72,7 +70,6 @@ const TripDetailsPage = () => {
 
     const tripIdNumber = Number(tripId);
     if (isNaN(tripIdNumber) || tripIdNumber <= 0) {
-      console.error("Invalid tripId format:", tripId);
       toast({
         title: "Invalid Trip",
         description: "Trip ID must be a valid number.",
@@ -82,7 +79,6 @@ const TripDetailsPage = () => {
       return;
     }
 
-    console.log("Fetching trip details for ID:", tripIdNumber);
     setLoading(true);
 
     try {
@@ -101,10 +97,7 @@ const TripDetailsPage = () => {
         .eq("id", tripIdNumber)
         .maybeSingle();
 
-      console.log("Supabase response:", { data, error });
-
       if (error) {
-        console.error("Supabase error:", error);
 
         if (error.code === "PGRST116") {
           // No rows returned
@@ -125,7 +118,6 @@ const TripDetailsPage = () => {
       }
 
       if (!data) {
-        console.error("No data returned from Supabase");
         toast({
           title: "Trip Not Found",
           description: "Trip data could not be loaded.",
@@ -143,25 +135,19 @@ const TripDetailsPage = () => {
         start_city: data.start_city,
         description: data.description,
         max_group_size: data.max_group_size || 8,
-        created_at: data.created_at,
+        created_at: data.created_at ?? null,
         creator_id: data.creator_id,
         profiles: data.profiles,
-        trip_participants: data.trip_participants || [],
+        trip_participants: (data.trip_participants || []) as TripParticipant[],
       };
 
-      console.log("Processed trip data:", fetchedTrip);
       setTrip(fetchedTrip);
-
-      // Check if current user has joined
       if (user && fetchedTrip.trip_participants) {
-        const userJoined = fetchedTrip.trip_participants.some(
+        setIsJoined(fetchedTrip.trip_participants.some(
           (participant) => participant.profiles?.id === user.id
-        );
-        setIsJoined(userJoined);
-        console.log("User joined status:", userJoined);
+        ));
       }
-    } catch (error: any) {
-      console.error("Unexpected error fetching trip details:", error);
+    } catch {
       toast({
         title: "Error",
         description: "An unexpected error occurred while loading the trip.",
@@ -175,20 +161,12 @@ const TripDetailsPage = () => {
 
   useEffect(() => {
     const fetchUserAndTrip = async () => {
-      console.log("Starting fetchUserAndTrip, tripId:", tripId);
-
-      // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      console.log("Current user:", user?.id);
+      const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-
-      // Fetch trip details
       await fetchTripDetails();
     };
-
     fetchUserAndTrip();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
 
   const handleJoin = async () => {
@@ -220,10 +198,10 @@ const TripDetailsPage = () => {
         });
         await fetchTripDetails();
       }
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Error",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
     } finally {
@@ -250,10 +228,10 @@ const TripDetailsPage = () => {
         description: "You have left this trip.",
       });
       await fetchTripDetails();
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Error",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
     } finally {
@@ -435,9 +413,9 @@ const TripDetailsPage = () => {
             </p>
             <div className="mt-4 text-xs text-muted-foreground">
               Posted{" "}
-              {formatDistanceToNow(new Date(trip.created_at), {
+              {trip.created_at ? formatDistanceToNow(new Date(trip.created_at), {
                 addSuffix: true,
-              })}
+              }) : ""}
             </div>
           </CardContent>
         </Card>
@@ -473,10 +451,10 @@ const TripDetailsPage = () => {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Joined{" "}
-                          {formatDistanceToNow(
+                          {participant.joined_at ? formatDistanceToNow(
                             new Date(participant.joined_at),
                             { addSuffix: true }
-                          )}
+                          ) : "recently"}
                         </p>
                       </div>
                       {participant.profiles.id === trip.creator_id && (

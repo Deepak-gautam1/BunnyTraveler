@@ -190,9 +190,6 @@ const PopularDestinations = ({
       const fiveMinutes = 5 * 60 * 1000;
 
       if (stats.count === 20 && cacheAge < fiveMinutes) {
-        console.log(
-          "✅ Images recently cached, skipping PopularDestinations preload"
-        );
         setImagesLoading(false);
         return;
       }
@@ -204,9 +201,8 @@ const PopularDestinations = ({
 
       try {
         await imageCacheManager.preloadImages(imageData);
-        console.log("📊 Cache stats:", imageCacheManager.getCacheStats());
-      } catch (error) {
-        console.error("Failed to cache images:", error);
+      } catch {
+        // silently fail
       } finally {
         setImagesLoading(false);
       }
@@ -227,9 +223,6 @@ const PopularDestinations = ({
         if (error) throw error;
 
         // ✅ DEBUG: Log fetched trips
-        console.log("🔍 Fetched trips:", trips);
-        console.log("📊 Total active trips:", trips?.length || 0);
-
         const destinationsWithCounts = POPULAR_DESTINATIONS.map((dest) => {
           const count =
             trips?.filter((trip) => {
@@ -241,37 +234,22 @@ const PopularDestinations = ({
               );
 
               // ✅ DEBUG: Log matches
-              if (matches) {
-                console.log(
-                  `✅ Match found: ${dest.name} matches trip "${trip.destination}" or "${trip.start_city}"`
-                );
-              }
-
               return matches;
             }).length || 0;
           return { ...dest, activePlans: count };
         });
 
         // ✅ DEBUG: Log all counts
-        console.log("📍 All destination counts:", destinationsWithCounts);
-
         // ✅ Filter out destinations with 0 plans
         const activeDestinations = destinationsWithCounts.filter(
           (dest) => dest.activePlans > 0
-        );
-
-        // ✅ DEBUG: Log filtered results
-        console.log("🎯 Active destinations (>0 plans):", activeDestinations);
-        console.log(
-          `📊 Showing ${activeDestinations.length} of ${POPULAR_DESTINATIONS.length} destinations`
         );
 
         // ✅ Sort by most active plans first
         activeDestinations.sort((a, b) => b.activePlans - a.activePlans);
 
         setDestinations(activeDestinations);
-      } catch (error) {
-        console.error("❌ Error fetching destination counts:", error);
+      } catch {
         setDestinations([]);
       } finally {
         setLoading(false);

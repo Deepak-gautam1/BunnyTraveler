@@ -6,21 +6,11 @@ import { useAuth } from "@/hooks/useAuth";
 import RestrictedPhotoModal from "@/components/trip/RestrictedPhotoModal";
 
 // Add the TripPhoto interface
-interface TripPhoto {
-  id: string;
-  trip_id: number;
-  url: string;
-  thumb_url: string;
-  uploaded_by: string;
-  caption?: string;
-  file_size?: number;
-  mime_type?: string;
-  created_at: string;
-  profiles?: {
-    full_name: string;
-    avatar_url?: string;
-  };
-}
+import type { DbTripPhoto } from "@/types/database";
+
+type TripPhoto = DbTripPhoto & {
+  profiles?: { full_name: string | null; avatar_url?: string | null } | null;
+};
 
 interface PhotoGalleryProps {
   tripId: number;
@@ -44,6 +34,7 @@ export default function PhotoGallery({
   // Check if user has access to view photos
   useEffect(() => {
     checkPhotoAccess();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, tripId, isParticipant]);
 
 
@@ -271,7 +262,7 @@ export default function PhotoGallery({
       {/* Photo Modal with restricted download */}
       {selectedPhoto && (
         <RestrictedPhotoModal
-          photo={selectedPhoto}
+          photo={{ ...selectedPhoto, trip_id: selectedPhoto.trip_id ?? 0 }}
           onClose={() => setSelectedPhoto(null)}
           onDelete={fetchPhotos}
           canDelete={user?.id === selectedPhoto.uploaded_by}

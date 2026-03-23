@@ -22,21 +22,21 @@ export const useFooterStats = () => {
   const fetchStats = async () => {
     try {
       // 1. Get total number of registered travelers (profiles table)
-      const { count: travelersCount, error: travelersError } = await supabase
+      const { count: travelersCount } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true });
 
 
 
       // 2. Get total number of trips (all statuses)
-      const { count: tripsCount, error: tripsError } = await supabase
+      const { count: tripsCount } = await supabase
         .from("trips")
         .select("*", { count: "exact", head: true });
 
 
 
       // 3. Get unique destinations from trips table
-      const { data: tripsData, error: destinationsError } = await supabase
+      const { data: tripsData } = await supabase
         .from("trips")
         .select("destination");
 
@@ -59,7 +59,7 @@ export const useFooterStats = () => {
       let avgRating = 4.8; // Default rating
 
       if (!reviewsError && reviews && reviews.length > 0) {
-        const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+        const totalRating = reviews.reduce((sum, r) => sum + (r.rating ?? 0), 0);
         avgRating = totalRating / reviews.length;
       }
 

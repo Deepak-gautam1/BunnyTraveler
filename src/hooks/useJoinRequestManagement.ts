@@ -3,24 +3,12 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
+import type { DbTripJoinRequest, ProfileSnippet } from "@/types/database";
 
-export interface JoinRequest {
-  id: number;
-  trip_id: number;
-  user_id: string;
-  status: "pending" | "approved" | "rejected";
-  message: string | null;
-  requested_at: string;
-  responded_at: string | null;
-  responded_by: string | null;
-  response_message: string | null;
-  referral_code: string | null;
-  profiles: {
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-  } | null;
-}
+// Join request row joined with the requester's profile
+export type JoinRequest = DbTripJoinRequest & {
+  profiles: ProfileSnippet | null;
+};
 
 export const useJoinRequestManagement = (
   tripId: number,
@@ -45,7 +33,7 @@ export const useJoinRequestManagement = (
         .select(
           `
           *,
-          profiles:user_id (
+          profiles!trip_join_requests_user_id_fkey(
             id,
             full_name,
             avatar_url
@@ -57,15 +45,14 @@ export const useJoinRequestManagement = (
 
       if (error) throw error;
 
-      setJoinRequests(data || []);
+      setJoinRequests((data as JoinRequest[]) || []);
 
       const currentUserRequest = data?.find((req) => req.user_id === user.id);
-      setUserRequest(currentUserRequest || null);
-    } catch (error: any) {
-      console.error("Error fetching join requests:", error);
+      setUserRequest((currentUserRequest as JoinRequest) || null);
+    } catch (e: unknown) {
       toast({
         title: "Error loading join requests",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
     } finally {
@@ -87,9 +74,6 @@ export const useJoinRequestManagement = (
 
       setRequestLoading(true);
       try {
-        // ✅ DEBUG: Check what we received
-
-
         const dataToInsert = {
           trip_id: tripId,
           user_id: user.id,
@@ -100,10 +84,9 @@ export const useJoinRequestManagement = (
 
 
 
-        const { data: insertedData, error } = await supabase
+        const { error } = await supabase
           .from("trip_join_requests")
-          .insert(dataToInsert)
-          .select(); // ✅ Get back what was inserted
+          .insert(dataToInsert);
 
         if (error) {
           if (error.code === "23505") {
@@ -116,8 +99,6 @@ export const useJoinRequestManagement = (
           throw error;
         }
 
-
-
         toast({
           title: "Request sent! 📩",
           description: "Your join request has been sent to the trip creator",
@@ -125,10 +106,10 @@ export const useJoinRequestManagement = (
 
         await fetchJoinRequests();
         return true;
-      } catch (error: any) {
+      } catch (e: unknown) {
         toast({
           title: "Failed to send request",
-          description: error.message,
+          description: e instanceof Error ? e.message : 'An error occurred',
           variant: "destructive",
         });
         return false;
@@ -193,8 +174,6 @@ export const useJoinRequestManagement = (
 
         const finalReferralCode = isValidReferral ? requestReferralCode : null;
 
-
-
         // Update request status
         const { error: updateError } = await supabase
           .from("trip_join_requests")
@@ -232,11 +211,11 @@ export const useJoinRequestManagement = (
         if (onTripDataRefresh) setTimeout(() => onTripDataRefresh(), 500);
 
         return true;
-      } catch (error: any) {
-        let errorMessage = error.message;
-        if (error.message?.includes("permission")) {
+      } catch (e: unknown) {
+        let errorMessage = e instanceof Error ? e.message : 'An error occurred';
+        if (errorMessage.includes("permission")) {
           errorMessage = "You don't have permission to approve this request";
-        } else if (error.message?.includes("not found")) {
+        } else if (errorMessage.includes("not found")) {
           errorMessage = "Request not found or already processed";
         }
 
@@ -290,10 +269,10 @@ export const useJoinRequestManagement = (
 
         await fetchJoinRequests();
         return true;
-      } catch (error: any) {
+      } catch (e: unknown) {
         toast({
           title: "Failed to reject request",
-          description: error.message,
+          description: e instanceof Error ? e.message : 'An error occurred',
           variant: "destructive",
         });
         return false;
@@ -326,10 +305,10 @@ export const useJoinRequestManagement = (
 
       await fetchJoinRequests();
       return true;
-    } catch (error: any) {
+    } catch (e: unknown) {
     toast({
         title: "Failed to cancel request",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
       return false;

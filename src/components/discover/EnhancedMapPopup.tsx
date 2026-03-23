@@ -1,6 +1,20 @@
 // src/components/discover/EnhancedMapPopup.tsx
-import React from "react";
+
 import { Card, CardContent } from "@/components/ui/card";
+
+interface PopupTrip {
+  id: number;
+  destination: string;
+  start_city: string;
+  start_date: string;
+  end_date: string;
+  description?: string | null;
+  budget_per_person?: number | null;
+  travel_style?: string[] | null;
+  max_participants: number;
+  current_participants: number;
+  profiles?: { full_name: string | null; avatar_url: string | null } | null;
+}
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,11 +32,11 @@ import {
 } from "lucide-react";
 
 interface EnhancedMapPopupProps {
-  trip: any;
-  onTripSelect: (trip: any) => void;
+  trip: PopupTrip;
+  onTripSelect: (trip: PopupTrip) => void;
   onBookmarkToggle?: (tripId: number) => Promise<boolean>;
   isBookmarked?: boolean;
-  user?: any;
+  user?: { id: string } | null;
 }
 
 const EnhancedMapPopup = ({
@@ -173,7 +187,7 @@ const EnhancedMapPopup = ({
         <div className="flex items-center justify-between pt-2 border-t">
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10 ring-2 ring-accent/20">
-              <AvatarImage src={trip.profiles?.avatar_url} />
+              <AvatarImage src={trip.profiles?.avatar_url ?? undefined} />
               <AvatarFallback className="bg-accent/10 text-accent text-sm font-medium">
                 {trip.profiles?.full_name?.charAt(0) || "U"}
               </AvatarFallback>
@@ -192,7 +206,7 @@ const EnhancedMapPopup = ({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => console.log("Start chat")}
+              onClick={() => { /* open chat */ }}
               className="h-8 px-3"
             >
               <MessageSquare className="w-3 h-3" />

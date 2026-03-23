@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import EnhancedTripCard from "@/components/home/EnhancedTripCard";
 import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
@@ -43,13 +43,13 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
       if (!a.trips || !b.trips) return 0;
       switch (sortBy) {
         case "oldest":
-          return new Date(a.bookmarked_at).getTime() - new Date(b.bookmarked_at).getTime();
+          return new Date(a.bookmarked_at ?? 0).getTime() - new Date(b.bookmarked_at ?? 0).getTime();
         case "date":
           return new Date(a.trips.start_date).getTime() - new Date(b.trips.start_date).getTime();
         case "destination":
           return a.trips.destination.localeCompare(b.trips.destination);
         default:
-          return new Date(b.bookmarked_at).getTime() - new Date(a.bookmarked_at).getTime();
+          return new Date(b.bookmarked_at ?? 0).getTime() - new Date(a.bookmarked_at ?? 0).getTime();
       }
     });
 
@@ -178,7 +178,7 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                 <div key={bookmark.id} className="relative">
                   <div className="absolute top-4 left-4 z-10">
                     <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm text-xs">
-                      Saved {new Date(bookmark.bookmarked_at).toLocaleDateString()}
+                      Saved {bookmark.bookmarked_at ? new Date(bookmark.bookmarked_at).toLocaleDateString() : ""}
                     </Badge>
                   </div>
                   <EnhancedTripCard
@@ -197,9 +197,9 @@ const SavedTripsPage = ({ user }: SavedTripsPageProps) => {
                       isHost: true,
                     }}
                     vibe={trip.travel_style ?? ["Adventure"]}
-                    groupSize={{ current: trip.current_participants, max: trip.max_participants }}
-                    interestedCount={trip.current_participants}
-                    status="active"
+                    groupSize={{ current: trip.current_participants ?? 0, max: trip.max_participants ?? 0 }}
+                    interestedCount={trip.current_participants ?? 0}
+                    status="planning"
                     isFemaleOnly={false}
                     isInstantJoin={true}
                     postedAt={trip.start_date}

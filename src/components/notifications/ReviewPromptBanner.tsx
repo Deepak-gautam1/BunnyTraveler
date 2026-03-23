@@ -1,5 +1,5 @@
 // src/components/notifications/ReviewPromptBanner.tsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";

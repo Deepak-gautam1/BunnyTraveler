@@ -61,7 +61,7 @@ export const createAdvancedTripMarker = (
             font-size="${fontSize}" 
             font-weight="bold" 
             fill="${color}">
-        ${getTrip - icon(tripType)}
+        ${getTripIconChar(tripType)}
       </text>
       
       <!-- Status indicator -->
@@ -89,18 +89,18 @@ export const createAdvancedTripMarker = (
   });
 };
 
-const getTripIcon = (tripType: string): string => {
-  const icons = {
-    adventure: "⛰️",
-    cultural: "🏛️",
+const getTripIconChar = (tripType: string): string => {
+  const icons: Record<string, string> = {
+    adventure: "⛰",
+    cultural: "🏛",
     relaxation: "🌴",
     luxury: "✨",
-    foodie: "🍽️",
-    spiritual: "🕉️",
+    foodie: "🍽",
+    spiritual: "🕉",
     photography: "📸",
     backpacking: "🎒",
     wellness: "🧘",
     default: "📍",
   };
-  return icons[tripType as keyof typeof icons] || icons.default;
+  return icons[tripType] ?? icons.default;
 };

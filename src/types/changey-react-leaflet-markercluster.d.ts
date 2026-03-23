@@ -1,4 +1,5 @@
 // src/types/changey-react-leaflet-markercluster.d.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 declare module "@changey/react-leaflet-markercluster" {
   import { ReactNode } from "react";
   import { LayerGroup } from "leaflet";

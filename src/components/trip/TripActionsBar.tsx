@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle, Share2, Clock, XCircle } from "lucide-react";
 import { User as UserType } from "@supabase/supabase-js";
 import JoinRequestDialog from "@/components/trip/JoinRequestDialog";
-import { ParticipantStats } from "@/types/trip";
 
 interface JoinRequest {
   status: string;
@@ -19,7 +18,7 @@ interface TripActionsBarProps {
   tripDestination: string;
   onLeave: () => void;
   onShare: () => void;
-  onSendRequest: (message: string) => void;
+  onSendRequest: (message?: string, referralCode?: string) => Promise<boolean>;
 }
 
 const TripActionsBar = ({

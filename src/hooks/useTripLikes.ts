@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export const useTripLikes = (user: User | null) => {
   const [likedTripIds, setLikedTripIds] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(false);
+
   const { toast } = useToast();
 
   // Fetch user's liked trips
@@ -109,7 +109,7 @@ export const useTripLikes = (user: User | null) => {
 
         return true; // Now liked
       }
-    } catch (error: any) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update like status",
@@ -124,6 +124,5 @@ export const useTripLikes = (user: User | null) => {
     isLiked,
     toggleLike,
     refreshLikes: fetchLikedTrips,
-    loading,
   };
 };

@@ -16,7 +16,6 @@ import {
 import { Label } from "@/components/ui/label";
 import {
   Search,
-  Filter,
   X,
   Calendar as CalendarIcon,
   MapPin,
@@ -545,6 +544,7 @@ const FilterBar = ({
         cities: currentFilters.cities || prev.cities,
       }));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFilters?.search, currentFilters?.cities]);
 
   useEffect(() => {

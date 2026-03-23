@@ -33,22 +33,21 @@ export async function createNotification(params: NotificationParams) {
     const shouldSend = checkNotificationPreference(params.type, preferences);
 
     if (!shouldSend) {
-      console.log("User has disabled this notification type");
       return null;
-    }
+      }
 
     // Insert notification using updated table
     const { data, error } = await supabase
       .from("trip_notifications")
       .insert({
         user_id: params.userId,
-        trip_id: params.tripId || null,
+        trip_id: params.tripId ?? null,
         notification_type: params.type,
         title: params.title,
         message: params.message,
         link: params.link,
-        scheduled_for: params.scheduledFor || new Date(),
-        sent_at: new Date(),
+        scheduled_for: (params.scheduledFor ?? new Date()).toISOString(),
+        sent_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -56,32 +55,32 @@ export async function createNotification(params: NotificationParams) {
     if (error) throw error;
 
     return data;
-  } catch (error) {
-    console.error("Error creating notification:", error);
+  } catch {
     return null;
   }
 }
 
 function checkNotificationPreference(
   type: NotificationType,
-  preferences: any
+  preferences: Record<string, unknown> | null
 ): boolean {
   if (!preferences) return true;
+  const prefs = preferences as Record<string, boolean>;
 
   switch (type) {
     case "trip_update":
     case "participant_joined":
     case "participant_left":
     case "trip_cancelled":
-      return preferences.trip_updates;
+      return prefs.trip_updates ?? true;
     case "new_message":
-      return preferences.new_messages;
+      return prefs.new_messages ?? true;
     case "marketing":
-      return preferences.marketing_emails;
+      return prefs.marketing_emails ?? true;
     case "join_request":
-      return preferences.trip_updates;
+      return prefs.trip_updates ?? true;
     case "coupon_awarded":
-      return preferences.email_notifications;
+      return prefs.email_notifications ?? true;
     default:
       return true;
   }

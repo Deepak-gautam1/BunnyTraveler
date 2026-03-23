@@ -3,7 +3,6 @@ import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -19,7 +18,6 @@ import {
   Search,
   MessageCircle,
   Heart,
-  Plus,
   PlusCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -30,13 +28,13 @@ interface CommunityPageProps {
 
 interface CommunityMember {
   id: string;
-  full_name: string;
-  avatar_url: string;
-  home_city: string;
-  tagline: string;
-  created_at: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  home_city: string | null;
+  tagline: string | null;
+  created_at: string | null;
   trip_count: number;
-  email: string;
+  email: string | null;
 }
 
 interface TravelStory {
@@ -69,6 +67,7 @@ const CommunityPage = ({ user }: CommunityPageProps) => {
 
   useEffect(() => {
     fetchCommunityData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateTrip = () => {
@@ -106,8 +105,7 @@ const CommunityPage = ({ user }: CommunityPageProps) => {
 
       // ✅ REAL: Fetch travel stories from trips descriptions
       await fetchTravelStories();
-    } catch (error) {
-      console.error("Error fetching community data:", error);
+    } catch {
       toast({
         title: "Error loading community",
         description: "Failed to load community data",
@@ -165,9 +163,9 @@ const CommunityPage = ({ user }: CommunityPageProps) => {
         .sort((a, b) => b.trip_count - a.trip_count)
         .slice(0, 5);
 
-      setTopTravelers(sortedTravelers);
-    } catch (error) {
-      console.error("Error fetching top travelers:", error);
+      setTopTravelers(sortedTravelers as CommunityMember[]);
+    } catch {
+      // silently fail
     }
   };
 
@@ -213,9 +211,9 @@ const CommunityPage = ({ user }: CommunityPageProps) => {
         })
       );
 
-      setNewMembers(membersWithTripCount);
-    } catch (error) {
-      console.error("Error fetching new members:", error);
+      setNewMembers(membersWithTripCount as CommunityMember[]);
+    } catch {
+      // silently fail
     }
   };
 
@@ -244,7 +242,7 @@ const CommunityPage = ({ user }: CommunityPageProps) => {
       if (error) throw error;
 
       const stories: TravelStory[] = (trips || []).map((trip) => {
-        const timeAgo = getTimeAgo(trip.created_at);
+        const timeAgo = trip.created_at ? getTimeAgo(trip.created_at) : "";
 
         return {
           id: trip.id.toString(),
@@ -262,8 +260,8 @@ const CommunityPage = ({ user }: CommunityPageProps) => {
       });
 
       setTravelStories(stories);
-    } catch (error) {
-      console.error("Error fetching travel stories:", error);
+    } catch {
+      // silently fail
     }
   };
 

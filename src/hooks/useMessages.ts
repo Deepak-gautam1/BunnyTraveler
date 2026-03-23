@@ -17,16 +17,16 @@ export interface MessageWithDetails {
   id: number;
   sender_id: string;
   receiver_id: string;
-  trip_id?: number;
+  trip_id?: number | null;
   content: string;
   created_at: string;
-  read_at?: string;
+  read_at?: string | null;
   isOwn: boolean;
 }
 
 export const useMessages = (user: User | null) => {
   const [conversations, setConversations] = useState<ConversationWithDetails[]>(
-    []
+    [],
   );
   const [messages, setMessages] = useState<MessageWithDetails[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,7 +65,7 @@ export const useMessages = (user: User | null) => {
           created_at,
           read_at,
           trips(destination)
-        `
+        `,
         )
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
@@ -73,7 +73,10 @@ export const useMessages = (user: User | null) => {
       if (error) throw error;
 
       // Group messages by conversation partner
-      const conversationMap = new Map<string, any>();
+      const conversationMap = new Map<
+        string,
+        ConversationWithDetails & { lastMessageDate: string }
+      >();
 
       for (const message of messagesData || []) {
         const partnerId =
@@ -105,7 +108,7 @@ export const useMessages = (user: User | null) => {
             lastMessageTime: getTimeAgo(message.created_at),
             unreadCount: unreadCount || 0,
             tripName: message.trips?.destination,
-            tripId: message.trip_id,
+            tripId: message.trip_id ?? undefined,
             lastMessageDate: message.created_at,
           });
         }
@@ -115,7 +118,7 @@ export const useMessages = (user: User | null) => {
       const conversationsArray = Array.from(conversationMap.values()).sort(
         (a, b) =>
           new Date(b.lastMessageDate).getTime() -
-          new Date(a.lastMessageDate).getTime()
+          new Date(a.lastMessageDate).getTime(),
       );
 
       setConversations(conversationsArray);
@@ -135,7 +138,7 @@ export const useMessages = (user: User | null) => {
         .from("private_messages")
         .select("*")
         .or(
-          `and(sender_id.eq.${user.id},receiver_id.eq.${participantId}),and(sender_id.eq.${participantId},receiver_id.eq.${user.id})`
+          `and(sender_id.eq.${user.id},receiver_id.eq.${participantId}),and(sender_id.eq.${participantId},receiver_id.eq.${user.id})`,
         )
         .order("created_at", { ascending: true });
 
@@ -157,10 +160,9 @@ export const useMessages = (user: User | null) => {
         .eq("sender_id", participantId)
         .eq("receiver_id", user.id)
         .is("read_at", null)
-        .select("*", { count: "exact" });
+        .select("*");
 
       if (!updateError && updatedCount && updatedCount > 0) {
-
         // ✅ OPTIMIZED: Update conversations state directly instead of refetching
         setConversations((prev) =>
           prev.map((conv) =>
@@ -169,8 +171,8 @@ export const useMessages = (user: User | null) => {
                   ...conv,
                   unreadCount: Math.max(0, conv.unreadCount - updatedCount),
                 }
-              : conv
-          )
+              : conv,
+          ),
         );
       }
     } catch {
@@ -182,7 +184,7 @@ export const useMessages = (user: User | null) => {
   const sendMessage = async (
     receiverId: string,
     content: string,
-    tripId?: number
+    tripId?: number,
   ) => {
     if (!user || !content.trim()) return;
 
@@ -214,8 +216,8 @@ export const useMessages = (user: User | null) => {
                 lastMessage: messageContent,
                 lastMessageTime: "Just now",
               }
-            : conv
-        )
+            : conv,
+        ),
       );
 
       // Send to database
@@ -232,27 +234,29 @@ export const useMessages = (user: User | null) => {
 
       if (error) throw error;
 
-      // ✅ Replace optimistic message with real one
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === tempId
-            ? ({ ...data, isOwn: true } as MessageWithDetails)
-            : msg
-        )
-      );
+      if (data) {
+        // ✅ Replace optimistic message with real one
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? ({ ...data, isOwn: true } as MessageWithDetails)
+              : msg,
+          ),
+        );
 
-      // ✅ Update conversation with real timestamp
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.participantId === receiverId
-            ? {
-                ...conv,
-                lastMessage: messageContent,
-                lastMessageTime: getTimeAgo(data.created_at),
-              }
-            : conv
-        )
-      );
+        // ✅ Update conversation with real timestamp
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.participantId === receiverId
+              ? {
+                  ...conv,
+                  lastMessage: messageContent,
+                  lastMessageTime: getTimeAgo(data.created_at),
+                }
+              : conv,
+          ),
+        );
+      }
     } catch (error) {
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
       throw error;
@@ -273,8 +277,15 @@ export const useMessages = (user: User | null) => {
           table: "private_messages",
         },
         (payload) => {
-          const newMessage = payload.new as any;
-
+          const newMessage = payload.new as {
+            sender_id: string;
+            receiver_id: string;
+            content: string;
+            created_at: string;
+            id: number;
+            trip_id?: number | null;
+            read_at?: string | null;
+          };
 
           // ✅ Only update current conversation if viewing it
           if (
@@ -325,7 +336,7 @@ export const useMessages = (user: User | null) => {
               return 0;
             });
           });
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -335,13 +346,16 @@ export const useMessages = (user: User | null) => {
           table: "private_messages",
         },
         (payload) => {
-          const updatedMessage = payload.new as any;
-          const oldMessage = payload.old as any;
+          const updatedMessage = payload.new as {
+            id: number;
+            sender_id: string;
+            receiver_id: string;
+            read_at?: string | null;
+          };
+          const oldMessage = payload.old as { read_at?: string | null };
 
           // ✅ Handle read status updates
           if (!oldMessage.read_at && updatedMessage.read_at) {
-
-
             // Update read status in current messages if viewing this conversation
             if (
               selectedParticipantId &&
@@ -352,26 +366,26 @@ export const useMessages = (user: User | null) => {
                 prev.map((msg) =>
                   msg.id === updatedMessage.id
                     ? { ...msg, read_at: updatedMessage.read_at }
-                    : msg
-                )
+                    : msg,
+                ),
               );
             }
           }
-        }
+        },
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(messageChannel);
     };
-  }, [user?.id, selectedParticipantId]);
+  }, [user?.id, selectedParticipantId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initial fetch
   useEffect(() => {
     if (user) {
       fetchConversations();
     }
-  }, [user?.id]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     conversations,

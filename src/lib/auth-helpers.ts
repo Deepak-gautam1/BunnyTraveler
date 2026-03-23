@@ -1,20 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
+import type { DbProfile } from "@/types/database";
 
-export interface UserProfileData {
-  id?: string;
-  full_name?: string | null;
-  bio?: string | null;
-  home_city?: string | null;
-  tagline?: string | null;
-  avatar_url?: string | null;
-  email?: string | null;
-  website?: string | null;
-  user_id?: string;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: unknown;
-}
+// UserProfileData is the exact shape of a profiles row
+export type UserProfileData = DbProfile;
 
 export const ensureProfileExists = async (user: User): Promise<UserProfileData | null> => {
   try {

@@ -3,26 +3,15 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
+import type { DbTripParticipant, ProfileSnippet } from "@/types/database";
+import type { ParticipantStats } from "@/types/trip";
 
-export interface TripParticipant {
-  trip_id: number;
-  user_id: string;
-  joined_at: string;
-  profiles: {
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-    email?: string;
-  } | null;
-}
+// Re-export so callers who import from this hook still work
+export type { ParticipantStats };
 
-export interface ParticipantStats {
-  current_participants: number;
-  max_participants: number;
-  spots_remaining: number;
-  is_full: boolean;
-  referral_participants: number; // ADD THIS
-}
+export type TripParticipant = DbTripParticipant & {
+  profiles: (ProfileSnippet & { email?: string | null }) | null;
+};
 
 export const useParticipantManagement = (tripId: number, user: User | null) => {
   const [participants, setParticipants] = useState<TripParticipant[]>([]);
@@ -101,10 +90,10 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
         is_full: currentCount >= maxCount,
         referral_participants: referralCount, // ADD THIS
       });
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Error loading participants",
-        description: error.message || "Failed to load participants",
+        description: e instanceof Error ? e.message : "Failed to load participants",
         variant: "destructive",
       });
     } finally {
@@ -166,10 +155,10 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
       // Refresh participants list
       await fetchParticipants();
       return true;
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Failed to join trip",
-        description: error.message || "Something went wrong",
+        description: e instanceof Error ? e.message : "Something went wrong",
         variant: "destructive",
       });
       return false;
@@ -208,10 +197,10 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
       // Refresh participants list
       await fetchParticipants();
       return true;
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Failed to leave trip",
-        description: error.message || "Something went wrong",
+        description: e instanceof Error ? e.message : "Something went wrong",
         variant: "destructive",
       });
       return false;
@@ -258,10 +247,10 @@ export const useParticipantManagement = (tripId: number, user: User | null) => {
         // Refresh participants list
         await fetchParticipants();
         return true;
-      } catch (error: any) {
+      } catch (e: unknown) {
         toast({
           title: "Failed to remove participant",
-          description: error.message || "Something went wrong",
+          description: e instanceof Error ? e.message : "Something went wrong",
           variant: "destructive",
         });
         return false;

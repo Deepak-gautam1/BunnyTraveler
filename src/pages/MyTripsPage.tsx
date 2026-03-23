@@ -70,6 +70,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
     } else {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchMyTrips = async () => {
@@ -165,7 +166,7 @@ const MyTripsPage = ({ user }: MyTripsPageProps) => {
           )
           .eq("creator_id", user.id)
           .eq("status", "completed")
-          .order("completed_at", { ascending: false, nullsLast: true });
+          .order("completed_at", { ascending: false, nullsFirst: false });
 
       if (completedCreatedError) throw completedCreatedError;
 

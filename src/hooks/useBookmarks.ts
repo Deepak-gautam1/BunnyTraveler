@@ -3,34 +3,31 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
+import type { DbTripBookmark, DbTrip, ProfileSnippet } from "@/types/database";
 
-interface Bookmark {
-  id: number;
-  user_id: string;
-  trip_id: number;
-  bookmarked_at: string;
-  trips?: {
-    id: number;
-    destination: string;
-    start_city: string;
-    start_date: string;
-    end_date: string;
-    description: string;
-    budget_per_person: number;
-    travel_style: string[];
-    max_participants: number;
-    current_participants: number;
-    profiles: {
-      full_name: string;
-      avatar_url: string;
-    };
+// Bookmark row joined with its trip and the trip creator's profile
+export type Bookmark = DbTripBookmark & {
+  trips?: Pick<
+    DbTrip,
+    | "id"
+    | "destination"
+    | "start_city"
+    | "start_date"
+    | "end_date"
+    | "description"
+    | "budget_per_person"
+    | "travel_style"
+    | "max_participants"
+    | "current_participants"
+  > & {
+    profiles: Pick<ProfileSnippet, "full_name" | "avatar_url"> | null;
   };
-}
+};
 
 export const useBookmarks = (user: User | null) => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [bookmarkedTripIds, setBookmarkedTripIds] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -69,7 +66,7 @@ export const useBookmarks = (user: User | null) => {
               avatar_url
             )
           )
-        `
+        `,
         )
         .eq("user_id", user.id)
         .order("bookmarked_at", { ascending: false });
@@ -82,8 +79,7 @@ export const useBookmarks = (user: User | null) => {
       // Create a Set of bookmarked trip IDs for quick lookup
       const tripIds = new Set(bookmarksData.map((b) => b.trip_id));
       setBookmarkedTripIds(tripIds);
-    } catch (error) {
-      console.error("Error fetching bookmarks:", error);
+    } catch {
       toast({
         title: "Error loading bookmarks",
         description: "Failed to load your saved trips",
@@ -134,8 +130,7 @@ export const useBookmarks = (user: User | null) => {
       // Refresh bookmarks to get complete data
       fetchBookmarks();
       return true;
-    } catch (error) {
-      console.error("Error adding bookmark:", error);
+    } catch {
       toast({
         title: "Error saving trip",
         description: "Failed to save trip. Please try again.",
@@ -173,8 +168,7 @@ export const useBookmarks = (user: User | null) => {
       });
 
       return true;
-    } catch (error) {
-      console.error("Error removing bookmark:", error);
+    } catch {
       toast({
         title: "Error removing trip",
         description: "Failed to remove trip. Please try again.",
@@ -210,15 +204,16 @@ export const useBookmarks = (user: User | null) => {
 
       if (error) throw error;
       return count || 0;
-    } catch (error) {
-      console.error("Error getting bookmark count:", error);
+    } catch {
       return 0;
     }
   };
 
   // Load bookmarks when user changes
+
   useEffect(() => {
     fetchBookmarks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   return {

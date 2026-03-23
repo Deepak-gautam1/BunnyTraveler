@@ -3,20 +3,10 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
+import type { DbNotification } from "@/types/database";
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  type: string;
-  title: string;
-  message: string;
-  related_trip_id?: number;
-  related_user_id?: string;
-  is_read: boolean;
-  created_at: string;
-  updated_at: string;
-  // deleted_at is no longer needed in the interface for the UI
-}
+// Use the generated DB type directly
+export type Notification = DbNotification;
 
 export const useNotifications = (user: User | null) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -40,8 +30,7 @@ export const useNotifications = (user: User | null) => {
 
       setNotifications(data || []);
       setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to load notifications",
@@ -65,8 +54,7 @@ export const useNotifications = (user: User | null) => {
         prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to mark notification as read",
@@ -94,8 +82,7 @@ export const useNotifications = (user: User | null) => {
         title: "Success",
         description: "All notifications marked as read",
       });
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to mark all notifications as read",
@@ -125,8 +112,7 @@ export const useNotifications = (user: User | null) => {
         title: "Notification deleted",
         description: "The notification has been permanently removed",
       });
-    } catch (error) {
-      console.error("Error deleting notification:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Could not remove notification. Please try again.",
@@ -154,8 +140,7 @@ export const useNotifications = (user: User | null) => {
         title: "All notifications deleted",
         description: "Your notification history has been cleared",
       });
-    } catch (error) {
-      console.error("Error deleting all notifications:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to delete all notifications",
@@ -188,6 +173,7 @@ export const useNotifications = (user: User | null) => {
     return () => {
       supabase.removeChannel(channel);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   return {

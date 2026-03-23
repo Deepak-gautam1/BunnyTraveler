@@ -2,20 +2,14 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureProfileExists } from "@/lib/auth-helpers";
+import type { UserProfileData } from "@/lib/auth-helpers";
 
-export interface UserProfile {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  email?: string | null;
-  terms_accepted_at?: string | null;
-  privacy_accepted_at?: string | null;
-  [key: string]: unknown;
-}
+// Re-export so callers can import from this hook file
+export type { UserProfileData };
 
 interface AuthState {
   user: User | null;
-  profile: UserProfile | null;
+  profile: UserProfileData | null;
   loading: boolean;
   isAuthenticated: boolean;
 }
@@ -61,7 +55,7 @@ export const useAuth = () => {
     await supabase.auth.signOut().catch(() => null);
   };
 
-  const refreshProfile = async (): Promise<UserProfile | null> => {
+  const refreshProfile = async (): Promise<UserProfileData | null> => {
     if (!state.user) return null;
     const profile = await ensureProfileExists(state.user);
     setState((prev) => ({ ...prev, profile }));

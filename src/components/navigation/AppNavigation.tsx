@@ -59,7 +59,7 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
     try {
       await supabase.auth.signOut();
       toast.success("Signed out successfully");
-    } catch (error) {
+    } catch {
       toast.error("Error signing out");
     } finally {
       setIsLoading(false);

@@ -145,10 +145,10 @@ const EditTripModal = ({
 
       onTripUpdated();
       onClose();
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Update failed",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
     } finally {

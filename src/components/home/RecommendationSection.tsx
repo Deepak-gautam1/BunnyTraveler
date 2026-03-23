@@ -1,8 +1,8 @@
 // src/components/home/RecommendationSection.tsx
-import React, { useState } from "react";
+import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRecommendations } from "@/hooks/useRecommendations";
@@ -57,12 +57,6 @@ const RecommendationSection = ({
     return "text-gray-600 bg-gray-50";
   };
 
-  const getScoreLabel = (score: number) => {
-    if (score >= 80) return "Perfect Match";
-    if (score >= 60) return "Great Match";
-    if (score >= 40) return "Good Match";
-    return "Potential Match";
-  };
 
   if (loading) {
     return (

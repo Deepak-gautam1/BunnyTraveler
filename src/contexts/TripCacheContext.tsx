@@ -6,33 +6,23 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import type { DbTrip } from "@/types/database";
+import type { ProfileSnippet } from "@/types/database";
 
-type Trip = {
-  id: number;
-  creator_id: string;
-  destination: string;
-  start_city: string;
-  start_date: string;
-  end_date: string;
-  description: string | null;
-  created_at: string;
-  max_participants: number;
-  current_participants: number;
-  budget_per_person: number | null;
-  travel_style: string[] | null;
-  status: string;
-  interested_count?: number;
-  completed_at?: string | null;
-  profiles: { full_name: string | null; avatar_url: string | null } | null;
-  trip_participants: { user_id: string; joined_at: string }[];
+// Trip as stored in cache — the DB row plus joined relations
+export type CachedTrip = DbTrip & {
+  profiles: ProfileSnippet | null;
+  trip_participants: { user_id: string; joined_at: string | null }[];
 };
 
+type ActiveFilters = Record<string, unknown>;
+
 interface CacheData {
-  trips: Trip[];
+  trips: CachedTrip[];
   totalTrips: number;
   currentPage: number;
   timestamp: number;
-  filters: Record<string, unknown>;
+  filters: ActiveFilters;
 }
 
 interface TripCacheContextType {
@@ -43,7 +33,7 @@ interface TripCacheContextType {
 }
 
 const TripCacheContext = createContext<TripCacheContextType | undefined>(
-  undefined
+  undefined,
 );
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -51,15 +41,10 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 export const TripCacheProvider = ({ children }: { children: ReactNode }) => {
   const [cache, setCache] = useState<CacheData | null>(null);
 
-  const getCachedTrips = useCallback(() => {
-    return cache;
-  }, [cache]);
+  const getCachedTrips = useCallback(() => cache, [cache]);
 
   const setCachedTrips = useCallback((data: CacheData) => {
-    setCache({
-      ...data,
-      timestamp: Date.now(),
-    });
+    setCache({ ...data, timestamp: Date.now() });
   }, []);
 
   const clearCache = useCallback(() => {
@@ -68,8 +53,7 @@ export const TripCacheProvider = ({ children }: { children: ReactNode }) => {
 
   const isCacheValid = useCallback(() => {
     if (!cache) return false;
-    const age = Date.now() - cache.timestamp;
-    return age < CACHE_DURATION;
+    return Date.now() - cache.timestamp < CACHE_DURATION;
   }, [cache]);
 
   return (
@@ -81,6 +65,7 @@ export const TripCacheProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTripCache = () => {
   const context = useContext(TripCacheContext);
   if (!context) {

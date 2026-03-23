@@ -23,13 +23,12 @@ export const useUnreadMessages = (user: User | null) => {
         .is("read_at", null);
 
       if (error) {
-        console.error("Error fetching unread count:", error);
-        return;
+          return;
       }
 
       setUnreadCount(count || 0);
-    } catch (error) {
-      console.error("Error fetching unread count:", error);
+    } catch {
+      // silently fail
     } finally {
       setLoading(false);
     }
@@ -44,7 +43,6 @@ export const useUnreadMessages = (user: User | null) => {
 
     // ✅ NEW: Listen for manual refresh events
     const handleManualRefresh = () => {
-      console.log("🔄 Manual unread count refresh triggered");
       fetchUnreadCount();
     };
 
@@ -62,34 +60,20 @@ export const useUnreadMessages = (user: User | null) => {
           filter: `receiver_id=eq.${user.id}`, // Only messages for this user
         },
         (payload) => {
-          console.log(
-            "🔔 Message update detected:",
-            payload.eventType,
-            payload
-          );
-
-          // ✅ IMPROVED: Handle all event types and force refresh
           if (payload.eventType === "INSERT") {
-            console.log("📨 New message received");
             fetchUnreadCount();
           } else if (payload.eventType === "UPDATE") {
-            console.log("📖 Message updated (possibly marked as read)");
-            // Add a small delay to ensure database consistency
-            setTimeout(() => {
-              fetchUnreadCount();
-            }, 100);
+            setTimeout(() => { fetchUnreadCount(); }, 100);
           }
         }
       )
-      .subscribe((status) => {
-        console.log("🔗 Subscription status:", status);
-      });
+      .subscribe();
 
     return () => {
-      console.log("🔌 Cleaning up unread messages subscription");
-      window.removeEventListener("unread-count-changed", handleManualRefresh); // ✅ Clean up event listener
+      window.removeEventListener("unread-count-changed", handleManualRefresh);
       supabase.removeChannel(channel);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   return {

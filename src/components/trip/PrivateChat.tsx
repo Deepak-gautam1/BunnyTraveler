@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Send, X, User as UserIcon } from "lucide-react";
+import { Send, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -67,6 +67,7 @@ const PrivateChat = ({
       fetchMessages();
       setupRealtimeSubscription();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentUser, organizerId]);
 
   useEffect(() => {
@@ -93,14 +94,11 @@ const PrivateChat = ({
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching private messages:", error);
-        return;
-      }
+      if (error) return;
 
       setMessages(data || []);
-    } catch (error) {
-      console.error("Error fetching private messages:", error);
+    } catch {
+      // silently fail
     } finally {
       setLoading(false);
     }
@@ -120,7 +118,7 @@ const PrivateChat = ({
           filter: `trip_id=eq.${tripId}`,
         },
         (payload) => {
-          const newMsg = payload.new as any;
+          const newMsg = payload.new as { sender_id: string; receiver_id: string };
           // Only update if message is between current user and organizer
           if (
             (newMsg.sender_id === currentUser.id &&
@@ -155,8 +153,7 @@ const PrivateChat = ({
 
       setNewMessage("");
       setTimeout(fetchMessages, 100); // Fetch updated messages
-    } catch (error: any) {
-      console.error("Error sending private message:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to send message",

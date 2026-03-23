@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // SafarSquad Icon Generator
 // Run with: node public/create-icons.js
 

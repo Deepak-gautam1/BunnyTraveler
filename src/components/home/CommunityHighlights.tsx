@@ -21,8 +21,8 @@ import Footer from "../layout/Footer";
 interface Testimonial {
   id: string;
   comment: string;
-  rating: number;
-  created_at: string;
+  rating: number | null;
+  created_at: string | null;
   photo_urls: string[];
   photo_count: number;
   user: {
@@ -60,8 +60,6 @@ const CommunityHighlights = () => {
   // ✅ UPDATED: Fetch testimonials with pagination support
   const fetchTestimonials = async (limit: number = 2) => {
     try {
-
-
       const { data, error, count } = await supabase
         .from("trip_reviews")
         .select(
@@ -82,15 +80,13 @@ const CommunityHighlights = () => {
             destination
           )
         `,
-          { count: "exact" } // ✅ Get total count
+          { count: "exact" }, // ✅ Get total count
         )
         .gte("rating", 4) // Only fetch 4-5 star reviews for success stories
         .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) throw error;
-
-
 
       // Transform data to match our interface
       const transformedData: Testimonial[] = (data || []).map((item) => ({
@@ -113,9 +109,8 @@ const CommunityHighlights = () => {
 
       setTestimonials(transformedData);
       setTotalCount(count || 0);
-
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -124,7 +119,7 @@ const CommunityHighlights = () => {
 
   // ✅ Initial fetch
   useEffect(() => {
-    fetchTestimonials(displayCount);
+    fetchTestimonials(2);
   }, []);
 
   // ✅ NEW: Load more testimonials
@@ -244,7 +239,7 @@ const CommunityHighlights = () => {
                                       }}
                                     />
                                   </div>
-                                )
+                                ),
                               )}
                             </div>
                           </div>
@@ -274,14 +269,14 @@ const CommunityHighlights = () => {
                             </div>
                           </div>
                           <div className="flex items-center space-x-1">
-                            {Array.from({ length: testimonial.rating }).map(
-                              (_, i) => (
-                                <Star
-                                  key={i}
-                                  className="w-3 h-3 fill-yellow-400 text-yellow-400"
-                                />
-                              )
-                            )}
+                            {Array.from({
+                              length: testimonial.rating ?? 0,
+                            }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className="w-3 h-3 fill-yellow-400 text-yellow-400"
+                              />
+                            ))}
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
@@ -290,7 +285,7 @@ const CommunityHighlights = () => {
                           </Badge>
                           <span className="text-xs text-muted-foreground">
                             {new Date(
-                              testimonial.created_at
+                              testimonial.created_at ?? 0,
                             ).toLocaleDateString()}
                           </span>
                         </div>

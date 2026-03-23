@@ -11,18 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, User, ExternalLink, Loader2 } from "lucide-react";
 import { formatDistanceToNow, isValid, parseISO } from "date-fns";
 
-type ProfileData = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-  social_link: string | null;
-  created_at: string | null;
+import type { DbProfile } from "@/types/database";
+
+type ProfileData = DbProfile & {
   trips_joined_count?: number;
   trips_created_count?: number;
-  home_city?: string | null;
-  tagline?: string | null;
-  website?: string | null;
 };
 
 interface ProfileHoverCardProps {
@@ -65,8 +58,8 @@ const ProfileHoverCard = ({
       if (isValid(date)) {
         return formatDistanceToNow(date, { addSuffix: true });
       }
-    } catch (error) {
-      console.warn("Invalid date format:", dateString);
+    } catch {
+      // silently fall through to default
     }
 
     return "Recently joined";
@@ -99,10 +92,7 @@ const ProfileHoverCard = ({
         .eq("id", userId)
         .single();
 
-      if (profileError || !isMountedRef.current) {
-        console.error("Error fetching profile:", profileError);
-        return;
-      }
+      if (profileError || !isMountedRef.current) return;
 
       // ✅ OPTIMIZED: Batch count queries
       const [{ count: tripsJoinedCount }, { count: tripsCreatedCount }] =
@@ -128,8 +118,8 @@ const ProfileHoverCard = ({
       // ✅ Cache the result
       profileCache.set(userId, enrichedProfile);
       setProfile(enrichedProfile);
-    } catch (error) {
-      console.error("Error fetching profile data:", error);
+    } catch {
+      // silently fail — handled by loading state
     } finally {
       pendingRequests.delete(userId);
       if (isMountedRef.current) {

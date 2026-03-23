@@ -7,23 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import ProfileHoverCard from "@/components/profile/ProfileHoverCard"; // ADD THIS IMPORT
-
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Send,
-  MessageCircle,
-  Smile,
-  MoreHorizontal,
-  Lock,
-  Clock,
-  XCircle,
-  AlertTriangle,
-} from "lucide-react";
+import { Send, MessageCircle, Smile, Lock, Clock, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -44,7 +33,7 @@ type MessageReaction = {
 type Message = {
   id: number;
   content: string;
-  created_at: string;
+  created_at: string | null;
   sender_id: string;
   profiles: {
     full_name: string | null;
@@ -190,19 +179,16 @@ const TripChat = ({
             created_at,
             profiles!message_reactions_user_id_fkey(full_name)
           )
-        `
+        `,
         )
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching messages:", error);
-        return;
-      }
+      if (error) return;
 
-      setMessages(data || []);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
+      setMessages((data as Message[]) || []);
+    } catch {
+      // silently fail
     } finally {
       setLoading(false);
     }
@@ -220,66 +206,51 @@ const TripChat = ({
           created_at,
           user_id,
           profiles!trip_activities_user_id_fkey(full_name)
-        `
+        `,
         )
         .eq("trip_id", tripId)
         .in("activity_type", ["join", "leave", "like"])
         .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching activities:", error);
-        return;
-      }
+      if (error) return;
 
-      setActivities(data || []);
-    } catch (error) {
-      console.error("Error fetching activities:", error);
+      setActivities((data as Activity[]) || []);
+    } catch {
+      // silently fail
     }
   };
 
   useEffect(() => {
-    // Initial data fetch
     fetchMessages();
     fetchActivities();
 
-    // Set up real-time subscription for messages
     const messageSubscription = supabase
       .channel(`trip-messages-${tripId}`)
       .on(
         "postgres_changes",
         {
-          event: "*", // Listen to all events (INSERT, UPDATE, DELETE)
+          event: "*",
           schema: "public",
           table: "messages",
           filter: `trip_id=eq.${tripId}`,
         },
-        (payload) => {
-          console.log("Message event:", payload.eventType, payload.new);
-          // Always refetch messages to get the latest data with relations
+        () => {
           fetchMessages();
-        }
+        },
       )
       .subscribe();
 
-    // Set up real-time subscription for message reactions
     const reactionSubscription = supabase
       .channel(`trip-reactions-${tripId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*", // Listen to all events (INSERT, DELETE)
-          schema: "public",
-          table: "message_reactions",
-        },
-        (payload) => {
-          console.log("Reaction event:", payload.eventType, payload);
-          // Always refetch messages to get updated reactions
+        { event: "*", schema: "public", table: "message_reactions" },
+        () => {
           fetchMessages();
-        }
+        },
       )
       .subscribe();
 
-    // Set up real-time subscription for activities
     const activitySubscription = supabase
       .channel(`trip-activities-${tripId}`)
       .on(
@@ -290,10 +261,9 @@ const TripChat = ({
           table: "trip_activities",
           filter: `trip_id=eq.${tripId}`,
         },
-        (payload) => {
-          console.log("Activity event:", payload.new);
+        () => {
           fetchActivities();
-        }
+        },
       )
       .subscribe();
 
@@ -302,6 +272,7 @@ const TripChat = ({
       supabase.removeChannel(reactionSubscription);
       supabase.removeChannel(activitySubscription);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
 
   useEffect(() => {
@@ -325,15 +296,11 @@ const TripChat = ({
     setSending(true);
     try {
       // Send message
-      const { data: messageData, error: messageError } = await supabase
-        .from("messages")
-        .insert({
-          trip_id: tripId,
-          sender_id: user.id,
-          content: newMessage.trim(),
-        })
-        .select()
-        .maybeSingle();
+      const { error: messageError } = await supabase.from("messages").insert({
+        trip_id: tripId,
+        sender_id: user.id,
+        content: newMessage.trim(),
+      });
 
       if (messageError) throw messageError;
 
@@ -351,8 +318,7 @@ const TripChat = ({
       setTimeout(() => {
         fetchMessages();
       }, 100);
-    } catch (error: any) {
-      console.error("Error sending message:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to send message",
@@ -384,25 +350,19 @@ const TripChat = ({
     }
 
     try {
-      const { data, error } = await supabase.rpc(
-        "toggle_message_reaction" as any,
-        {
-          p_message_id: messageId,
-          p_user_id: user.id,
-          p_emoji: emoji,
-        }
-      );
+      const { error } = await supabase.rpc("toggle_message_reaction", {
+        p_message_id: messageId,
+        p_user_id: user.id,
+        p_emoji: emoji,
+      });
 
       if (error) throw error;
-
-      console.log("Reaction toggled:", data?.[0]?.action, "for emoji:", emoji);
 
       // Immediately fetch messages to show updated reactions
       setTimeout(() => {
         fetchMessages();
       }, 100);
-    } catch (error: any) {
-      console.error("Error toggling reaction:", error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update reaction",
@@ -430,7 +390,7 @@ const TripChat = ({
       }
       grouped[reaction.emoji].count++;
       grouped[reaction.emoji].users.push(
-        reaction.profiles?.full_name || "Someone"
+        reaction.profiles?.full_name || "Someone",
       );
       if (reaction.user_id === user?.id) {
         grouped[reaction.emoji].userReacted = true;
@@ -446,7 +406,8 @@ const TripChat = ({
     ...activities.map((act) => ({ ...act, type: "activity" as const })),
   ].sort(
     (a, b) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      new Date(a.created_at ?? 0).getTime() -
+      new Date(b.created_at ?? 0).getTime(),
   );
 
   if (loading) {
@@ -518,9 +479,14 @@ const TripChat = ({
                               </Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(item.created_at), {
-                                addSuffix: true,
-                              })}
+                              {item.created_at
+                                ? formatDistanceToNow(
+                                    new Date(item.created_at),
+                                    {
+                                      addSuffix: true,
+                                    },
+                                  )
+                                : ""}
                             </span>
                           </div>
                           <p className="text-sm break-words mb-2">
@@ -532,7 +498,7 @@ const TripChat = ({
                             {/* Existing Reactions */}
                             <div className="flex flex-wrap gap-1">
                               {Object.entries(
-                                groupReactions(item.message_reactions)
+                                groupReactions(item.message_reactions),
                               ).map(([emoji, data]) => (
                                 <button
                                   key={emoji}
@@ -553,7 +519,7 @@ const TripChat = ({
                                     }
                                   `}
                                   title={`${data.users.join(
-                                    ", "
+                                    ", ",
                                   )} reacted with ${emoji}`}
                                 >
                                   <span className="mr-1">{emoji}</span>
@@ -606,12 +572,14 @@ const TripChat = ({
                           {item.activity_type === "join"
                             ? "joined the trip"
                             : item.activity_type === "leave"
-                            ? "left the trip"
-                            : "liked the trip"}{" "}
+                              ? "left the trip"
+                              : "liked the trip"}{" "}
                           •{" "}
-                          {formatDistanceToNow(new Date(item.created_at), {
-                            addSuffix: true,
-                          })}
+                          {item.created_at
+                            ? formatDistanceToNow(new Date(item.created_at), {
+                                addSuffix: true,
+                              })
+                            : ""}
                         </span>
                       </div>
                     )}

@@ -3,12 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import {
   Calendar,
   MapPin,
@@ -19,16 +14,12 @@ import {
   Users,
   Verified,
   Clock,
-  CheckCircle,
-  PlayCircle,
-  PauseCircle,
-  Settings,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import BookmarkButton from "@/components/trip/BookmarkButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useTripStatus, TripStatus } from "@/hooks/useTripStatus";
+import { TripStatus } from "@/hooks/useTripStatus";
 
 interface EnhancedTripCardProps {
   id: number;
@@ -72,7 +63,6 @@ const EnhancedTripCard = ({
   id,
   destination,
   startDate,
-  endDate,
   startCity,
   description,
   creator,
@@ -90,23 +80,19 @@ const EnhancedTripCard = ({
   onChatClick,
   onLikeClick,
   onBookmarkClick,
-  onStatusChange,
+  onStatusChange: _onStatusChange,
 }: EnhancedTripCardProps) => {
   const [liked, setLiked] = useState(isLiked);
   const [bookmarked, setBookmarked] = useState(isBookmarked);
   const [interested, setInterested] = useState(interestedCount);
-  const [currentStatus, setCurrentStatus] = useState<TripStatus>(status);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentStatus] = useState<TripStatus>(status);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [userRequestStatus, setUserRequestStatus] = useState<string | null>(
     null
   );
 
   const { toast } = useToast();
-  const {
-    updateTripStatus,
-    autoUpdateStatusBasedOnDates,
-    loading: statusLoading,
-  } = useTripStatus(currentUser);
+
 
   // ✅ FIX 2: Sync interested count when prop changes
   useEffect(() => {
@@ -139,7 +125,7 @@ const EnhancedTripCard = ({
 
           // ✅ If error, just log it and continue
           if (participantError && participantError.code !== "PGRST116") {
-            console.log("Participant check error:", participantError.code);
+            // non-critical, ignore
           }
 
           if (participantData) {
@@ -158,101 +144,22 @@ const EnhancedTripCard = ({
 
           // ✅ If error, just log it and continue
           if (requestError && requestError.code !== "PGRST116") {
-            console.log("Request check error:", requestError.code);
+            // non-critical, ignore
           }
 
           if (requestData) {
             setUserRequestStatus(requestData.status);
           }
-        } catch (error) {
-          // ✅ Silently handle errors - don't break the UI
-          console.log("Error fetching user status:", error);
+        } catch {
+          // silently handle errors
         }
       }
     };
     fetchInitialData();
   }, [id]);
 
-  useEffect(() => {
-    if (currentUser) {
-      autoUpdateStatusBasedOnDates(id);
-    }
-  }, [currentUser, id, autoUpdateStatusBasedOnDates]);
-
-  const getStatusConfig = (status: TripStatus) => {
-    switch (status) {
-      case "planning":
-        return {
-          label: "Planning",
-          variant: "outline" as const,
-          className:
-            "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
-          icon: <PauseCircle className="w-3 h-3" />,
-        };
-      case "confirmed":
-        return {
-          label: "Confirmed",
-          variant: "default" as const,
-          className:
-            "bg-green-100 text-green-800 border-green-300 hover:bg-green-200",
-          icon: <CheckCircle className="w-3 h-3" />,
-        };
-      case "ongoing":
-        return {
-          label: "Live",
-          variant: "default" as const,
-          className:
-            "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 animate-pulse",
-          icon: <PlayCircle className="w-3 h-3" />,
-        };
-      case "completed":
-        return {
-          label: "Completed",
-          variant: "secondary" as const,
-          className: "bg-gray-100 text-gray-700 border-gray-300",
-          icon: <CheckCircle className="w-3 h-3" />,
-        };
-      default:
-        return {
-          label: "Planning",
-          variant: "outline" as const,
-          className: "bg-blue-50 text-blue-700 border-blue-200",
-          icon: <PauseCircle className="w-3 h-3" />,
-        };
-    }
-  };
-
-  const statusConfig = getStatusConfig(currentStatus);
-
-  const handleStatusChange = async (newStatus: TripStatus) => {
-    const success = await updateTripStatus(
-      id,
-      newStatus,
-      `Status changed to ${newStatus}`
-    );
-    if (success) {
-      setCurrentStatus(newStatus);
-      onStatusChange?.(newStatus);
-    }
-  };
 
   const canManageTrip = currentUser && currentUser.id === creator.id;
-
-  const getAvailableStatusTransitions = (
-    currentStatus: TripStatus
-  ): TripStatus[] => {
-    switch (currentStatus) {
-      case "planning":
-        return ["confirmed"];
-      case "confirmed":
-        return ["planning", "ongoing"];
-      case "ongoing":
-        return ["completed"];
-      default:
-        return [];
-    }
-  };
-  const availableTransitions = getAvailableStatusTransitions(currentStatus);
 
   const handleJoin = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -286,7 +193,7 @@ const EnhancedTripCard = ({
           .maybeSingle();
 
       if (participantError && participantError.code !== "PGRST116") {
-        console.error("Error checking participant:", participantError);
+        // non-critical, ignore
       }
 
       if (existingParticipant) {
@@ -305,7 +212,7 @@ const EnhancedTripCard = ({
         .maybeSingle();
 
       if (checkError && checkError.code !== "PGRST116") {
-        console.error("Error checking request:", checkError);
+        // non-critical, ignore
       }
 
       if (existingRequest) {
@@ -373,11 +280,10 @@ const EnhancedTripCard = ({
           trip_destination: destination,
         },
       });
-    } catch (error: any) {
-      console.error("Join request error:", error);
+    } catch (e: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to process join request",
+        description: e instanceof Error ? e.message : "Failed to process join request",
         variant: "destructive",
       });
     }
@@ -390,10 +296,10 @@ const EnhancedTripCard = ({
     onLikeClick?.(e);
   };
 
-  const handleBookmark = async (tripId: number) => {
+  const handleBookmark = async (_tripId: number): Promise<boolean> => {
     setBookmarked(!bookmarked);
     onBookmarkClick?.();
-    return Promise.resolve();
+    return true;
   };
 
   const handleChat = (e: React.MouseEvent) => {

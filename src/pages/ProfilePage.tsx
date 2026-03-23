@@ -6,14 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 import {
   ArrowLeft,
   MapPin,
   Tag,
-  Link,
   Mail,
   Calendar,
   Edit,
@@ -23,19 +21,9 @@ import {
   Plus,
 } from "lucide-react";
 
-interface ProfileData {
-  id: string;
-  user_id: string;
-  full_name: string | null;
-  email: string | null;
-  avatar_url: string | null;
-  home_city: string | null;
-  tagline: string | null;
-  website: string | null;
-  bio: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
+import type { DbProfile } from "@/types/database";
+
+type ProfileData = DbProfile;
 
 interface ProfilePageProps {
   currentUser: UserType | null;
@@ -57,7 +45,7 @@ const ProfilePage = ({ currentUser }: ProfilePageProps) => {
 
   // Check if viewing own profile
   const isOwnProfile = currentUser?.id === userId || (!userId && currentUser);
-  const profileUserId = userId || currentUser?.id;
+  const profileUserId = userId ?? currentUser?.id;
 
   useEffect(() => {
     if (!profileUserId) {
@@ -66,6 +54,7 @@ const ProfilePage = ({ currentUser }: ProfilePageProps) => {
     }
     fetchProfile();
     fetchTripStats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileUserId]);
 
   const fetchProfile = async () => {
@@ -73,11 +62,10 @@ const ProfilePage = ({ currentUser }: ProfilePageProps) => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", profileUserId)
+        .eq("id", profileUserId!)
         .single();
 
       if (error) {
-        console.error("Error fetching profile:", error);
         toast({
           title: "Error",
           description: "Failed to load profile",
@@ -86,9 +74,9 @@ const ProfilePage = ({ currentUser }: ProfilePageProps) => {
         return;
       }
 
-      setProfile(data);
-    } catch (error) {
-      console.error("Error:", error);
+      setProfile(data as ProfileData);
+    } catch {
+      // silently fail
     } finally {
       setLoading(false);
     }
@@ -101,11 +89,11 @@ const ProfilePage = ({ currentUser }: ProfilePageProps) => {
           supabase
             .from("trips")
             .select("*", { count: "exact", head: true })
-            .eq("creator_id", profileUserId),
+            .eq("creator_id", profileUserId!),
           supabase
             .from("trip_participants")
             .select("*", { count: "exact", head: true })
-            .eq("user_id", profileUserId),
+            .eq("user_id", profileUserId!),
         ]);
 
       setTripStats({
@@ -113,8 +101,8 @@ const ProfilePage = ({ currentUser }: ProfilePageProps) => {
         joined: joinedCount || 0,
         total: (createdCount || 0) + (joinedCount || 0),
       });
-    } catch (error) {
-      console.error("Error fetching trip stats:", error);
+    } catch {
+      // silently fail
     }
   };
 

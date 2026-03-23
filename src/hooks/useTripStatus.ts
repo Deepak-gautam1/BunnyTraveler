@@ -2,8 +2,13 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
+import type { DbTrip } from "@/types/database";
 
+// Status values used in the app — the DB stores status as string | null
 export type TripStatus = "planning" | "confirmed" | "ongoing" | "completed";
+
+// Internal shape returned by the DB when fetching a trip for status check
+type TripStatusRow = Pick<DbTrip, "status" | "creator_id" | "start_date" | "end_date">;
 
 export const useTripStatus = (user: User | null) => {
   const [loading, setLoading] = useState(false);
@@ -23,7 +28,7 @@ export const useTripStatus = (user: User | null) => {
         .from("trips")
         .select("status, creator_id")
         .eq("id", tripId)
-        .maybeSingle();
+        .maybeSingle() as { data: Pick<TripStatusRow, "status" | "creator_id"> | null; error: unknown };
 
       if (fetchError || !trip)
         throw new Error("Trip not found or fetch failed.");
@@ -47,10 +52,10 @@ export const useTripStatus = (user: User | null) => {
 
       toast({ title: `Trip ${newStatus}!`, description: `Status updated.` });
       return true;
-    } catch (error: any) {
+    } catch (e: unknown) {
       toast({
         title: "Update failed",
-        description: error.message,
+        description: e instanceof Error ? e.message : 'An error occurred',
         variant: "destructive",
       });
       return false;

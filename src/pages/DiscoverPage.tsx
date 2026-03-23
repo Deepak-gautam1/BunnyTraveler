@@ -29,7 +29,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { setCookie, getCookie, COOKIE_KEYS } from "@/lib/cookies";
 import { getCityCoordinates } from "@/lib/geocoding";
 import { getDistanceFromLatLonInKm } from "@/lib/distance";
-
+import type { TripStatus } from "@/hooks/useTripStatus";
 type Profile = { full_name: string; avatar_url: string };
 type TripParticipant = { user_id: string; joined_at: string };
 type Trip = {
@@ -63,13 +63,21 @@ type MapFiltersState = {
   centerCoords: { lat: number; lng: number } | null;
 };
 
+interface TripCardWrapperProps {
+  trip: Trip;
+  navigate: (path: string) => void;
+  toggleBookmark: (tripId: number) => Promise<boolean>;
+  isBookmarked: (tripId: number) => boolean;
+  refreshTrips: () => void;
+}
+
 const TripCardWrapper = ({
   trip,
   navigate,
   toggleBookmark,
   isBookmarked,
   refreshTrips,
-}: any) => {
+}: TripCardWrapperProps) => {
   const tripPrice = trip.budget_per_person
     ? { amount: trip.budget_per_person, currency: "INR" }
     : undefined;
@@ -101,7 +109,7 @@ const TripCardWrapper = ({
         vibe={trip.travel_style || ["Adventure"]}
         groupSize={tripGroupSize}
         interestedCount={trip.current_participants || 0}
-        status={trip.status}
+        status={(trip.status ?? "planning") as TripStatus}
         price={tripPrice}
         isFemaleOnly={false}
         isInstantJoin={true}
@@ -161,13 +169,13 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
   const [filters, setFilters] = useState<FilterOptions>(defaultFilters);
 
   const [mapFilters, setMapFilters] = useState<MapFiltersState>(() => {
-    const saved = getCookie(COOKIE_KEYS.MAP_FILTERS);
+    const saved = getCookie<MapFiltersState>(COOKIE_KEYS.MAP_FILTERS);
     return (
       saved || {
         searchRadius: 0,
         locationFilter: "",
         nearbySearch: false,
-        centerCoords: null as { lat: number; lng: number } | null,
+        centerCoords: null,
       }
     );
   });
@@ -193,15 +201,14 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             *,
             profiles!trips_creator_id_fkey(full_name, avatar_url),
             trip_participants(user_id, joined_at)
-          `
+          `,
         )
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (data) setAllTrips(data as any);
-    } catch (err) {
-      console.error("Unexpected error fetching trips:", err);
+      if (data) setAllTrips(data as Trip[]);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to load trips.",
@@ -251,17 +258,17 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     result = result.filter(
       (trip) =>
         trip.max_participants >= filters.groupSize[0] &&
-        trip.max_participants <= filters.groupSize[1]
+        trip.max_participants <= filters.groupSize[1],
     );
 
     if (filters.startDate) {
       result = result.filter(
-        (trip) => new Date(trip.start_date) >= filters.startDate!
+        (trip) => new Date(trip.start_date) >= filters.startDate!,
       );
     }
     if (filters.endDate) {
       result = result.filter(
-        (trip) => new Date(trip.end_date) <= filters.endDate!
+        (trip) => new Date(trip.end_date) <= filters.endDate!,
       );
     }
 
@@ -271,8 +278,8 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         (trip) =>
           trip.travel_style &&
           filters.travelStyles.some((style) =>
-            trip.travel_style!.includes(style)
-          )
+            trip.travel_style!.includes(style),
+          ),
       );
     }
 
@@ -286,8 +293,8 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
         filters.cities.some(
           (city) =>
             trip.start_city.toLowerCase().includes(city.toLowerCase()) ||
-            trip.destination.toLowerCase().includes(city.toLowerCase())
-        )
+            trip.destination.toLowerCase().includes(city.toLowerCase()),
+        ),
       );
     }
 
@@ -304,7 +311,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
           centerLat,
           centerLng,
           trip.start_lat,
-          trip.start_lng
+          trip.start_lng,
         );
         return distance <= mapFilters.searchRadius;
       });
@@ -318,7 +325,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
             .includes(mapFilters.locationFilter.toLowerCase()) ||
           trip.destination
             .toLowerCase()
-            .includes(mapFilters.locationFilter.toLowerCase())
+            .includes(mapFilters.locationFilter.toLowerCase()),
       );
     }
 
@@ -432,8 +439,8 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
     },
   };
 
-  const handleTripSelect = (trip: any) => {
-    setSelectedTrip(trip);
+  const handleTripSelect = (trip: { id: number }) => {
+    setSelectedTrip(trip as Trip);
     navigate(`/trip/${trip.id}`);
   };
 
@@ -482,6 +489,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
 
   useEffect(() => {
     fetchAllTrips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -526,7 +534,7 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
               <p className="text-2xl md:text-3xl font-bold text-orange-600">
                 {allTrips.reduce(
                   (sum, t) => sum + (t.current_participants || 0),
-                  0
+                  0,
                 )}
               </p>
               <p className="text-gray-600 text-xs md:text-sm font-medium">
@@ -720,12 +728,15 @@ const DiscoverPage = ({ user }: DiscoverPageProps) => {
                     </div>
                   ) : (
                     <TripMap
-                      trips={filteredTrips as any}
+                      trips={filteredTrips.map((t) => ({
+                        ...t,
+                        current_participants: t.current_participants ?? 0,
+                      }))}
                       onTripSelect={handleTripSelect}
-                      onLocationSelect={(loc: any) =>
+                      onLocationSelect={(loc: { address: string }) =>
                         handleMapFiltersChange.onLocationFilter(loc.address)
                       }
-                      selectedTrip={selectedTrip as any}
+                      selectedTrip={selectedTrip}
                       height="100%"
                       user={user}
                     />

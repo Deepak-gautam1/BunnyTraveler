@@ -4,20 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { useTripCache } from "@/contexts/TripCacheContext";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTripCache, type CachedTrip } from "@/contexts/TripCacheContext";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import TripMap from "../discover/TripMap";
 import FilterBar, { FilterOptions } from "./FilterBar";
 import CommunityHighlights from "./CommunityHighlights";
@@ -25,24 +15,17 @@ import EnhancedTripCard from "./EnhancedTripCard";
 import PostTripModal from "@/components/trip/PostTripModal";
 import LandingPage from "@/components/landing/LandingPage";
 import AuthGuard from "@/components/auth/AuthGuard";
-import NotificationsDropdown from "@/components/notifications/NotificationsDropdown";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import BookmarkButton from "@/components/trip/BookmarkButton";
 import RecommendationSection from "@/components/home/RecommendationSection";
-import { TripStatus } from "@/hooks/useTripStatus";
 // ✅ CORRECT - Just import, don't call yet
 import { useTripLikes } from "@/hooks/useTripLikes";
+import type { TripStatus } from "@/hooks/useTripStatus";
 
 import {
   Plus,
-  User,
   MapPin,
   List,
   Sparkles,
-  Bell,
-  LogOut,
-  Settings,
-  UserCircle,
   ChevronDown,
   Loader2,
   RefreshCw,
@@ -70,13 +53,13 @@ type Trip = {
   start_date: string;
   end_date: string;
   description: string | null;
-  created_at: string;
+  created_at: string | null;
   max_participants: number;
-  current_participants: number;
+  current_participants: number | null;
   budget_per_person: number | null;
   travel_style: string[] | null;
-  status: string;
-  interested_count?: number; // ✅ ADD THIS
+  status: string | null;
+  interested_count?: number | null;
   completed_at?: string | null;
   profiles: Profile | null;
   trip_participants: TripParticipant[];
@@ -106,7 +89,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
 
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [selectedTrip, setSelectedTrip] = useState<any>(null);
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [activeView, setActiveView] = useState<"map" | "list">("list");
 
   const [filters, setFilters] = useState<FilterOptions>({
@@ -128,11 +111,12 @@ const TripFeed = ({ user }: TripFeedProps) => {
   const TRIPS_PER_PAGE = 5;
   const INITIAL_TRIPS_COUNT = 5;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const applyFiltersToQuery = (query: any, currentFilters: FilterOptions) => {
     if (currentFilters.search) {
       const searchTerm = currentFilters.search.trim();
       query = query.or(
-        `destination.ilike.%${searchTerm}%,start_city.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`
+        `destination.ilike.%${searchTerm}%,start_city.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`,
       );
     }
 
@@ -153,13 +137,13 @@ const TripFeed = ({ user }: TripFeedProps) => {
     if (currentFilters.startDate) {
       query = query.gte(
         "start_date",
-        currentFilters.startDate.toISOString().split("T")[0]
+        currentFilters.startDate.toISOString().split("T")[0],
       );
     }
     if (currentFilters.endDate) {
       query = query.lte(
         "end_date",
-        currentFilters.endDate.toISOString().split("T")[0]
+        currentFilters.endDate.toISOString().split("T")[0],
       );
     }
 
@@ -199,8 +183,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
       if (page === 0 && !append && !hasActiveFilters() && isCacheValid()) {
         const cachedData = getCachedTrips();
         if (cachedData) {
-
-          setTrips(cachedData.trips);
+          setTrips(cachedData.trips as unknown as Trip[]);
           setTotalTrips(cachedData.totalTrips);
           setCurrentPage(cachedData.currentPage);
           setLoading(false);
@@ -250,7 +233,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
             interested_count,
             profiles!trips_creator_id_fkey(full_name, avatar_url),
             trip_participants(user_id, joined_at)
-          `
+          `,
           )
           .eq("status", "active")
           .range(from, to);
@@ -263,7 +246,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           case "budget":
             dataQuery = dataQuery.order("budget_per_person", {
               ascending: true,
-              nullsLast: true,
+              nullsFirst: false,
             });
             break;
           case "date":
@@ -311,11 +294,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
                 .eq("status", "active");
 
               setCachedTrips({
-                trips: newTrips,
+                trips: newTrips as unknown as CachedTrip[],
                 totalTrips: totalCount.count || newTrips.length,
                 currentPage: 0,
                 timestamp: Date.now(),
-                filters: filters,
+                filters: filters as unknown as Record<string, unknown>,
               });
             }
           }
@@ -336,7 +319,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
       setCachedTrips,
       isCacheValid,
       hasActiveFilters,
-    ]
+    ],
   );
 
   // ✅ UPDATED - handleCardLike function
@@ -381,7 +364,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
           };
         }
         return trip;
-      })
+      }),
     );
 
     // ✅ Update cache with new data
@@ -431,50 +414,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
       setCurrentPage(0);
       setTrips([]);
     },
-    [filters, clearCache]
+    [filters, clearCache],
   );
   useEffect(() => {
     fetchTrips(0, false);
   }, [fetchTrips]);
-
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to sign out",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Signed out successfully",
-          description: "See you on your next adventure!",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleViewProfile = () => {
-    if (!user) {
-      setShowSignInModal(true);
-      return;
-    }
-    navigate("/profile");
-  };
-
-  const handleSettings = () => {
-    toast({
-      title: "Settings",
-      description: "Settings page coming soon!",
-    });
-  };
 
   const handlePostTrip = () => {
     if (!user) {
@@ -506,34 +450,18 @@ const TripFeed = ({ user }: TripFeedProps) => {
     navigate(`/trip/${tripId}`);
   };
 
-  const handleTripJoin = (tripId: string | number) => {
-    if (!user) {
-      toast({
-        title: "Hey traveler! 🚀",
-        description:
-          "You need an account to join trips. Sign in to get started!",
-        action: (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowSignInModal(true)}
-          >
-            Sign In
-          </Button>
-        ),
-      });
-      return;
-    }
-  };
-
-  const handleTripChat = (tripId: string | number) => {
+  const handleTripChat = (_tripId: string | number) => {
     if (!user) {
       setAuthGuard({ isOpen: true, actionType: "chat" });
       return;
     }
   };
 
-  const handleLocationSelect = (_location: any) => {};
+  const handleLocationSelect = (_location: {
+    lat: number;
+    lng: number;
+    address: string;
+  }) => {};
 
   const clearAllFilters = useCallback(() => {
     handleFiltersChange({
@@ -552,7 +480,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
     const today = new Date();
     const tripEnd = new Date(endDate);
     const daysUntilEnd = Math.ceil(
-      (tripEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      (tripEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
     return daysUntilEnd <= 3 && daysUntilEnd >= 0;
   };
@@ -646,13 +574,25 @@ const TripFeed = ({ user }: TripFeedProps) => {
               </div>
 
               <TripMap
-                trips={trips}
+                trips={trips.map((t) => ({
+                  ...t,
+                  current_participants: t.current_participants ?? 0,
+                }))}
                 onTripSelect={(trip) => {
-                  setSelectedTrip(trip);
+                  const original = trips.find((t) => t.id === trip.id) ?? null;
+                  setSelectedTrip(original);
                   navigate(`/trip/${trip.id}`);
                 }}
                 onLocationSelect={handleLocationSelect}
-                selectedTrip={selectedTrip}
+                selectedTrip={
+                  selectedTrip
+                    ? {
+                        ...selectedTrip,
+                        current_participants:
+                          selectedTrip.current_participants ?? 0,
+                      }
+                    : null
+                }
                 user={user}
                 height="600px"
                 className="rounded-2xl overflow-hidden shadow-soft border"
@@ -792,7 +732,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
             </div>
           ) : (
             <div className="space-y-3 md:space-y-4">
-              {trips.map((trip, index) => {
+              {trips.map((trip) => {
                 const participantCount = trip.current_participants || 0;
 
                 const enhancedTrip = {
@@ -816,11 +756,11 @@ const TripFeed = ({ user }: TripFeedProps) => {
                     max: trip.max_participants,
                   },
                   interestedCount: trip.interested_count || 0, // ✅ USE interested_count
-                  status: trip.status,
+                  status: (trip.status ?? "planning") as TripStatus,
                   completed_at: trip.completed_at,
                   isFemaleOnly: false,
                   isInstantJoin: true,
-                  postedAt: trip.created_at,
+                  postedAt: trip.created_at ?? new Date().toISOString(),
                 };
 
                 return (
@@ -831,7 +771,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
                         {Math.ceil(
                           (new Date(trip.end_date).getTime() -
                             new Date().getTime()) /
-                            (1000 * 60 * 60 * 24)
+                            (1000 * 60 * 60 * 24),
                         )}{" "}
                         days
                       </Badge>
@@ -842,13 +782,10 @@ const TripFeed = ({ user }: TripFeedProps) => {
                       isBookmarked={isBookmarked(trip.id)}
                       onBookmarkClick={() => toggleBookmark(trip.id)}
                       onClick={() => handleTripClick(trip)}
-                      onJoinClick={() => handleTripJoin(trip.id)}
                       onChatClick={() => handleTripChat(trip.id)}
                       isLiked={isLiked(trip.id)}
                       onLikeClick={(e) => handleCardLike(trip.id, e)}
-                      onStatusChange={(newStatus) => {
-                        refreshTrips();
-                      }}
+                      onStatusChange={() => refreshTrips()}
                     />
                   </div>
                 );
@@ -942,7 +879,7 @@ const TripFeed = ({ user }: TripFeedProps) => {
       </main>
       <div className="hidden md:block fixed bottom-6 right-6 z-30">
         <Button
-          variant="fab"
+          variant="default"
           onClick={handlePostTrip}
           className="animate-pulse-glow shadow-glow bg-accent hover:bg-accent/90 text-accent-foreground"
         >

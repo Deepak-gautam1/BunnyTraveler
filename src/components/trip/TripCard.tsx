@@ -16,7 +16,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import BookmarkButton from "@/components/trip/BookmarkButton";
-import { useBookmarks } from "@/hooks/useBookmarks";
 interface TripCardProps {
   id: string;
   destination: string;
@@ -34,7 +33,7 @@ interface TripCardProps {
     avatar_url?: string;
   };
   onClick?: () => void;
-  currentUser?: any; // Current logged-in user
+  currentUser?: { id: string } | null; // Current logged-in user
   onParticipantUpdate?: () => void; // Callback to refresh data
   onBookmarkToggle?: (tripId: number) => Promise<boolean>;
   isBookmarked?: boolean;
@@ -139,7 +138,7 @@ const TripCard = ({
       const { data: existingParticipant, error: checkError } = await supabase
         .from("trip_participants")
         .select("id")
-        .eq("trip_id", id)
+        .eq("trip_id", Number(id))
         .eq("user_id", currentUser.id)
         .single();
 
@@ -161,7 +160,7 @@ const TripCard = ({
       const { error: joinError } = await supabase
         .from("trip_participants")
         .insert({
-          trip_id: id,
+          trip_id: Number(id),
           user_id: currentUser.id,
           joined_at: new Date().toISOString(),
           status: "joined",
@@ -175,7 +174,7 @@ const TripCard = ({
         .update({
           current_participants: current_participants + 1,
         })
-        .eq("id", id);
+        .eq("id", Number(id));
 
       if (updateError) throw updateError;
 
@@ -188,11 +187,10 @@ const TripCard = ({
 
       // Trigger refresh in parent component
       onParticipantUpdate?.();
-    } catch (error: any) {
-      console.error("Error joining trip:", error);
+    } catch (e: unknown) {
       toast({
         title: "Failed to join trip",
-        description: error.message || "Please try again later",
+        description: e instanceof Error ? e.message : "Please try again later",
         variant: "destructive",
       });
     } finally {
