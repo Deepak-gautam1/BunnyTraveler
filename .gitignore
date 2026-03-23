@@ -137,4 +137,8 @@ config/secrets.js
 *.key
 *.pem
 
+# Hide database schema
 supabase/migrations/
+supabase/.temp/
+supabase/config.toml
+src/integrations/supabase/types.ts
