@@ -1,17 +1,18 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Send, Loader2 } from "lucide-react";
+import { X, Send, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp?: string;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const CHATBOT_API = import.meta.env.VITE_CHATBOT_API || "http://localhost:8000";
-const STORAGE_KEY = "safarsquad_chat_history";
-const SESSION_ID = crypto.randomUUID(); // ✅ stable per browser session
+const SESSION_ID = crypto.randomUUID();
 
 const getTime = () =>
   new Date().toLocaleTimeString("en-IN", {
@@ -19,15 +20,21 @@ const getTime = () =>
     minute: "2-digit",
   });
 
-// ─── Quick suggestions shown before user sends first message ──────────────────
+const WELCOME_MESSAGE: Message = {
+  role: "assistant",
+  content:
+    "👋 Hi! I'm SafarSquad AI. Ask me anything about trips — budget, destination, dates, or travel style!",
+  timestamp: getTime(),
+};
+
 const SUGGESTIONS = [
   "🏔️ Trek in Himachal under ₹5000",
   "🌊 Beach trip in Goa",
   "🧘 Spiritual trip to Rishikesh",
-  "🏕️ Adventure camping trip",
+  "🏕️ Adventure camping weekend",
 ];
 
-// ─── Custom Bot Icon ───────────────────────────────────────────────────────────
+// ─── Bot Icon ─────────────────────────────────────────────────────────────────
 const BotIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -45,14 +52,14 @@ const BotIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// ─── Typing indicator ─────────────────────────────────────────────────────────
+// ─── Typing Indicator ─────────────────────────────────────────────────────────
 const TypingIndicator = () => (
   <div className="flex justify-start">
-    <div className="flex items-center gap-1 bg-muted px-4 py-3 rounded-2xl rounded-bl-none">
+    <div className="flex items-center gap-1.5 bg-muted px-4 py-3 rounded-2xl rounded-bl-none">
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
+          className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce"
           style={{ animationDelay: `${i * 0.15}s`, animationDuration: "0.9s" }}
         />
       ))}
@@ -63,48 +70,45 @@ const TypingIndicator = () => (
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0); // ✅ unread badge
-
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // ignore parse errors and start fresh
-    }
-    return [
-      {
-        role: "assistant",
-        content:
-          "👋 Hi! I'm SafarSquad AI. Ask me anything about trips — budget, destination, dates, travel style!",
-        timestamp: getTime(),
-      },
-    ];
-  });
-
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Persist chat history
+  // Auto-scroll to latest message
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  }, [messages]);
-
-  // Scroll to bottom on new message
-  useEffect(() => {
-    if (isOpen) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isOpen) {
+      setTimeout(
+        () => bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
+        100,
+      );
+    }
   }, [messages, isOpen]);
 
-  // ✅ Clear unread badge when user opens chat
+  // Focus input when chat opens + clear unread badge
   useEffect(() => {
-    if (isOpen) setUnreadCount(0);
+    if (isOpen) {
+      setUnreadCount(0);
+      setTimeout(() => inputRef.current?.focus(), 300);
+    }
   }, [isOpen]);
 
-  // ✅ Show suggestions only if no user message yet
   const showSuggestions =
     messages.filter((m) => m.role === "user").length === 0;
 
+  // ─── Close always wipes history (UNCHANGED AS REQUESTED) ────────────────
+  const handleClose = () => {
+    setMessages([{ ...WELCOME_MESSAGE, timestamp: getTime() }]);
+    setInput("");
+    setUnreadCount(0);
+    setIsOpen(false);
+  };
+
+  const handleToggle = () => (isOpen ? handleClose() : setIsOpen(true));
+
+  // ─── Send message ─────────────────────────────────────────────────────────
   const sendMessage = async (overrideMessage?: string) => {
     const userMessage = (overrideMessage ?? input).trim();
     if (!userMessage || loading) return;
@@ -129,32 +133,28 @@ const ChatWidget = () => {
           "x-session-id": SESSION_ID,
         },
         body: JSON.stringify({ message: userMessage, history }),
-        signal: AbortSignal.timeout(30000), // ✅ 30 second timeout
+        signal: AbortSignal.timeout(30_000),
       });
 
-      if (!response.ok) throw new Error("API error");
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
 
       const data = await response.json();
-      //   console.log("API response:", data); // ✅ Add this to debug
-
-      // Make sure it reads 'reply' — NOT 'message' or 'response'
       const botReply = data.reply || data.message || data.response;
-
-      if (!botReply) throw new Error("No reply in response");
+      if (!botReply) throw new Error("Empty reply from API");
 
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: botReply, timestamp: getTime() },
       ]);
 
-      // ✅ Increment unread badge if chat is closed
       if (!isOpen) setUnreadCount((n) => n + 1);
     } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I'm having trouble connecting. Please try again!",
+          content:
+            "Sorry, I'm having trouble connecting right now. Please try again! 🙏",
           timestamp: getTime(),
         },
       ]);
@@ -163,162 +163,270 @@ const ChatWidget = () => {
     }
   };
 
-  const clearHistory = () => {
-    const initial = [
-      {
-        role: "assistant" as const,
-        content:
-          "👋 Hi! I'm SafarSquad AI. Ask me anything about trips — budget, destination, dates, travel style!",
-        timestamp: getTime(),
-      },
-    ];
-    setMessages(initial);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-  };
-
   return (
     <>
-      {/* ─── Floating Button ───────────────────────────────────────────────── */}
+      {/* ─── Floating Action Button ───────────────────────────────────────── */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        // ✅ bottom-24 on mobile (safe above bottom nav), bottom-8 on desktop
-        className="fixed bottom-24 md:bottom-8 right-4 z-50 w-14 h-14 bg-accent rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform"
-        aria-label="Open SafarSquad AI"
+        onClick={handleToggle}
+        aria-label={isOpen ? "Close SafarSquad AI" : "Open SafarSquad AI"}
+        className={`
+          fixed z-[80] rounded-full shadow-xl
+          flex items-center justify-center
+          bg-gradient-to-br from-accent to-orange-500
+          hover:scale-110 active:scale-95
+          transition-all duration-200
+          left-4 bottom-[76px] w-13 h-13
+          md:left-auto md:right-6 md:bottom-20
+        `}
+        style={{ width: 52, height: 52 }}
       >
         {!isOpen && (
-          <span className="absolute w-14 h-14 rounded-full bg-accent/40 animate-ping" />
+          <span className="absolute inset-0 rounded-full bg-accent/30 animate-ping" />
         )}
 
-        {/* ✅ Unread badge */}
         {!isOpen && unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center z-10">
-            {unreadCount}
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 z-10 shadow">
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
 
         {isOpen ? (
-          <X className="w-6 h-6 text-white" />
+          <ChevronDown className="w-5 h-5 text-white" />
         ) : (
-          <BotIcon className="w-7 h-7 text-white" />
+          <BotIcon className="w-6 h-6 text-white" />
         )}
       </button>
 
-      {/* ─── Chat Window ───────────────────────────────────────────────────── */}
+      {/* ─── Mobile: Bottom Drawer ────────────────────────────────────────── */}
       <div
-        className={`fixed bottom-40 md:bottom-24 right-4 z-50 w-[340px] h-[500px] flex flex-col overflow-hidden
-          rounded-3xl shadow-2xl border border-border bg-background
-          transition-all duration-300 ease-in-out origin-bottom-right
-          ${isOpen ? "scale-100 opacity-100 pointer-events-auto" : "scale-75 opacity-0 pointer-events-none"}
+        className={`
+          md:hidden fixed inset-x-0 bottom-0 z-[70]
+          flex flex-col
+          bg-background rounded-t-3xl shadow-2xl border-t border-border
+          transition-transform duration-300 ease-in-out
+          ${isOpen ? "translate-y-0" : "translate-y-full"}
         `}
+        style={{ height: "85dvh" }}
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-accent to-orange-500 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
-              <BotIcon className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <p className="text-white font-semibold text-sm leading-tight">
-                SafarSquad AI
-              </p>
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
-                <p className="text-white/80 text-xs">
-                  Online • Find your perfect trip
-                </p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={clearHistory}
-            className="text-white/60 hover:text-white text-xs transition-colors"
-          >
-            Clear
-          </button>
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1 bg-muted-foreground/25 rounded-full" />
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 scrollbar-hide">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex flex-col gap-0.5 ${msg.role === "user" ? "items-end" : "items-start"}`}
-            >
-              <div
-                className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed shadow-sm
-                  ${
-                    msg.role === "user"
-                      ? "bg-accent text-white rounded-2xl rounded-br-sm"
-                      : "bg-muted text-foreground rounded-2xl rounded-bl-sm"
-                  }`}
-              >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  msg.content
-                )}
-              </div>
-              {msg.timestamp && (
-                <span className="text-[10px] text-muted-foreground px-1">
-                  {msg.timestamp}
-                </span>
-              )}
-            </div>
-          ))}
-
-          {/* ✅ Suggestion chips — only before first user message */}
-          {showSuggestions && !loading && (
-            <div className="flex flex-col gap-1.5 pt-1">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => sendMessage(s)}
-                  className="text-left text-xs px-3 py-2 rounded-xl border border-accent/30 text-accent hover:bg-accent/10 transition-colors"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {loading && <TypingIndicator />}
-          <div ref={bottomRef} />
-        </div>
-
-        {/* Input */}
-        <div className="px-3 py-3 border-t border-border bg-background flex gap-2 items-center">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            placeholder="Ask about trips..."
-            maxLength={500}
-            className="flex-1 text-sm bg-muted rounded-full px-4 py-2.5 outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-accent/30 transition-all"
-          />
-          <Button
-            size="icon"
-            onClick={() => sendMessage()}
-            disabled={loading || !input.trim()}
-            className="rounded-full w-10 h-10 bg-accent hover:bg-accent/90 flex-shrink-0 shadow-md"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </Button>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center py-1.5 text-[10px] text-muted-foreground/50 bg-background">
-          Powered by SafarSquad AI ✦
-        </div>
+        <ChatHeader onClose={handleClose} />
+        <ChatMessages
+          messages={messages}
+          loading={loading}
+          showSuggestions={showSuggestions}
+          onSuggestion={sendMessage}
+          bottomRef={bottomRef}
+        />
+        <ChatInput
+          input={input}
+          loading={loading}
+          inputRef={inputRef}
+          onChange={setInput}
+          onSend={sendMessage}
+          isMobile
+        />
       </div>
+
+      {/* ─── Desktop: Floating Window ─────────────────────────────────────── */}
+      <div
+        className={`
+          hidden md:flex
+          fixed right-6 z-[70]
+          w-[360px] flex-col
+          bg-background rounded-3xl shadow-2xl border border-border
+          transition-all duration-300 ease-in-out origin-bottom-right
+          ${
+            isOpen
+              ? "opacity-100 scale-100 pointer-events-auto"
+              : "opacity-0 scale-90 pointer-events-none"
+          }
+        `}
+        style={{
+          bottom: 90,
+          height: 520,
+        }}
+      >
+        <ChatHeader onClose={handleClose} />
+        <ChatMessages
+          messages={messages}
+          loading={loading}
+          showSuggestions={showSuggestions}
+          onSuggestion={sendMessage}
+          bottomRef={bottomRef}
+        />
+        <ChatInput
+          input={input}
+          loading={loading}
+          inputRef={inputRef}
+          onChange={setInput}
+          onSend={sendMessage}
+        />
+      </div>
+
+      {/* Mobile backdrop — tap to close */}
+      {isOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+          onClick={handleClose}
+        />
+      )}
     </>
   );
 };
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+const ChatHeader = ({ onClose }: { onClose: () => void }) => (
+  <div className="bg-gradient-to-r from-accent to-orange-500 px-4 py-3 flex items-center justify-between shrink-0 rounded-t-3xl">
+    <div className="flex items-center gap-3">
+      <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+        <BotIcon className="w-5 h-5 text-white" />
+      </div>
+      <div>
+        <p className="text-white font-semibold text-sm leading-tight">
+          SafarSquad AI
+        </p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
+          <p className="text-white/75 text-xs">
+            Online · Find your perfect trip
+          </p>
+        </div>
+      </div>
+    </div>
+    <button
+      onClick={onClose}
+      aria-label="Close chat"
+      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center transition-colors"
+    >
+      <X className="w-4 h-4 text-white" />
+    </button>
+  </div>
+);
+
+interface ChatMessagesProps {
+  messages: Message[];
+  loading: boolean;
+  showSuggestions: boolean;
+  onSuggestion: (s: string) => void;
+  bottomRef: React.RefObject<HTMLDivElement>;
+}
+
+const ChatMessages = ({
+  messages,
+  loading,
+  showSuggestions,
+  onSuggestion,
+  bottomRef,
+}: ChatMessagesProps) => (
+  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-hide">
+    {messages.map((msg, i) => (
+      <div
+        key={i}
+        className={`flex flex-col gap-0.5 ${msg.role === "user" ? "items-end" : "items-start"}`}
+      >
+        <div
+          className={`
+            max-w-[82%] px-3.5 py-2.5 text-sm leading-relaxed shadow-sm
+            ${
+              msg.role === "user"
+                ? "bg-accent text-white rounded-2xl rounded-br-sm"
+                : "bg-muted text-foreground rounded-2xl rounded-bl-sm"
+            }
+          `}
+        >
+          {msg.role === "assistant" ? (
+            <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1">
+              <ReactMarkdown>{msg.content}</ReactMarkdown>
+            </div>
+          ) : (
+            msg.content
+          )}
+        </div>
+        {msg.timestamp && (
+          <span className="text-[10px] text-muted-foreground/60 px-1">
+            {msg.timestamp}
+          </span>
+        )}
+      </div>
+    ))}
+
+    {showSuggestions && !loading && (
+      <div className="flex flex-col gap-2 pt-1">
+        <p className="text-xs text-muted-foreground/60 px-1">
+          Try asking about:
+        </p>
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            onClick={() => onSuggestion(s)}
+            className="text-left text-xs px-3.5 py-2.5 rounded-xl border border-accent/30 text-accent hover:bg-accent/5 active:bg-accent/15 transition-colors font-medium"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    )}
+
+    {loading && <TypingIndicator />}
+    <div ref={bottomRef} />
+  </div>
+);
+
+interface ChatInputProps {
+  input: string;
+  loading: boolean;
+  inputRef: React.RefObject<HTMLInputElement>;
+  onChange: (v: string) => void;
+  onSend: () => void;
+  isMobile?: boolean;
+}
+
+const ChatInput = ({
+  input,
+  loading,
+  inputRef,
+  onChange,
+  onSend,
+  isMobile,
+}: ChatInputProps) => (
+  <div
+    className={`
+      px-3 py-3 border-t border-border bg-background flex gap-2 items-center shrink-0
+      ${isMobile ? "" : "rounded-b-3xl"}
+    `}
+    style={
+      isMobile
+        ? { paddingBottom: "max(12px, env(safe-area-inset-bottom))" }
+        : undefined
+    }
+  >
+    <input
+      ref={inputRef}
+      type="text"
+      value={input}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && onSend()}
+      placeholder="Ask about trips..."
+      maxLength={500}
+      className="flex-1 text-sm bg-muted rounded-full px-4 py-2.5 outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-accent/30 transition-all"
+    />
+    <Button
+      size="icon"
+      onClick={onSend}
+      disabled={loading || !input.trim()}
+      className="rounded-full w-10 h-10 bg-accent hover:bg-accent/90 active:scale-95 flex-shrink-0 shadow-md transition-all"
+    >
+      {loading ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <Send className="w-4 h-4" />
+      )}
+    </Button>
+  </div>
+);
 
 export default ChatWidget;
