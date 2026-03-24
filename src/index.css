@@ -111,7 +111,11 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    font-family:
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
       sans-serif;
     font-size: clamp(14px, 2.5vw, 16px);
     line-height: 1.6;
@@ -210,7 +214,9 @@
 
   /* 📱 Responsive hover effects */
   .hover-scale {
-    transition: transform 0.2s ease-in-out, z-index 0s;
+    transition:
+      transform 0.2s ease-in-out,
+      z-index 0s;
     position: relative;
     z-index: 1;
   }
@@ -221,7 +227,9 @@
   }
 
   .hover-scale-safe {
-    transition: transform 0.2s ease-in-out, z-index 0s;
+    transition:
+      transform 0.2s ease-in-out,
+      z-index 0s;
     position: relative;
     z-index: 1;
   }
@@ -250,7 +258,8 @@
   }
 
   .shadow-glow {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1),
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.1),
       0 0 0 1px rgba(255, 255, 255, 0.05);
   }
 
@@ -297,7 +306,8 @@
     }
 
     .shadow-glow {
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12),
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.12),
         0 0 0 1px rgba(255, 255, 255, 0.05);
     }
   }
@@ -906,7 +916,8 @@
     box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
   }
   50% {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8),
+    box-shadow:
+      0 0 20px rgba(59, 130, 246, 0.8),
       0 0 30px rgba(59, 130, 246, 0.4);
   }
 }
@@ -1229,4 +1240,126 @@ video {
 
 .animate-fade-in {
   animation: fade-in 0.5s ease-out;
+}
+
+/* ── Chat input wrapper ───────────────────────────────────────────── */
+.chat-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border-top: 1px solid #ececec;
+}
+
+.chat-input {
+  flex: 1;
+  resize: none;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.2s;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.chat-input:focus {
+  border-color: #f97316;
+}
+
+/* ── Mic button ──────────────────────────────────────────────────── */
+.mic-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mic-btn:hover {
+  border-color: #f97316;
+  color: #f97316;
+}
+
+/* Active / recording state */
+.mic-btn--active {
+  background: #fff1eb;
+  border-color: #f97316;
+  color: #f97316;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15);
+}
+
+/* Pulsing animation while recording */
+@keyframes mic-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.75;
+  }
+}
+
+.mic-btn--active .mic-pulse {
+  animation: mic-pulse 1s ease-in-out infinite;
+}
+
+/* Ripple ring around mic when active */
+.mic-btn--active::before {
+  content: "";
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #f97316;
+  animation: ripple 1.2s ease-out infinite;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* ── Send button ─────────────────────────────────────────────────── */
+.send-btn {
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: #f97316;
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    opacity 0.2s;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #ea6c0a;
+}
+
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

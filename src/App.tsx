@@ -117,7 +117,7 @@ const AppLayout = ({ user }: { user: User | null }) => {
           </Suspense>
         </ErrorBoundary>
       </main>
-      <ChatWidget /> {/* ✅ ADD HERE — outside main, inside fragment */}
+      {!shouldHideNav && <ChatWidget />}
     </>
   );
 };
