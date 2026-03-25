@@ -96,7 +96,6 @@ const TypingIndicator = () => (
 );
 
 // ─── Inline Trip Card ─────────────────────────────────────────────────────────
-// ─── Inline Trip Card ─────────────────────────────────────────────────────────
 const InlineTripCard = ({
   trip,
   onClose,
@@ -109,7 +108,6 @@ const InlineTripCard = ({
   const currP = trip.current_participants ?? 0;
   const spotsLeft = maxP - currP;
 
-  // ✅ Brought back the urgency logic for beautiful, dynamic badge colors!
   const urgencyClasses =
     spotsLeft <= 2
       ? "bg-red-100 text-red-700"
@@ -117,7 +115,6 @@ const InlineTripCard = ({
         ? "bg-orange-100 text-orange-700"
         : "bg-emerald-100 text-emerald-700";
 
-  // ✅ Cleaned up price to match your screenshot (removed "/ person")
   const budgetDisplay =
     trip.budget_per_person != null
       ? `₹${trip.budget_per_person.toLocaleString("en-IN")}`
@@ -130,7 +127,6 @@ const InlineTripCard = ({
         navigate(`/trip/${trip.id}`);
         onClose();
       }}
-      // ✅ Added a subtle, premium gradient background so it pops out in the chat!
       className="mt-3 border border-orange-200 rounded-2xl p-4 bg-gradient-to-b from-orange-50/80 to-white hover:from-orange-100 hover:to-orange-50 cursor-pointer transition-all shadow-sm hover:shadow-md group"
     >
       <div className="flex items-start justify-between mb-3 gap-2">
@@ -138,7 +134,6 @@ const InlineTripCard = ({
           {trip.destination}
         </span>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {/* ✅ New styled badge using the urgency classes */}
           <span
             className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${urgencyClasses}`}
           >
@@ -261,6 +256,11 @@ export default function ChatWidget() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Lazy initialize the tooltip state so it only checks localStorage once on mount
+  const [showTooltip, setShowTooltip] = useState(
+    () => !localStorage.getItem("ai_tooltip_seen"),
+  );
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -287,6 +287,14 @@ export default function ChatWidget() {
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
+
+  const handleOpenChat = () => {
+    setIsOpen(true);
+    if (showTooltip) {
+      localStorage.setItem("ai_tooltip_seen", "true");
+      setShowTooltip(false);
+    }
+  };
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
@@ -490,16 +498,32 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* ─── Closed FAB Button ─────────────────────────────────────────────────── */}
+      {/* ─── Closed FAB Button & Tooltip ───────────────────────────────────────── */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          // ✅ FIX: Mobile left side (above nav), Desktop right side (above plus icon)
-          className="fixed z-50 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-orange-500 to-rose-500 text-white shadow-[0_8px_30px_rgb(249,115,22,0.4)] transition-transform hover:scale-105 active:scale-95 group left-4 bottom-[76px] md:left-auto md:right-6 md:bottom-24"
-          aria-label="Open SafarSquad AI"
-        >
-          <Bot className="w-7 h-7 group-hover:animate-pulse" />
-        </button>
+        <>
+          {showTooltip && (
+            <div
+              className="hidden md:block fixed z-40 bottom-[110px] right-[90px] 
+                            bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg 
+                            shadow-lg whitespace-nowrap opacity-100 transition-opacity duration-500"
+            >
+              Ask AI ✨
+              <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
+            </div>
+          )}
+          <button
+            onClick={handleOpenChat}
+            className="fixed z-50 flex items-center justify-center rounded-full 
+                       bg-gradient-to-tr from-orange-500 to-rose-500 text-white 
+                       shadow-[0_8px_30px_rgb(249,115,22,0.4)] 
+                       transition-transform hover:scale-105 active:scale-95 group
+                       right-4 bottom-[85px] w-12 h-12 
+                       md:right-6 md:bottom-24 md:w-14 md:h-14"
+            aria-label="Open SafarSquad AI"
+          >
+            <Bot className="w-6 h-6 md:w-7 md:h-7 group-hover:animate-pulse" />
+          </button>
+        </>
       )}
 
       {/* ─── Dark Backdrop for Mobile Bottom Sheet ───────────────────────────── */}
