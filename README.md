@@ -406,20 +406,4 @@ MIT © [Deepak Gautam](https://github.com/Deepak-gautam1)
 
 ```
 
-***
-
-## What Was Added / Changed
-
-| Section | Change |
-|---|---|
-| **Tagline** | Updated to mention the AI assistant |
-| **Screenshots** | Added AI chatbot screenshot slot |
-| **Features table** | Added 3 new rows: AI Assistant, Live Weather, Semantic Search |
-| **🤖 AI Section** | Brand new dedicated section with ASCII pipeline diagram, capabilities table, and detailed architecture breakdowns |
-| **Tech Stack** | Added Groq, FastAPI, FastMCP, pgvector, PostGIS rows |
-| **Prerequisites** | Added Groq API key and Python requirement |
-| **Environment Variables** | Added `VITE_AI_API_URL` and server-side AI env vars |
-| **Project Structure** | Added `chat/` components folder and full `server/` directory tree |
-| **Architecture Notes** | Added 2-pass pipeline, FastMCP, and embedding pipeline notes |
-| **Deployment** | Added FastAPI deployment guidance and 3 new Supabase setup steps |
 ```
