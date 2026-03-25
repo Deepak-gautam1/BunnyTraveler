@@ -12,10 +12,12 @@ import CookieConsent from "@/components/cookies/CookieConsent";
 import ConsentModal from "@/components/consent/ConsentModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { TripCacheProvider } from "./contexts/TripCacheContext";
+import { ChatProvider } from "./contexts/ChatContext";
 import { imageCacheManager } from "@/lib/imageCache";
 import { getDestinationImage } from "@/lib/images";
 import ChatWidget from "./components/chatbot/ChatWidget";
-// ─── Lazy-loaded routes (code splitting per page) ─────────────────────────────
+
+// ─── Lazy-loaded routes ───────────────────────────────────────────────────────
 const Index = lazy(() => import("@/pages/Index"));
 const TripDetailsPage = lazy(() => import("@/pages/TripDetailsPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
@@ -39,26 +41,10 @@ const NotFound = lazy(() => import("@/pages/NotFound"));
 const queryClient = new QueryClient();
 
 const PRELOAD_DESTINATIONS = [
-  "manali",
-  "goa",
-  "rishikesh",
-  "jaipur",
-  "shimla",
-  "udaipur",
-  "kerala",
-  "leh-ladakh",
-  "varanasi",
-  "darjeeling",
-  "ooty",
-  "andaman",
-  "agra",
-  "amristar",
-  "mysore",
-  "pondicherry",
-  "coorg",
-  "nainital",
-  "ranthambore",
-  "kasol",
+  "manali", "goa", "rishikesh", "jaipur", "shimla", "udaipur",
+  "kerala", "leh-ladakh", "varanasi", "darjeeling", "ooty", "andaman",
+  "agra", "amristar", "mysore", "pondicherry", "coorg", "nainital",
+  "ranthambore", "kasol",
 ];
 
 const NO_NAV_ROUTES = ["/auth", "/landing", "/signup", "/login", "/reset"];
@@ -84,24 +70,12 @@ const AppLayout = ({ user }: { user: User | null }) => {
             <Routes>
               <Route path="/" element={<Index user={user} />} />
               <Route path="/trip/:tripId" element={<TripDetailsPage />} />
-              <Route
-                path="/profile"
-                element={<ProfilePage currentUser={user} />}
-              />
-              <Route
-                path="/profile/:userId"
-                element={<ProfilePage currentUser={user} />}
-              />
+              <Route path="/profile" element={<ProfilePage currentUser={user} />} />
+              <Route path="/profile/:userId" element={<ProfilePage currentUser={user} />} />
               <Route path="/discover" element={<DiscoverPage user={user} />} />
               <Route path="/my-trips" element={<MyTripsPage user={user} />} />
-              <Route
-                path="/community"
-                element={<CommunityPage user={user} />}
-              />
-              <Route
-                path="/community/:slug"
-                element={<CommunityMembersPage />}
-              />
+              <Route path="/community" element={<CommunityPage user={user} />} />
+              <Route path="/community/:slug" element={<CommunityMembersPage />} />
               <Route path="/messages" element={<MessagesPage user={user} />} />
               <Route path="/settings" element={<SettingsPage user={user} />} />
               <Route path="/safety" element={<Safety />} />
@@ -128,42 +102,29 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [requireConsentModal, setRequireConsentModal] = useState(false);
 
-  // Auth session
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // Background image preload (after initial render)
   useEffect(() => {
     if (loading) return;
     const preload = async () => {
       await new Promise((r) => setTimeout(r, 2000));
-      if (
-        imageCacheManager.getCacheStats().count >= PRELOAD_DESTINATIONS.length
-      )
-        return;
-      const imageData = PRELOAD_DESTINATIONS.map((name) => ({
-        name,
-        url: getDestinationImage(name),
-      }));
+      if (imageCacheManager.getCacheStats().count >= PRELOAD_DESTINATIONS.length) return;
+      const imageData = PRELOAD_DESTINATIONS.map((name) => ({ name, url: getDestinationImage(name) }));
       await imageCacheManager.preloadImages(imageData).catch(() => null);
     };
     preload();
   }, [loading]);
 
-  // Consent check after login
   useEffect(() => {
     if (!user) return;
     supabase
@@ -178,9 +139,7 @@ const App = () => {
       });
   }, [user]);
 
-  if (loading) {
-    return <PageLoader />;
-  }
+  if (loading) return <PageLoader />;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -188,16 +147,20 @@ const App = () => {
         <Toaster />
         <Sonner />
         <TripCacheProvider>
-          <BrowserRouter>
-            {requireConsentModal && user && (
-              <ConsentModal
-                userId={user.id}
-                onConsentGiven={() => setRequireConsentModal(false)}
-              />
-            )}
-            <AppLayout user={user} />
-            <CookieConsent />
-          </BrowserRouter>
+          {/* ChatProvider wraps BrowserRouter so both AppNavigation and ChatWidget
+              can read/write isChatOpen from anywhere in the tree */}
+          <ChatProvider>
+            <BrowserRouter>
+              {requireConsentModal && user && (
+                <ConsentModal
+                  userId={user.id}
+                  onConsentGiven={() => setRequireConsentModal(false)}
+                />
+              )}
+              <AppLayout user={user} />
+              <CookieConsent />
+            </BrowserRouter>
+          </ChatProvider>
         </TripCacheProvider>
         <Analytics />
       </TooltipProvider>

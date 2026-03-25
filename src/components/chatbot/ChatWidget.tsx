@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import {
   Send,
   Loader2,
@@ -16,11 +16,13 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { useNavigate, useLocation } from "react-router-dom";
 import useGeolocation from "@/hooks/useGeolocation";
 import remarkGfm from "remark-gfm";
+import { useChatContext } from "@/contexts/ChatContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Trip {
@@ -251,12 +253,14 @@ function useCurrentTripId(): number | null {
 
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 export default function ChatWidget() {
-  const [isOpen, setIsOpen] = useState(false);
+  // ── Global open/close state (shared with Navbar "Ask AI" button) ─────────
+  const { isChatOpen, setIsChatOpen } = useChatContext();
+
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Lazy initialize the tooltip state so it only checks localStorage once on mount
+  // Tooltip — shown once until dismissed, desktop only (handled via CSS md:hidden)
   const [showTooltip, setShowTooltip] = useState(
     () => !localStorage.getItem("ai_tooltip_seen"),
   );
@@ -285,17 +289,18 @@ export default function ChatWidget() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
-  }, [isOpen]);
+    if (isChatOpen) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [isChatOpen]);
 
   const handleOpenChat = () => {
-    setIsOpen(true);
+    setIsChatOpen(true);
     if (showTooltip) {
       localStorage.setItem("ai_tooltip_seen", "true");
       setShowTooltip(false);
     }
   };
 
+  // ── Send message ───────────────────────────────────────────────────────────
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
@@ -469,6 +474,7 @@ export default function ChatWidget() {
     }
   };
 
+  // ── Feedback ───────────────────────────────────────────────────────────────
   const submitFeedback = async (
     msgIndex: number,
     rating: 1 | -1,
@@ -498,14 +504,18 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* ─── Closed FAB Button & Tooltip ───────────────────────────────────────── */}
-      {!isOpen && (
-        <>
+      {/*
+        ─── Mobile-only FAB ────────────────────────────────────────────────────
+        Hidden on md+ because the Navbar "Ask AI ✨" button takes over on desktop.
+        Sits above the mobile bottom nav (bottom-[85px]).
+      */}
+      {!isChatOpen && (
+        <div className="md:hidden">
           {showTooltip && (
             <div
-              className="hidden md:block fixed z-40 bottom-[110px] right-[90px] 
-                            bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg 
-                            shadow-lg whitespace-nowrap opacity-100 transition-opacity duration-500"
+              className="fixed z-40 bottom-[150px] right-4
+                          bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg
+                          shadow-lg whitespace-nowrap"
             >
               Ask AI ✨
               <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
@@ -513,37 +523,38 @@ export default function ChatWidget() {
           )}
           <button
             onClick={handleOpenChat}
-            className="fixed z-50 flex items-center justify-center rounded-full 
-                       bg-gradient-to-tr from-orange-500 to-rose-500 text-white 
-                       shadow-[0_8px_30px_rgb(249,115,22,0.4)] 
-                       transition-transform hover:scale-105 active:scale-95 group
-                       right-4 bottom-[85px] w-12 h-12 
-                       md:right-6 md:bottom-24 md:w-14 md:h-14"
+            className="fixed z-50 right-4 bottom-[85px] w-12 h-12
+                       flex items-center justify-center rounded-full
+                       bg-gradient-to-tr from-orange-500 to-rose-500 text-white
+                       shadow-[0_8px_30px_rgb(249,115,22,0.4)]
+                       transition-transform hover:scale-105 active:scale-95"
             aria-label="Open SafarSquad AI"
           >
-            <Bot className="w-6 h-6 md:w-7 md:h-7 group-hover:animate-pulse" />
+            <Bot className="w-6 h-6" />
           </button>
-        </>
+        </div>
       )}
 
-      {/* ─── Dark Backdrop for Mobile Bottom Sheet ───────────────────────────── */}
-      {isOpen && (
+      {/* ─── Dark backdrop (mobile bottom sheet only) ──────────────────────── */}
+      {isChatOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] md:hidden transition-opacity"
-          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] md:hidden"
+          onClick={() => setIsChatOpen(false)}
         />
       )}
 
-      {/* ─── Open Chat Widget ────────────────────────────────────────────────── */}
-      {isOpen && (
+      {/* ─── Chat panel ───────────────────────────────────────────────────── */}
+      {isChatOpen && (
         <div
-          className="fixed z-[70] flex flex-col bg-white shadow-[0_0_40px_rgba(0,0,0,0.15)] overflow-hidden transition-all
-            bottom-0 left-0 right-0 w-full h-[85dvh] rounded-t-[32px] 
+          className="fixed z-[70] flex flex-col bg-white shadow-[0_0_40px_rgba(0,0,0,0.15)] overflow-hidden
+            /* Mobile: full-width bottom sheet */
+            bottom-0 left-0 right-0 w-full h-[85dvh] rounded-t-[32px]
+            /* Desktop: floating panel anchored bottom-right */
             md:bottom-24 md:right-6 md:left-auto md:w-[400px] md:h-[650px] md:rounded-3xl md:border md:border-gray-200"
         >
           {/* ── Header ── */}
           <div className="flex flex-col bg-gradient-to-r from-orange-500 to-rose-500 text-white shrink-0">
-            {/* Mobile Drag Indicator */}
+            {/* Mobile drag handle */}
             <div className="md:hidden flex justify-center pt-3 pb-1">
               <div className="w-12 h-1.5 bg-white/30 rounded-full" />
             </div>
@@ -551,7 +562,7 @@ export default function ChatWidget() {
             <div className="flex items-center gap-3 px-4 py-3 md:py-4">
               <div className="relative flex items-center justify-center w-10 h-10 bg-white/20 rounded-full backdrop-blur-sm shrink-0">
                 <Bot className="w-6 h-6 text-white" />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-rose-500 rounded-full"></span>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-rose-500 rounded-full" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-base leading-tight tracking-wide">
@@ -571,7 +582,7 @@ export default function ChatWidget() {
                 </div>
               </div>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => setIsChatOpen(false)}
                 className="p-2 rounded-full hover:bg-white/20 transition-colors"
                 aria-label="Close chat"
               >
@@ -612,7 +623,6 @@ export default function ChatWidget() {
                   className={`flex flex-col ${isBot ? "items-start" : "items-end"}`}
                 >
                   <div className="max-w-[88%]">
-                    {/* Nearby badge */}
                     {isBot && msg.search_mode === "nearby" && (
                       <div className="flex items-center gap-1 mb-1.5 ml-2">
                         <Navigation className="w-3 h-3 text-blue-500" />
@@ -622,7 +632,6 @@ export default function ChatWidget() {
                       </div>
                     )}
 
-                    {/* Bubble */}
                     <div
                       className={`px-4 py-3 text-[15px] leading-relaxed shadow-sm ${
                         isBot
@@ -705,7 +714,6 @@ export default function ChatWidget() {
                       )}
                     </div>
 
-                    {/* Trip Cards */}
                     {isBot &&
                       !msg.streaming &&
                       msg.trips &&
@@ -715,13 +723,12 @@ export default function ChatWidget() {
                             <InlineTripCard
                               key={trip.id}
                               trip={trip}
-                              onClose={() => setIsOpen(false)}
+                              onClose={() => setIsChatOpen(false)}
                             />
                           ))}
                         </div>
                       )}
 
-                    {/* Feedback & Timestamps */}
                     <div
                       className={`flex items-center mt-1.5 ${isBot ? "justify-start ml-2" : "justify-end mr-2"}`}
                     >
@@ -776,7 +783,6 @@ export default function ChatWidget() {
                         )}
                     </div>
 
-                    {/* Suggestion Chips */}
                     {isBot &&
                       !msg.streaming &&
                       msg.suggestions &&
@@ -800,7 +806,7 @@ export default function ChatWidget() {
             <div ref={bottomRef} className="h-2" />
           </div>
 
-          {/* ── Input Bar ── */}
+          {/* ── Input bar ── */}
           <div
             className="p-3 bg-white border-t border-gray-100 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]"
             style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}

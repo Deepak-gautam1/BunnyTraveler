@@ -33,10 +33,13 @@ import {
   MapPin,
   Calendar,
   Users,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { useChatContext } from "@/contexts/ChatContext";
 
 interface AppNavigationProps {
   user: User | null;
@@ -47,6 +50,9 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const { unreadCount } = useUnreadMessages(user);
+
+  // ── Global chat state — used by the desktop "Ask AI ✨" navbar button ─────
+  const { isChatOpen, toggleChat } = useChatContext();
 
   useEffect(() => {
     if (location.pathname !== "/auth" && location.pathname !== "/404") {
@@ -110,7 +116,7 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
 
   return (
     <>
-      {/* ✅ TOP HEADER - Fixed overflow and z-index issues */}
+      {/* TOP HEADER */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4">
           {/* Logo */}
@@ -128,7 +134,7 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
             </span>
           </Link>
 
-          {/* ✅ Desktop Navigation - Fixed with proper overflow handling */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex flex-1 justify-center px-4">
             <NavigationMenu>
               <NavigationMenuList className="flex gap-1">
@@ -147,7 +153,7 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                   </NavigationMenuLink>
                 </NavigationMenuItem>
 
-                {/* ✅ Trips Dropdown - Fixed */}
+                {/* Trips Dropdown */}
                 <NavigationMenuItem>
                   <NavigationMenuTrigger className="h-10">
                     <MapPin className="mr-2 h-4 w-4" />
@@ -155,7 +161,6 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-4 w-[400px] lg:w-[500px]">
-                      {/* Discover Trips - Hero Item */}
                       <li className="row-span-3">
                         <NavigationMenuLink asChild>
                           <Link
@@ -172,8 +177,6 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                           </Link>
                         </NavigationMenuLink>
                       </li>
-
-                      {/* My Trips */}
                       <li>
                         <NavigationMenuLink asChild>
                           <Link
@@ -190,8 +193,6 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
                           </Link>
                         </NavigationMenuLink>
                       </li>
-
-                      {/* Create Trip */}
                       <li>
                         <NavigationMenuLink asChild>
                           <button
@@ -259,8 +260,44 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
             </NavigationMenu>
           </div>
 
-          {/* User Actions */}
+          {/* Right side: Ask AI button + user actions */}
           <div className="flex items-center space-x-2 shrink-0">
+
+            {/*
+              ── Desktop "Ask AI ✨" button ──────────────────────────────────
+              Hidden on mobile (md:hidden on the FAB handles that side).
+              Sits to the LEFT of notifications/avatar so it reads naturally
+              as part of the nav rather than an afterthought.
+              Active state: glows orange when the panel is open.
+            */}
+            <button
+              onClick={toggleChat}
+              aria-label="Toggle SafarSquad AI"
+              className={`
+                hidden md:flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-semibold
+                transition-all duration-200 active:scale-95
+                ${
+                  isChatOpen
+                    ? // Active: filled orange gradient
+                      "bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-[0_4px_14px_rgba(249,115,22,0.4)]"
+                    : // Inactive: subtle bordered look that matches the nav palette
+                      "border border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 hover:shadow-sm bg-white/60"
+                }
+              `}
+            >
+              {isChatOpen ? (
+                <Bot className="w-4 h-4" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              <span>Ask AI</span>
+              {!isChatOpen && (
+                <span className="text-[10px] font-bold text-orange-400 leading-none">
+                  ✨
+                </span>
+              )}
+            </button>
+
             {user ? (
               <>
                 <NotificationsDropdown user={user} />
@@ -332,14 +369,13 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
         </div>
       </header>
 
-      {/* ✅ BOTTOM NAVIGATION (Mobile Only) */}
+      {/* BOTTOM NAVIGATION (Mobile Only) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-gray-200 shadow-lg safe-bottom">
         <div className="flex items-center justify-around h-16 px-2 relative">
           {mobileNavItems.map((item, index) => {
             const Icon = item.icon;
             const active = item.path ? isActive(item.path) : false;
 
-            // Special Create Button
             if (item.isSpecial) {
               return (
                 <button
@@ -357,7 +393,6 @@ const AppNavigation = ({ user }: AppNavigationProps) => {
               );
             }
 
-            // Regular Items
             return (
               <Link
                 key={index}
