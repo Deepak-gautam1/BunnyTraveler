@@ -1,7 +1,3 @@
-Here is the fully updated README with the AI chatbot woven in throughout — added to Features, Tech Stack, Architecture Notes, and a dedicated new section:
-
----
-
 ```markdown
 # SafarSquad 🧭
 
