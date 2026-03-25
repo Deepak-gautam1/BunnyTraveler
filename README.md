@@ -1,4 +1,3 @@
-````markdown
 # SafarSquad 🧭
 
 > **Find your perfect travel squad. Plan group trips across India.**
@@ -9,47 +8,36 @@ that helps you discover trips, check weather, and plan smarter — all in natura
 
 🌐 **Live App:** [safarsquad.in](https://www.safarsquad.in/)
 
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black)
-![Tests](https://img.shields.io/badge/tests-75%20passing-brightgreen?style=flat)
-![Build](https://img.shields.io/badge/build-passing-brightgreen?style=flat)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat)
-
 ---
 
 ## Screenshots
 
-### 🏠 Landing Page
-
-![Landing Page](docs/screenshots/landing.png)
-
-### 🗺️ Trip Discovery — List View
-
-![Trip Discovery](docs/screenshots/discovery-list.png)
-
-### 🗺️ Trip Discovery — Map View
-
-![Map View](docs/screenshots/discovery-map.png)
-
-### 📋 Trip Details
-
-![Trip Details](docs/screenshots/trip-details.png)
-
-### 💬 Group Chat
-
-![Group Chat](docs/screenshots/group-chat.png)
-
-### 🤖 AI Travel Assistant
-
-![AI Chatbot](docs/screenshots/chatbot.png)
-
-### 👤 Profile Page
-
-![Profile Page](docs/screenshots/profile.png)
-
-### 📱 Mobile View
-
-![Mobile](docs/screenshots/mobile.png)
+<table>
+  <tr>
+    <td align="center"><b>🏠 Landing</b></td>
+    <td align="center"><b>🗺️ Discovery List</b></td>
+    <td align="center"><b>🗺️ Map View</b></td>
+    <td align="center"><b>📋 Trip Details</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/landing.png" width="200"/></td>
+    <td><img src="docs/screenshots/discovery-list.png" width="200"/></td>
+    <td><img src="docs/screenshots/discovery-map.png" width="200"/></td>
+    <td><img src="docs/screenshots/trip-details.png" width="200"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>💬 Group Chat</b></td>
+    <td align="center"><b>🤖 AI Assistant</b></td>
+    <td align="center"><b>👤 Profile</b></td>
+    <td align="center"><b>📱 Mobile</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/group-chat.png" width="200"/></td>
+    <td><img src="docs/screenshots/chatbot.png" width="200"/></td>
+    <td><img src="docs/screenshots/profile.png" width="200"/></td>
+    <td><img src="docs/screenshots/mobile.png" width="200"/></td>
+  </tr>
+</table>
 
 ---
 
@@ -74,8 +62,6 @@ that helps you discover trips, check weather, and plan smarter — all in natura
 | 🔐 **Auth**                | Google OAuth + email/password with consent flow                                        |
 | 📱 **PWA**                 | Installable as a native-like app on Android and iOS                                    |
 
----
-
 ## 🤖 AI Travel Assistant
 
 SafarSquad includes a purpose-built **agentic AI chatbot** designed for travel planning.
@@ -84,14 +70,14 @@ weather, and understands the context of the page you're on.
 
 ### How It Works
 
-```text
+```
 User message
      │
      ▼
 ┌─────────────────────────────────────────────┐
-│           2-Pass Groq Streaming Pipeline    │
+│            2-Pass Groq Streaming Pipeline   │
 │                                             │
-│  Pass 1 — Tool Resolution                  │
+│  Pass 1 — Tool Resolution                   │
 │  Llama-3.3-70B decides which tools to call  │
 │  (weather, trip search, page context)       │
 │                   │                         │
@@ -101,14 +87,13 @@ User message
 │  ├── pgvector Semantic Trip Search          │
 │  └── Page Context Injection                 │
 │                   │                         │
-│  Pass 2 — Response Generation              │
+│  Pass 2 — Response Generation               │
 │  Final answer streamed via SSE              │
 └─────────────────────────────────────────────┘
      │
      ▼
   Streamed response in UI (sub-second latency)
 ```
-````
 
 ### Key Capabilities
 
@@ -130,33 +115,31 @@ The second pass sends tool results back to the model, which streams the final re
 This separation keeps tool execution clean and response generation unblocked.
 
 **FastMCP Weather Server** — A lightweight [FastMCP](https://github.com/jlowin/fastmcp)
-server exposes a `get_weather` tool over MCP. The chatbot calls it autonomously whenever
+server exposes a get_weather tool over MCP. The chatbot calls it autonomously whenever
 a query involves a destination or travel dates. The backend fetches live forecast data
 and injects it into the second pass.
 
 **Hybrid Search Engine** — Trip search combines two signals:
 
 - **pgvector** cosine similarity on trip embeddings (title + description + tags)
-- **PostGIS** `ST_DWithin` geographic radius filter on trip coordinates
+- **PostGIS** ST_DWithin geographic radius filter on trip coordinates
 
 Both run in a single Supabase RPC call for low-latency results.
 
 **Automated Embedding Pipeline** — When a trip is created or updated, a
-**Supabase Database Webhook** fires automatically, triggering a direct `POST` request to the FastAPI `/embed-trip` endpoint. The Python backend generates a SentenceTransformer vector embedding and writes it back to the `trips` table. Zero manual indexing required.
+**Supabase Database Webhook** fires automatically, triggering a direct POST request to the FastAPI /embed-trip endpoint. The Python backend generates a SentenceTransformer vector embedding and writes it back to the trips table. Zero manual indexing required.
 
 **Page-Context Injection** — The frontend serializes the current page's relevant state
 (active trip details) and appends it to the system prompt. The model resolves ambiguous references like "this trip" or "here" naturally without follow-up questions.
 
 **RLHF Telemetry Pipeline** — Every AI interaction is scored for sentiment and response
-quality. Scores are stored in a dedicated Supabase table via the `/feedback` endpoint, providing a continuous feedback loop for monitoring model drift and response degradation.
+quality. Scores are stored in a dedicated Supabase table via the /feedback endpoint, providing a continuous feedback loop for monitoring model drift and response degradation.
 
 ### Voice Input
 
 Click the microphone icon in the chat input to speak your query. The Web Speech API
 transcribes in real time and submits automatically on silence detection. Supported on
 Chrome, Edge, and Android browsers.
-
----
 
 ## Tech Stack
 
@@ -175,8 +158,6 @@ Chrome, Edge, and Android browsers.
 | Testing    | Vitest + React Testing Library                    |
 | Deployment | Vercel (Frontend) + Railway (AI FastAPI Backend)  |
 
----
-
 ## Getting Started
 
 ### Prerequisites
@@ -188,25 +169,25 @@ Chrome, Edge, and Android browsers.
 
 ### Installation
 
-```bash
-git clone [https://github.com/dgautam/safarsquad.git](https://github.com/dgautam/safarsquad.git)
+```
+git clone https://github.com/dgautam/safarsquad.git
 cd safarsquad
 npm install
 ```
 
 ### Environment Variables
 
-Create a `.env.local` file in the frontend root:
+Create a .env.local file in the frontend root:
 
-```env
+```
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_CHATBOT_API=http://localhost:8000
 ```
 
-Create a `.env` file in the backend root for the FastAPI server:
+Create a .env file in the backend root for the FastAPI server:
 
-```env
+```
 GROQ_API_KEY=your_groq_api_key
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_SERVICE_KEY=your_supabase_service_role_key
@@ -214,7 +195,7 @@ SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 
 ### Running Locally
 
-```bash
+```
 # Terminal 1: AI Backend (FastAPI + FastMCP)
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
@@ -227,7 +208,7 @@ npm run dev
 
 ### Running Tests
 
-```bash
+```
 npm test                 # run all 75 tests once
 npm run test:watch       # watch mode
 npm run test:coverage    # with coverage report
@@ -235,7 +216,7 @@ npm run test:coverage    # with coverage report
 
 ### Building for Production
 
-```bash
+```
 npm run build
 npm run preview
 ```
@@ -244,7 +225,7 @@ npm run preview
 
 ## Project Structure
 
-```text
+```
 src/
 ├── components/
 │   ├── auth/           # Auth forms and AuthGuard
@@ -270,29 +251,29 @@ safarsquad-ai/ (Backend)
 
 ## Architecture Notes
 
-**Code splitting** — Every page uses `React.lazy` + `Suspense`. Only the current
+**Code splitting** — Every page uses React.lazy + Suspense. Only the current
 route's JS loads; all others are deferred.
 
-**Custom hooks** — All business logic lives in hooks under `src/hooks/`. Pages and
+**Custom hooks** — All business logic lives in hooks under src/hooks/. Pages and
 components stay thin — they just render.
 
 **Real-time** — Supabase Realtime subscriptions power live chat, notifications, and
 unread message counts. Each subscription is cleaned up on unmount.
 
-**Trip caching** — `TripCacheContext` keeps the first page of trips in memory for
+**Trip caching** — TripCacheContext keeps the first page of trips in memory for
 2 minutes, so navigating back to the feed is instant.
 
-**Error boundary** — A global `ErrorBoundary` wraps all routes: shows a stack trace
+**Error boundary** — A global ErrorBoundary wraps all routes: shows a stack trace
 in dev, a friendly fallback in production.
 
-**TypeScript strict mode** — `tsconfig.json` has `strict: true`. All 0 type errors
+**TypeScript strict mode** — tsconfig.json has strict: true. All 0 type errors
 at build time.
 
 ---
 
 ## Test Coverage
 
-```text
+```
 Test Files  8 passed
 Tests       75 passed
 
@@ -310,42 +291,42 @@ src/tests/MyTripsPage.test.tsx       12 tests
 
 ## Deployment
 
-Deployed on [Vercel](https://vercel.com). Push to `main` triggers an automatic deploy.
+Deployed on [Vercel](https://vercel.com). Push to main triggers an automatic deploy.
 
-`vercel.json` handles SPA routing — all paths fall back to `index.html`.
+vercel.json handles SPA routing — all paths fall back to index.html.
 
 ### Environment Variables (Vercel)
 
 Set these in your Vercel project settings:
 
-```env
+```
 VITE_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY
 VITE_CHATBOT_API
 ```
 
-The FastAPI + FastMCP server is deployed via Docker/Nixpacks on **Railway**. Set `GROQ_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_KEY` in the Railway environment variables.
+The FastAPI + FastMCP server is deployed via Docker/Nixpacks on **Railway**. Set GROQ_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_KEY in the Railway environment variables.
 
 ### Supabase Setup
 
-1. Enable **Google OAuth** in Authentication → Providers
-2. Set **Site URL** to your production domain
-3. Add your domain to **Redirect URLs**
-4. Enable **Row Level Security** on all tables
-5. Enable the **pgvector** and **postgis** extensions in Database → Extensions
-6. Run the database migrations from `supabase/migrations/`
-7. Add a **Database Webhook** on the `trips` table (INSERT) pointing to your Railway Backend `https://your-railway-app.up.railway.app/embed-trip`
+1.  Enable **Google OAuth** in Authentication → Providers
+2.  Set **Site URL** to your production domain
+3.  Add your domain to **Redirect URLs**
+4.  Enable **Row Level Security** on all tables
+5.  Enable the **pgvector** and **postgis** extensions in Database → Extensions
+6.  Run the database migrations from supabase/migrations/
+7.  Add a **Database Webhook** on the trips table (INSERT) pointing to your Railway Backend [https://your-railway-app.up.railway.app/embed-trip](https://your-railway-app.up.railway.app/embed-trip)
 
 ---
 
 ## Contributing
 
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m 'feat: add my feature'`
-4. Push and open a PR
+1.  Fork the repo
+2.  Create a feature branch: git checkout -b feature/my-feature
+3.  Commit your changes: git commit -m 'feat: add my feature'
+4.  Push and open a PR
 
-Please make sure `npm run lint`, `npm run typecheck`, and `npm test` all pass
+Please make sure npm run lint, npm run typecheck, and npm test all pass
 before opening a PR.
 
 ---
